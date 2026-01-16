@@ -42,6 +42,7 @@
 | 카테고리 | 스킬명 | 설명 |
 |----------|--------|------|
 | 🔧 **관리** | **skill-push** | 스킬 변경사항 GitHub 푸시 & README 자동 업데이트 |
+| 🔄 **동기화** | **skill-sync** | 팀 Private 저장소에서 스킬 동기화 (로컬/팀 분리 관리) |
 | 🎵 **K-pop** | kpop-sns | K-pop 그룹 공식 SNS 계정 검색 & 엑셀 저장 |
 | 📚 **문서** | llm-api-docs | LLM API 공식 문서 수집 (Playwright MCP) |
 | 📋 **세션 관리** | session-summary | 종합 세션 요약 문서 생성 |
@@ -90,6 +91,27 @@ VSCode에서 `Ctrl+Shift+P` → "Developer: Reload Window"
 - "스킬 업데이트해줘"
 - "스킬 푸시해줘"
 - "스킬 깃허브에 올려줘"
+
+---
+
+### 🔄 skill-sync
+팀 Private 저장소(CC_ax_team)에서 최신 스킬을 가져와 `team/` 폴더에 동기화합니다.
+
+**핵심 기능:**
+- 로컬 스킬과 팀 스킬 **분리 관리** (충돌 방지)
+- Git Credential Manager로 **자동 인증**
+- 동일 스킬명 공존 가능 (로컬 우선, `team:` 접두사로 팀 버전 호출)
+
+**사용 예시:**
+- "팀 스킬 동기화해줘"
+- "skill sync"
+- "팀 저장소 최신 스킬 받아줘"
+
+**스킬 호출 방법 (동기화 후):**
+```
+/ceo-ppt          → 로컬 버전 (커스텀)
+/team:ceo-ppt     → 팀 버전 (표준)
+```
 
 ---
 
@@ -195,6 +217,8 @@ CC_ax_team/
 ├── skills/
 │   ├── skill-push/
 │   │   └── SKILL.md            # 스킬 푸시 스킬
+│   ├── skill-sync/
+│   │   └── SKILL.md            # 팀 스킬 동기화
 │   ├── kpop-sns/
 │   │   └── SKILL.md            # K-pop SNS 검색
 │   ├── llm-api-docs/
@@ -215,4 +239,4 @@ CC_ax_team/
 
 **Made with ❤️ by AX Team**
 
-_Last Updated: 2026-01-16_
+_Last Updated: 2026-01-16 (skill-sync 추가)_

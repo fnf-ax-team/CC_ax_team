@@ -44,10 +44,6 @@
 | 🎵 **K-pop** | kpop-sns | K-pop 그룹 공식 SNS 계정 검색 & 엑셀 저장 |
 | 📚 **문서** | llm-api-docs | LLM API 공식 문서 수집 (Playwright MCP) |
 | 📋 **세션 관리** | session-summary | 종합 세션 요약 문서 생성 |
-| ⚡ **세션 관리** | quick-recap | 빠른 진행 상황 요약 (파일 생성 없음) |
-| 💾 **세션 관리** | save-conversation | 원본 대화 내역 저장 |
-| 💻 **세션 관리** | code-summary | 코드 변경 사항 집중 정리 |
-| 🗂️ **세션 관리** | create-index | 세션 문서 네비게이션 인덱스 생성 |
 
 ---
 
@@ -128,46 +124,6 @@ LLM API 공식 문서를 Playwright MCP로 수집합니다.
 
 ---
 
-### ⚡ quick-recap
-현재 진행 상황을 빠르게 요약합니다 (파일 생성 없음).
-
-**사용 예시:**
-- "/quick-recap"
-- "빠른 요약"
-- "지금까지 뭐했지?"
-
----
-
-### 💾 save-conversation
-원본 대화 내역을 가공 없이 저장합니다.
-
-**사용 예시:**
-- "/save-conversation"
-- "대화 저장해줘"
-- "대화 백업해줘"
-
----
-
-### 💻 code-summary
-세션 중 작성/수정된 코드를 집중적으로 정리합니다.
-
-**사용 예시:**
-- "/code-summary"
-- "코드 변경 요약해줘"
-- "코드 정리해줘"
-
----
-
-### 🗂️ create-index
-세션에서 생성된 모든 문서의 네비게이션 인덱스를 만듭니다.
-
-**사용 예시:**
-- "/create-index"
-- "인덱스 만들어줘"
-- "파일 목록 정리해줘"
-
----
-
 ## 🔧 스킬 수정/추가 방법
 
 ### 1. 새 스킬 추가
@@ -242,16 +198,8 @@ CC_ax_team/
 │   │   └── SKILL.md            # K-pop SNS 검색
 │   ├── llm-api-docs/
 │   │   └── SKILL.md            # LLM API 문서 수집
-│   ├── session-summary/
-│   │   └── SKILL.md            # 세션 요약
-│   ├── quick-recap/
-│   │   └── SKILL.md            # 빠른 요약
-│   ├── save-conversation/
-│   │   └── SKILL.md            # 대화 저장
-│   ├── code-summary/
-│   │   └── SKILL.md            # 코드 요약
-│   └── create-index/
-│       └── SKILL.md            # 인덱스 생성
+│   └── session-summary/
+│       └── SKILL.md            # 세션 요약
 ```
 
 ---

@@ -46,6 +46,7 @@
 | 🎵 **K-pop** | kpop-sns | K-pop 그룹 공식 SNS 계정 검색 & 엑셀 저장 |
 | 📚 **문서** | llm-api-docs | LLM API 공식 문서 수집 (Playwright MCP) |
 | 📋 **세션 관리** | session-summary | 종합 세션 요약 문서 생성 |
+| 📊 **보고서** | ceo-ppt | 회장님 보고용 PPT 자동 생성 (F&F 디자인) |
 
 ---
 
@@ -147,6 +148,25 @@ LLM API 공식 문서를 Playwright MCP로 수집합니다.
 
 ---
 
+### 📊 ceo-ppt
+회장님 보고용 PPT를 자동 생성합니다. F&F 디자인 가이드 적용.
+
+**사용 예시:**
+- "보고자료 만들어줘"
+- "마케팅 AX 보고 PPT 만들어줘"
+- "PPT 만들어줘"
+
+**생성 구조:**
+- 표지 → 아젠다 구분 슬라이드 → 본문 (아젠다당 1-2장) → EOD
+
+**디자인 스펙:**
+- 슬라이드: 16:9 와이드스크린
+- 배경색: `#F2F2F2`
+- 폰트: Pretendard (ExtraBold, SemiBold)
+- F&F 로고 자동 삽입
+
+---
+
 ## 🔧 스킬 수정/추가 방법
 
 ### 1. 새 스킬 추가
@@ -223,8 +243,11 @@ CC_ax_team/
 │   │   └── SKILL.md            # K-pop SNS 검색
 │   ├── llm-api-docs/
 │   │   └── SKILL.md            # LLM API 문서 수집
-│   └── session-summary/
-│       └── SKILL.md            # 세션 요약
+│   ├── session-summary/
+│   │   └── SKILL.md            # 세션 요약
+│   └── ceo-ppt/
+│       ├── SKILL.md            # CEO 보고용 PPT 생성
+│       └── fnf_logo.png        # F&F 로고
 ```
 
 ---
@@ -239,4 +262,4 @@ CC_ax_team/
 
 **Made with ❤️ by AX Team**
 
-_Last Updated: 2026-01-16 (skill-sync 추가)_
+_Last Updated: 2026-01-19 (ceo-ppt 추가)_

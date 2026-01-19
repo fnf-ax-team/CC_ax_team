@@ -76,7 +76,7 @@ npx playwright install chromium
 | LLM | 문서 URL | 수집 대상 |
 |-----|----------|-----------|
 | **Gemini** | https://ai.google.dev/gemini-api/docs/models | 모델, 가격, 기능 |
-| **Claude** | https://docs.anthropic.com/en/docs/about-claude/models/all-models | 모델, 가격, 기능 |
+| **Claude** | [https://docs.anthropic.com/en/docs/about-claude/models/all-models](https://platform.claude.com/docs/en/about-claude/models/overview) | 모델, 가격, 기능 |
 | **Grok** | https://docs.x.ai/docs/models | 모델, 가격, 기능, Rate Limits |
 | **OpenAI** | https://platform.openai.com/docs/models | 모델, 가격, 기능 |
 

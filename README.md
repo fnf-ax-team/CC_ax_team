@@ -2,7 +2,7 @@
 
 > **AX팀 전용** Claude Code 커스텀 스킬 모음집입니다. 팀원들이 자유롭게 스킬을 추가/수정하고 공유할 수 있습니다.
 > 가지고 있는 스킬들이 특정 업무를 위해 집약적인 케이스가 많을테니, 공유 -> 리뷰 -> 디벨롭하여 재공유 하는 형식으로 업데이트하면 좋을 거 같습니다.
-> 신규 스킬 제작시 공식 claude skill 문서 참고해서 one shot prompting으로 제작 지시하면 좋습니다: https://code.claude.com/docs/ko/skills
+> 아예 생으로 신규 스킬 제작시 공식 claude skill 문서 참고해서 one shot prompting으로 제작 지시하면 좋습니다: https://code.claude.com/docs/ko/skills
 
 ---
 

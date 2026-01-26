@@ -33,21 +33,23 @@
 
 📝 커밋 메시지: Update kpop-sns skill
 📁 변경된 파일: skills/kpop-sns/SKILL.md
-🔗 저장소: https://github.com/davidcho0326/CC_ax_team
+🔗 저장소: https://github.com/fnf-ax-team/CC_ax_team
 ```
 
 ---
 
-## 📁 스킬 목록
+## 스킬 목록
 
 | 카테고리 | 스킬명 | 설명 |
 |----------|--------|------|
-| 🔧 **관리** | **skill-push** | 스킬 변경사항 GitHub 푸시 & README 자동 업데이트 |
-| 🔄 **동기화** | **skill-sync** | 팀 Private 저장소에서 스킬 동기화 (로컬/팀 분리 관리) |
-| 🎵 **K-pop** | kpop-sns | K-pop 그룹 공식 SNS 계정 검색 & 엑셀 저장 |
-| 📚 **문서** | llm-api-docs | LLM API 공식 문서 수집 (Playwright MCP) |
-| 📋 **세션 관리** | session-summary | 종합 세션 요약 문서 생성 |
-| 📊 **보고서** | ceo-ppt | 회장님 보고용 PPT 자동 생성 (F&F 디자인) |
+| **관리** | **skill-push** | 스킬 변경사항 GitHub 푸시 & README 자동 업데이트 (macOS/Windows) |
+| **동기화** | **skill-sync** | 팀 Private 저장소에서 스킬 동기화 (로컬/팀 분리 관리) |
+| **자동화** | **autoskill** | 노션 DB 기반 자동 스킬 생성 파이프라인 |
+| **SNS 분석** | **insta_scraper** | Instagram 릴스 바이럴 콘텐츠 수집 & AI 분석 |
+| **K-pop** | kpop-sns | K-pop 그룹 공식 SNS 계정 검색 & 엑셀 저장 |
+| **문서** | llm-api-docs | LLM API 공식 문서 수집 (Playwright MCP) |
+| **세션 관리** | session-summary | 종합 세션 요약 문서 생성 |
+| **보고서** | ceo-ppt | 회장님 보고용 PPT 자동 생성 (F&F 디자인) |
 
 ---
 
@@ -58,11 +60,11 @@
 ```bash
 # Windows
 cd C:\Users\{사용자명}\.claude
-git clone https://github.com/davidcho0326/CC_ax_team.git skills
+git clone https://github.com/fnf-ax-team/CC_ax_team.git skills
 
 # Mac/Linux
 cd ~/.claude
-git clone https://github.com/davidcho0326/CC_ax_team.git skills
+git clone https://github.com/fnf-ax-team/CC_ax_team.git skills
 ```
 
 ### 2. 기존 스킬 폴더가 있는 경우
@@ -72,7 +74,7 @@ git clone https://github.com/davidcho0326/CC_ax_team.git skills
 mv skills skills_backup
 
 # 새로 클론
-git clone https://github.com/davidcho0326/CC_ax_team.git skills
+git clone https://github.com/fnf-ax-team/CC_ax_team.git skills
 
 # 필요한 기존 스킬 복사
 cp -r skills_backup/* skills/
@@ -96,7 +98,7 @@ VSCode에서 `Ctrl+Shift+P` → "Developer: Reload Window"
 
 ---
 
-### 🔄 skill-sync
+### skill-sync
 팀 Private 저장소(CC_ax_team)에서 최신 스킬을 가져와 `team/` 폴더에 동기화합니다.
 
 **핵심 기능:**
@@ -117,7 +119,43 @@ VSCode에서 `Ctrl+Shift+P` → "Developer: Reload Window"
 
 ---
 
-### 🎵 kpop-sns
+### autoskill
+노션 DB에서 새로운 URL 입력을 확인하고 자동으로 스킬을 생성하는 파이프라인입니다.
+
+**사용 예시:**
+- "신규 스킬 확인해줘"
+- "새 스킬 있어?"
+- "autoskill 실행"
+- "autoskill 돌려줘"
+
+**파이프라인 단계:**
+1. URL 콘텐츠 추출 (Trafilatura/Jina Reader)
+2. Claude로 스킬 생성
+3. 주간회의록에서 관련 태스크 매칭
+4. 완료 처리
+
+---
+
+### insta_scraper
+Instagram 릴스 바이럴 콘텐츠를 수집하고 AI로 분석합니다.
+
+**사용 예시:**
+- "인스타 릴스 바이럴 콘텐츠 찾아줘"
+- "해시태그로 Instagram 릴스 검색해"
+- "뷰티 릴스 TOP3 분석해줘"
+
+**주요 기능:**
+- Apify API로 해시태그 검색
+- 가중치 점수 계산 (조회수 20% + 좋아요 40% + 댓글 40%)
+- Gemini AI로 뷰티 관련 필터링/요약
+
+**필수 환경변수:**
+- `APIFY_API_TOKEN`
+- `GEMINI_API_KEY`
+
+---
+
+### kpop-sns
 K-pop 아티스트/그룹의 공식 SNS 계정을 검색하고 엑셀에 저장합니다.
 
 **사용 예시:**
@@ -236,19 +274,23 @@ description: 스킬에 대한 간단한 설명. 트리거 문구 예시를 포�
 CC_ax_team/
 ├── README.md                    # 이 파일
 ├── skills/
-│   ├── skill-push/
-│   │   └── SKILL.md            # 스킬 푸시 스킬
-│   ├── skill-sync/
-│   │   └── SKILL.md            # 팀 스킬 동기화
+│   ├── autoskill/
+│   │   └── SKILL.md            # 노션 기반 자동 스킬 생성
+│   ├── ceo-ppt/
+│   │   ├── SKILL.md            # CEO 보고용 PPT 생성
+│   │   └── fnf_logo.png        # F&F 로고
+│   ├── insta_scraper/
+│   │   └── SKILL.md            # Instagram 릴스 분석
 │   ├── kpop-sns/
 │   │   └── SKILL.md            # K-pop SNS 검색
 │   ├── llm-api-docs/
 │   │   └── SKILL.md            # LLM API 문서 수집
 │   ├── session-summary/
 │   │   └── SKILL.md            # 세션 요약
-│   └── ceo-ppt/
-│       ├── SKILL.md            # CEO 보고용 PPT 생성
-│       └── fnf_logo.png        # F&F 로고
+│   ├── skill-push/
+│   │   └── SKILL.md            # 스킬 푸시 (macOS/Windows)
+│   └── skill-sync/
+│       └── SKILL.md            # 팀 스킬 동기화
 ```
 
 ---
@@ -263,4 +305,4 @@ CC_ax_team/
 
 **Made with ❤️ by AX Team**
 
-_Last Updated: 2026-01-19 (ceo-ppt 추가)_
+_Last Updated: 2026-01-26 (autoskill, insta_scraper 추가, fnf-ax-team 이전)_

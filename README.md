@@ -44,7 +44,6 @@
 |----------|--------|------|
 | **관리** | **skill-push** | 스킬 변경사항 GitHub 푸시 & README 자동 업데이트 (macOS/Windows) |
 | **동기화** | **skill-sync** | 팀 Private 저장소에서 스킬 동기화 (로컬/팀 분리 관리) |
-| **자동화** | **autoskill** | 노션 DB 기반 자동 스킬 생성 파이프라인 |
 | **SNS 분석** | **insta_scraper** | Instagram 릴스 바이럴 콘텐츠 수집 & AI 분석 |
 | **K-pop** | kpop-sns | K-pop 그룹 공식 SNS 계정 검색 & 엑셀 저장 |
 | **문서** | llm-api-docs | LLM API 공식 문서 수집 (Playwright MCP) |
@@ -116,23 +115,6 @@ VSCode에서 `Ctrl+Shift+P` → "Developer: Reload Window"
 /ceo-ppt          → 로컬 버전 (커스텀)
 /team:ceo-ppt     → 팀 버전 (표준)
 ```
-
----
-
-### autoskill
-노션 DB에서 새로운 URL 입력을 확인하고 자동으로 스킬을 생성하는 파이프라인입니다.
-
-**사용 예시:**
-- "신규 스킬 확인해줘"
-- "새 스킬 있어?"
-- "autoskill 실행"
-- "autoskill 돌려줘"
-
-**파이프라인 단계:**
-1. URL 콘텐츠 추출 (Trafilatura/Jina Reader)
-2. Claude로 스킬 생성
-3. 주간회의록에서 관련 태스크 매칭
-4. 완료 처리
 
 ---
 
@@ -274,8 +256,6 @@ description: 스킬에 대한 간단한 설명. 트리거 문구 예시를 포�
 CC_ax_team/
 ├── README.md                    # 이 파일
 ├── skills/
-│   ├── autoskill/
-│   │   └── SKILL.md            # 노션 기반 자동 스킬 생성
 │   ├── ceo-ppt/
 │   │   ├── SKILL.md            # CEO 보고용 PPT 생성
 │   │   └── fnf_logo.png        # F&F 로고
@@ -305,4 +285,4 @@ CC_ax_team/
 
 **Made with ❤️ by AX Team**
 
-_Last Updated: 2026-01-26 (autoskill, insta_scraper 추가, fnf-ax-team 이전)_
+_Last Updated: 2026-01-26 (autoskill 삭제, fnf-ax-team 이전)_

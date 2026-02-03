@@ -1,0 +1,52 @@
+{
+  "_description": "FNF Studio 브랜드 DNA 라우팅 인덱스 - 토큰 비용 절감용 정적 매핑",
+  "_version": "2.0",
+  "_updated_at": "2026-01-21",
+
+  "brands": {
+    "mlb-marketing": {
+      "file": "mlb-marketing.json",
+      "triggers": ["MLB", "영앤리치", "프리미엄", "시크", "마케팅화보", "부잣집", "반항아", "권태로운", "인더스트리얼"],
+      "persona": "Tyrone Lebon",
+      "line": "프리미엄 영앤리치 마케팅"
+    },
+    "mlb-graphic": {
+      "file": "mlb-graphic.json",
+      "triggers": ["MLB", "스트릿", "그래픽", "바시티", "스케이트", "올드스쿨", "유스", "후디"],
+      "persona": "Shawn Stussy",
+      "line": "어반 스트릿 그래픽"
+    },
+    "discovery": {
+      "file": "discovery.json",
+      "triggers": ["Discovery", "아웃도어", "고프코어", "테크니컬", "유틸리티", "탐험", "기능미", "아이자와"],
+      "persona": "Yosuke Aizawa",
+      "line": "프리미엄 라이프스타일 아웃도어"
+    },
+    "duvetica": {
+      "file": "duvetica.json",
+      "triggers": ["Duvetica", "럭셔리", "다운", "이탈리안", "장인", "캐시미어", "프리미엄", "브루넬로"],
+      "persona": "Brunello Cucinelli",
+      "line": "프리미엄 다운 아우터"
+    },
+    "sergio-tacchini": {
+      "file": "sergio-tacchini.json",
+      "triggers": ["Sergio", "Tacchini", "테니스", "레트로", "80s", "슬림", "헤리티지", "에디슬리먼"],
+      "persona": "Hedi Slimane",
+      "line": "스포츠 헤리티지"
+    },
+    "banillaco": {
+      "file": "banillaco.json",
+      "triggers": ["Banila", "Banillaco", "뷰티", "색조", "맑은", "K-뷰티", "글라스스킨", "뽀용", "하이틴"],
+      "persona": "Ahn Joo Young",
+      "line": "K-뷰티 색조 & 베이스"
+    }
+  },
+
+  "routing_priority": {
+    "description": "MLB 키워드 감지 시 컨텍스트로 마케팅/그래픽 구분",
+    "mlb_disambiguation": {
+      "marketing_signals": ["프리미엄", "시크", "화보", "마케팅", "영앤리치", "인물"],
+      "graphic_signals": ["스트릿", "그래픽", "바시티", "스케이트", "제품", "올드스쿨"]
+    }
+  }
+}

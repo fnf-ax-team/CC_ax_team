@@ -1,0 +1,121 @@
+{
+  "_metadata": {
+    "brand": "MLB",
+    "skill": "(MLB마케팅)_시티미니멀_tyrone-lebon",
+    "created_at": "2026-01-20",
+    "note": "MLB 마케팅 스킬용 브랜드 DNA - mlb_director_dna.json에서 추출"
+  },
+  "forbidden_keywords": {
+    "expression": [
+      "bright smile", "laughing", "cheerful", "happy", "joyful",
+      "밝은 미소", "웃는", "행복한", "기쁜", "환한 표정"
+    ],
+    "location": [
+      "vintage cafe", "sunset scene", "golden hour", "warm lighting",
+      "빈티지 카페", "일몰 장면", "골든아워", "따뜻한 조명",
+      "복잡하고 붐비는 거리", "사람들이 많은 장소", "레트로 감성 공간"
+    ],
+    "background": [
+      "other people", "crowd", "busy street", "passersby",
+      "행인", "passersby", "다른 사람", "other people", "군중", "붐비는"
+    ],
+    "mood": [
+      "dreamy", "soft", "ethereal", "whimsical", "cozy", "warm and fuzzy",
+      "따뜻한", "포근한", "아늑한", "감성", "감각적인", "서정적"
+    ],
+    "style": [
+      "bohemian", "hippie", "grunge", "rustic", "shabby chic",
+      "복고풍", "올드스쿨", "old school"
+    ],
+    "color": [
+      "black and white", "monochrome", "grayscale", "desaturated", "muted colors",
+      "흑백", "모노크롬", "무채색", "탈색된", "흐릿한 색감",
+      "sepia", "세피아", "faded", "washed out", "low saturation",
+      "noir", "노이르", "gray tones", "회색톤"
+    ]
+  },
+  "must_include_keywords": {
+    "environment": [
+      "clean", "minimal", "modern", "urban", "sleek", "contemporary",
+      "깨끗한", "모던한", "심플한", "도시적인", "세련된"
+    ],
+    "background": [
+      "simple background", "empty street", "clean street", "no other people",
+      "minimal backdrop", "solid color wall", "단순한 배경", "심플한 거리"
+    ],
+    "mood": [
+      "cool", "confident", "effortless", "hip", "premium", "luxury",
+      "고급", "힙한", "쿨한", "자신감"
+    ],
+    "color": [
+      "vivid colors", "saturated", "full color", "vibrant", "clear colors",
+      "선명한 색감", "또렷한 컬러", "컬러풀한", "생생한 색상", "채도 높은",
+      "color photography", "컬러 사진", "rich colors", "bold colors"
+    ]
+  },
+  "environment_guide": {
+    "preferred_locations": [
+      "깨끗하고 심플한 도시 거리 (다른 사람 없음)",
+      "모던한 건물 앞 (단색 벽면)",
+      "고급스러운 자동차 옆",
+      "심플한 스튜디오 배경",
+      "미니멀한 야외 공간",
+      "clean brutalist architecture backdrop",
+      "pristine private art gallery",
+      "vast empty luxury garage",
+      "imposing brutalist structure",
+      "polished surfaces reflecting light"
+    ],
+    "forbidden_locations": [
+      "복잡하고 붐비는 거리",
+      "빈티지 카페",
+      "감성적인 골목길",
+      "사람들이 많은 장소",
+      "레트로 감성 공간",
+      "vintage cafe",
+      "sunset scene",
+      "golden hour"
+    ],
+    "background_rules": [
+      "배경에 다른 사람이 절대 등장하면 안 됨",
+      "햇살, 골든아워, 빈티지 감성 금지",
+      "심플하고 깨끗한 배경 유지",
+      "모던하고 도시적인 느낌 필수",
+      "고급스럽고 세련된 분위기"
+    ],
+    "style_direction": "MLB는 심플하고 고급스럽고 모던한 스트릿 느낌. 깨끗하고 고급 힙. 감성적이거나 복잡한 배경 금지."
+  },
+  "color_guide": {
+    "mandatory_rules": [
+      "절대 흑백 이미지 생성 금지 - 반드시 풀컬러로 생성",
+      "선명하고 또렷한 색감 유지",
+      "채도가 높은 생생한 컬러 사용"
+    ],
+    "forbidden_styles": [
+      "흑백 (black and white)",
+      "모노크롬 (monochrome)",
+      "세피아 톤",
+      "탈색된 색감 (desaturated)",
+      "흐릿하거나 바랜 색상 (faded, washed out)"
+    ],
+    "required_characteristics": [
+      "풀컬러 (full color photography)",
+      "선명한 색감 (vivid, saturated colors)",
+      "깨끗하고 또렷한 컬러 (clean, clear colors)",
+      "neutral 또는 cool 색온도 유지",
+      "clean_digital 룩 (필름 에뮬레이션 금지)"
+    ],
+    "color_temperature": "neutral (64.3%) 또는 cool (35.1%), warm 색온도는 피할 것",
+    "saturation_direction": "약간 채도를 낮출 수 있으나 (-2.6 avg) 절대 흑백이나 무채색으로 가면 안 됨"
+  },
+  "director_guidelines": {
+    "camera_guide": "## MLB Camera Setup\n- Primary Lens: 50 (alternatives: 50, 35, 85)\n- Aperture: f/2.8 (alternatives: f/2.8, f/2.0, f/4.0)\n- Camera Height: avg 9.8 (range: 5 to 20) cm relative to eye level\n- Horizontal Angle: avg 12.2 (range: 0 to 30)° from front\n- Distance: avg 2.8 (range: 1.5 to 3) meters\n",
+    "pose_guide": "## MLB Pose Direction\n- Primary Style: confident_standing\n- Energy Level: avg 3.0 (range: 1 to 6) (1-10 scale)\n- Torso Rotation: avg 5.6 (range: -15 to 45)° from camera\n- Shoulder Tilt: avg -1.5 (range: -5 to 5)°\n- Common Left Arm: hand on hip, hand in pocket, relaxed at side\n- Common Right Arm: hand in pocket, relaxed at side, hand on hip\n- Hand Gestures: fingers relaxed, slightly curved, slightly curled, holding bag strap, touching face\n- Weight Distribution: left 50%, right 50%, left 55%, right 45%, left 60%, right 40%\n",
+    "expression_guide": "## MLB Expression Direction\n- Primary Expression: cool\n- Intensity: avg 4.2 (range: 1 to 6) (1-10 scale)\n- Mouth State: closed_neutral (closed_neutral, lips_parted, slight_smile)\n- Eye Openness: avg 80.2 (range: 70 to 85)%\n- Gaze Direction: avg -0.2 (range: -10 to 30)° horizontal\n- Vibe: mysterious (mysterious, approachable, sophisticated)\n",
+    "composition_guide": "## MLB Composition\n- Primary Framing: MS\n- Subject Position: center horizontal\n- Depth of Field: moderate\n- Headroom: avg 10.3 (range: 10 to 20)%\n- Background Blur: avg 37.8 (range: 0 to 70)%\n",
+    "lighting_guide": "## MLB Lighting\n- Primary Light: softbox\n- Quality: soft_diffused\n- Direction: avg 45.0 (range: 40 to 45)° (0=front)\n- Shadow Intensity: avg 30.8 (range: 20 to 60)%\n- Color Temperature: avg 5565.6 (range: 4500 to 6500)K\n- Golden Hour Usage: no(99.4%), yes(0.6%)\n",
+    "color_grade_guide": "## MLB Color Grading\n- Temperature: neutral\n- Look: clean_digital\n- Saturation: avg -2.6 (range: -10 to 5) adjustment\n- Contrast: avg 4.4 (range: 0 to 5) adjustment\n- Film Grain: avg 2.7 (range: 0 to 5)%\n- Shadow Tone: neutral, blue\n- Highlight Tone: neutral, cyan, yellow\n",
+    "brand_vibe_guide": "## MLB Brand Vibe\n- Era Aesthetic: modern_2020s\n- Energy Level: avg 4.2 (range: 3 to 6) (1-10)\n- Sophistication: avg 5.0 (range: 4 to 8) (1-10)\n- Street Cred: avg 6.4 (range: 4 to 7) (1-10)\n- Mood Keywords: cool, casual, youthful, urban, stylish, confident, sporty, relaxed, modern, trendy\n",
+    "signature_elements_guide": "## MLB Signature Elements\n- Signature Poses: hands in pockets, slight torso rotation with direct gaze, hand in pocket, hands on hips, hand on hip with bag\n- Signature Styling: cat ear beanie, baseball cap with logo, mix of baseball team apparel, baseball cap and sporty jacket, mix of sporty and casual wear\n- Signature Moods: effortless cool, Effortless cool, understated cool, cool confidence, youthful playfulness\n"
+  }
+}

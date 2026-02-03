@@ -49,6 +49,13 @@
 | **문서** | llm-api-docs | LLM API 공식 문서 수집 (Playwright MCP) |
 | **세션 관리** | session-summary | 종합 세션 요약 문서 생성 |
 | **보고서** | ceo-ppt | 회장님 보고용 PPT 자동 생성 (F&F 디자인) |
+| **이미지 생성** | **brand-cut** | 브랜드 패션 화보 생성 (에디토리얼 스타일) |
+| **이미지 생성** | **background-swap** | 배경 교체 워크플로 (인물 보존 + 배경 합성) |
+| **이미지 생성** | **daily-casual** | 일상컷 생성 (폰카메라, 디카 느낌의 캐주얼 사진) |
+| **이미지 생성** | **seeding-ugc** | 시딩용 UGC 생성 (틱톡/릴스용 진짜 같은 UGC 콘텐츠) |
+| **이미지 생성** | **image-gen-reference** | 이미지 생성 범용 레퍼런스 (API, 프롬프트, 유틸리티) |
+| **이미지 생성** | **director-orchestration** | 다단계 워크플로 오케스트레이션 |
+| **이미지 생성** | **video-processing** | 비디오 분석/편집/생성 |
 
 ---
 
@@ -188,6 +195,59 @@ LLM API 공식 문서를 Playwright MCP로 수집합니다.
 
 ---
 
+### brand-cut (브랜드컷)
+브랜드별 DNA와 디렉터 페르소나를 활용한 패션 화보 이미지 생성.
+
+**사용 예시:**
+- "바닐라코 화보 생성해줘"
+- "디스커버리 아웃도어 화보 만들어줘"
+- "MLB 에디토리얼 촬영해줘"
+
+**지원 브랜드:** Banillaco, Discovery, Duvetica, MLB(마케팅/그래픽), Sergio Tacchini
+
+**필수 환경변수:** `GEMINI_API_KEY`
+
+---
+
+### seeding-ugc (시딩 UGC)
+틱톡/릴스/쇼츠용 인플루언서 시딩 콘텐츠 생성. 진짜 UGC처럼 보여야 하며, 프로페셔널하게 보이면 실패.
+
+**사용 예시:**
+- "시딩용 UGC 만들어줘"
+- "틱톡 시딩 컨텐츠 생성해줘"
+- "쌩얼에 화장품 바르는 영상 스타일로"
+
+**시나리오:** pain_point(고민호소), before_after(전후비교), daily_routine(일상루틴)
+
+**필수 환경변수:** `GEMINI_API_KEY`
+
+---
+
+### daily-casual (일상컷)
+다른 사람이 찍어주거나 타이머로 찍은 일상 사진 스타일 생성.
+
+**사용 예시:**
+- "일상컷 만들어줘"
+- "남친샷 스타일로 생성해줘"
+- "카페에서 친구가 찍어준 느낌으로"
+
+**촬영 타입:** friend_snap, boyfriend_shot, walking_candid, sitting_candid, timer_shot
+
+**필수 환경변수:** `GEMINI_API_KEY`
+
+---
+
+### background-swap (배경교체)
+기존 인물/제품 사진의 배경만 교체하는 워크플로.
+
+**사용 예시:**
+- "배경 교체해줘"
+- "이 사진 배경을 런던 거리로 바꿔줘"
+
+**필수 환경변수:** `GEMINI_API_KEY`
+
+---
+
 ## 🔧 스킬 수정/추가 방법
 
 ### 1. 새 스킬 추가
@@ -256,6 +316,39 @@ description: 스킬에 대한 간단한 설명. 트리거 문구 예시를 포�
 CC_ax_team/
 ├── README.md                    # 이 파일
 ├── skills/
+│   ├── brand-cut/              # 브랜드 패션 화보 생성
+│   │   └── SKILL.md
+│   ├── background-swap/        # 배경 교체 워크플로
+│   │   └── SKILL.md
+│   ├── daily-casual/           # 일상컷 생성
+│   │   └── SKILL.md
+│   ├── seeding-ugc/            # 시딩용 UGC 생성
+│   │   └── SKILL.md
+│   ├── image-gen-reference/    # 이미지 생성 레퍼런스
+│   │   └── SKILL.md
+│   ├── director-orchestration/ # 워크플로 오케스트레이션
+│   │   └── SKILL.md
+│   ├── video-processing/       # 비디오 처리
+│   │   └── SKILL.md
+│   ├── prompt-templates/       # 프롬프트 템플릿
+│   │   ├── editorial.json      # 에디토리얼 화보
+│   │   ├── selfie.json         # 셀피
+│   │   ├── daily_casual.json   # 일상컷
+│   │   ├── seeding_ugc.json    # 시딩 UGC
+│   │   ├── background-swap.json
+│   │   ├── backgrounds/        # 배경 프리셋
+│   │   └── core/               # 공통 (조명, 모델)
+│   ├── brand-dna/              # 브랜드 DNA 파일
+│   │   ├── banillaco.json
+│   │   ├── discovery.json
+│   │   ├── duvetica.json
+│   │   ├── mlb-marketing.json
+│   │   ├── mlb-graphic.json
+│   │   └── sergio-tacchini.json
+│   ├── directors/              # 디렉터 페르소나
+│   │   ├── (Banillaco)_맑은뷰티_ahn-joo-young/
+│   │   ├── (Discovery)_테크니컬유틸리티_yosuke-aizawa/
+│   │   └── ...
 │   ├── ceo-ppt/
 │   │   ├── SKILL.md            # CEO 보고용 PPT 생성
 │   │   └── fnf_logo.png        # F&F 로고
@@ -280,9 +373,11 @@ CC_ax_team/
 - 스킬 파일 경로에 **한글 폴더명**이 있으면 문제가 발생할 수 있음
 - Playwright MCP가 필요한 스킬은 사전 설치 필요
 - 엑셀 파일 수정 스킬은 **파일이 닫혀있어야** 정상 작동
+- 이미지 생성 스킬 사용 시 **Gemini API Key** 필수 (.env에 GEMINI_API_KEY 설정)
+- 이미지 생성 모델은 반드시 **gemini-3-pro-image-preview** 사용 (다른 모델 사용 금지)
 
 ---
 
 **Made with ❤️ by AX Team**
 
-_Last Updated: 2026-01-26 (autoskill 삭제, fnf-ax-team 이전)_
+_Last Updated: 2026-02-03 (이미지 생성 스킬 추가: brand-cut, background-swap, daily-casual, seeding-ugc)_

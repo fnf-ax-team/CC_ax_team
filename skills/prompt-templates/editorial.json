@@ -1,0 +1,70 @@
+{
+  "_description": "화보/에디토리얼 프롬프트 템플릿 - 변수 치환용",
+  "_usage": "brand_dna와 병합하여 사용",
+
+  "template": {
+    "meta": {
+      "aspect_ratio": "4:5",
+      "quality": "ultra_photorealistic_editorial, 8k",
+      "camera": "{brand_dna.director_guidelines.camera.lens|Hasselblad H6D-100c}",
+      "lens": "85mm f/1.4"
+    },
+
+    "subject": {
+      "gender": "{input.gender|여성}",
+      "age": "{input.age|20대 중반}",
+      "ethnicity": "{input.ethnicity|East Asian}",
+      "expression": "{brand_dna.director_guidelines.expression.type|confident}",
+      "skin": "ultra realistic skin texture, natural pores, subsurface scattering"
+    },
+
+    "outfit": {
+      "style": "{brand_dna.keywords.style[0]}",
+      "mood": "{brand_dna.identity.mood[0]}",
+      "brand_aesthetic": "{brand_dna._metadata.brand} aesthetic"
+    },
+
+    "pose": {
+      "style": "{brand_dna.director_guidelines.pose.style|confident_standing}",
+      "energy": "{brand_dna.director_guidelines.pose.energy|4}",
+      "arms": "{brand_dna.director_guidelines.pose.arms[0]|relaxed}"
+    },
+
+    "scene": {
+      "location": "{brand_dna.keywords.setting[0]}",
+      "background": "{brand_dna.must_include_keywords.background[0]|simple background}",
+      "atmosphere": "{brand_dna.keywords.mood[0]}"
+    },
+
+    "lighting": {
+      "type": "{brand_dna.director_guidelines.lighting.type|hard directional sunlight, direct flash, softbox}",
+      "quality": "{brand_dna.director_guidelines.lighting.quality|high contrast, sharp shadows, glossy reflections}",
+      "color_temp": "{brand_dna.director_guidelines.lighting.color_temp|6500K (cool blue-ish tint)}"
+    },
+
+    "technical": {
+      "camera_setup": "Sony A7R V, 35mm f/1.4 GM lens", 
+      "skin_texture": "{brand_dna.technical.skin|natural skin sheen, visible pores, non-plastic, specular highlights}",
+      "color_grading": "{brand_dna.technical.color_grade|desaturated cool tones, teal shadows, cinematic street look}",
+      "lens_effect": "razor-sharp focus, slight chromatic aberration on metallic car edges"
+    },
+
+    "prompt_builder": {
+      "format": "{meta.quality}, {subject.gender}, {subject.age}, {subject.expression} expression, {subject.skin}, wearing {outfit.items}, {pose.style} pose, {scene.location}, {scene.background}, {lighting.type}, {lighting.quality}, {technical.color_grading}, {technical.lens_effect}, {brand_injection}",
+      "brand_injection": "in the style of {brand.persona}"
+    }
+  },
+
+  "negative_prompt": [
+    "cartoon", "illustration", "3d render", "anime",
+    "low quality", "blurry", "jpeg artifacts",
+    "bad anatomy", "deformed hands", "extra fingers",
+    "plastic skin", "over-retouched",
+    "watermark", "text", "signature"
+  ],
+
+  "forbidden_merge": {
+    "_note": "brand_dna.forbidden_keywords 자동 병합",
+    "auto_include": true
+  }
+}

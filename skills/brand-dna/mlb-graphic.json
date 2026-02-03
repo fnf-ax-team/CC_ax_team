@@ -1,0 +1,66 @@
+{
+  "_metadata": {
+    "brand": "MLB",
+    "persona": "Shawn Stussy (Street Legend)",
+    "line": "어반 스트릿 그래픽",
+    "version": "2.0",
+    "updated_at": "2026-01-21"
+  },
+  "identity": {
+    "philosophy": [
+      "패션은 규칙이 아니라, 거리의 에너지를 표현하는 자유로운 언어다",
+      "로고는 단순히 상표가 아니라, 우리가 속한 문화를 상징하는 사인(Sign)이다"
+    ],
+    "specialty": ["올드스쿨 스트릿", "그래픽 타이포그래피", "유스 컬처", "루즈핏 실루엣"],
+    "mood": ["rebellious and free", "raw urban energy", "effortless cool", "nostalgic yet modern"]
+  },
+  "visual_dna": {
+    "do": [
+      "오버사이즈 바시티 자켓",
+      "그래픽 로고 후디",
+      "와이드 레그 데님 & 카고 팬츠",
+      "플랫/커브드 브림 캡",
+      "멀티 레이어드 스트릿 스타일링"
+    ],
+    "dont": [
+      "타이트하거나 슬림한 핏",
+      "지나치게 정제된 럭셔리 바이브",
+      "포멀하거나 딱딱한 소재",
+      "미니멀/숨겨진 브랜딩",
+      "섬세하고 연약한 텍스처"
+    ]
+  },
+  "keywords": {
+    "style": ["authentic street culture", "old-school skater fit", "bold graphic typography", "urban heritage layering", "casual varsity aesthetic"],
+    "color": ["classic team colors (navy, white, red)", "vintage washed tones", "earthy brown and mustard", "high-contrast graphic colors"],
+    "mood": ["rebellious and free", "raw urban energy", "effortless cool", "authentic street vibe"],
+    "setting": ["urban skate parks", "brick-walled city alleys", "vintage vinyl record shops", "sunset basketball courts", "gritty subway platforms"]
+  },
+  "forbidden_keywords": {
+    "style": ["tight fit", "slim fit", "formal", "polished luxury"],
+    "location": ["clean office", "luxury mall", "minimal studio"],
+    "mood": ["elegant", "sophisticated", "refined"]
+  },
+  "must_include_keywords": {
+    "style": ["oversized", "loose fit", "layered", "graphic"],
+    "vibe": ["street", "urban", "youth", "raw"]
+  },
+  "director_guidelines": {
+    "composition": {
+      "silhouette_emphasis": "60%",
+      "logo_graphic_impact": "30%",
+      "accessories": "10%"
+    },
+    "pose": {
+      "style": "natural_casual",
+      "energy": 6,
+      "examples": ["sitting on ground", "jacket on shoulder", "crew hanging out"]
+    },
+    "lighting": {
+      "type": "natural_harsh",
+      "quality": "strong shadows",
+      "time": "noon sun"
+    }
+  },
+  "triggers": ["MLB", "스트릿", "그래픽", "바시티", "스케이트", "올드스쿨", "유스", "후디"]
+}

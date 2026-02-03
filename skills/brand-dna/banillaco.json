@@ -1,0 +1,75 @@
+{
+  "_metadata": {
+    "brand": "Banillaco",
+    "persona": "Ahn Joo Young (Light Wizard)",
+    "line": "K-뷰티 색조 & 베이스",
+    "version": "2.0",
+    "updated_at": "2026-01-21"
+  },
+  "identity": {
+    "philosophy": [
+      "뷰티 사진은 빛으로 그리는 수채화입니다",
+      "색조는 피부 위에서 숨을 쉬어야 하죠"
+    ],
+    "specialty": ["뷰티 클로즈업", "맑은 광채 피부(Glass Skin)", "색조의 투명 발색", "뷰티 라이팅 디자인"],
+    "mood": ["modern K-beauty chic", "fresh and youthful", "sophisticated purity", "trendy energetic vibe"]
+  },
+  "visual_dna": {
+    "do": [
+      "뽀용(Airy & Blurred) 에스테틱",
+      "맑고 선명한 컬러 페이오프",
+      "트렌디 하이틴 에너지",
+      "건강한 스킨-퍼스트 비주얼",
+      "소피스티케이티드 영한 룩"
+    ],
+    "dont": [
+      "무거운 그림자",
+      "매트하고 건조한 텍스처",
+      "어둡고 무디한 분위기",
+      "과도하게 드라마틱한 컨투어링",
+      "빈티지/거친 필름 그레인"
+    ]
+  },
+  "keywords": {
+    "style": ["airy blur texture", "petal-soft skin finish", "ethereal inner glow", "high-definition skin clarity", "seamless base makeup"],
+    "color": ["vivid watercolor pigment", "juicy glass lip gloss", "sheer pastel layering", "clean lash definition", "vibrant pop of color"],
+    "mood": ["modern K-beauty chic", "fresh and youthful", "sophisticated purity", "trendy energetic vibe", "effortless perfection"],
+    "setting": ["minimal white/pastel beauty studio", "acrylic props with colorful flowers", "modern bright city interior"]
+  },
+  "forbidden_keywords": {
+    "mood": ["dark", "moody", "dramatic", "heavy"],
+    "texture": ["matte dry", "rough", "grainy"],
+    "lighting": ["harsh shadow", "low key", "noir"]
+  },
+  "must_include_keywords": {
+    "skin": ["glass skin", "dewy", "glowing", "clear", "luminous"],
+    "color": ["vivid", "watercolor", "transparent", "clear payoff"],
+    "mood": ["fresh", "youthful", "pure", "bright"]
+  },
+  "director_guidelines": {
+    "framing": {
+      "face_closeup": "90%",
+      "product_skin_detail": "10%"
+    },
+    "angle": {
+      "light_camera_angle": "within 15deg",
+      "purpose": "minimize texture visibility"
+    },
+    "post_direction": {
+      "saturation_boost": "+10%",
+      "clarity": "maintain sharpness"
+    },
+    "lighting": {
+      "type": "beauty_dish",
+      "quality": "multi-layered diffusion",
+      "bounce": "pristine white",
+      "highlights": "gentle iridescent"
+    },
+    "expression": {
+      "type": "bright_natural",
+      "energy": 7,
+      "vibe": "about to smile"
+    }
+  },
+  "triggers": ["Banila", "Banillaco", "뷰티", "색조", "맑은", "K-뷰티", "글라스스킨", "뽀용", "하이틴"]
+}

@@ -1,0 +1,164 @@
+{
+  "_description": "셀피 프롬프트 템플릿 - 변수 치환용",
+  "_usage": "brand_dna와 병합하여 사용",
+  "_ai_guide": {
+    "role": "사용자의 자연어 요청에서 최적 셀피 타입을 AI가 판단하여 선택합니다.",
+    "decision_flow": [
+      "1. 사용자 요청에서 촬영 상황/스타일 키워드 파악",
+      "2. selfie_types에서 가장 적합한 타입 선택",
+      "3. brand_dna와 병합하여 최종 프롬프트 조립",
+      "4. 사용자가 명시적으로 지정한 항목은 기본값보다 우선"
+    ]
+  },
+
+  "template": {
+    "meta": {
+      "aspect_ratio": "9:16",
+      "device_profile": "iPhone 15 Pro, 24mm f/1.9",
+      "isp_pipeline": "Smart HDR 5, deep fusion processing" 
+    },
+
+    "physics": {
+      "lens_distortion": "mild_barrel_distortion_4/5",
+      "chromatic_aberration": "visible_on_edges",
+      "motion_blur": "{input.is_moving|0/5}"
+    },
+
+    "subject": {
+      "gender": "{input.gender|여성}",
+      "age": "{input.age|20대 초반}",
+      "expression": "{brand_dna.director_guidelines.expression.type|natural smile}",
+      "skin": "realistic skin texture, natural pores, slight imperfections"
+    },
+
+    "attire": {
+      "style": "{brand_dna.keywords.style[0]}",
+      "brand_vibe": "{brand_dna._metadata.brand} casual style"
+    },
+
+    "pose": {
+      "selfie_type": "{input.selfie_type|direct selfie}",
+      "angle": "slight high angle",
+      "framing": "close-up to medium shot",
+      "arm_position": "holding phone at arm's length"
+    },
+
+    "environment": {
+      "location": "{input.location|casual indoor}",
+      "background": "soft bokeh, lifestyle setting",
+      "atmosphere": "{brand_dna.keywords.mood[0]}"
+    },
+
+    "lighting": {
+      "mode": "{input.lighting_mode|natural}",
+      "glare_reflection": "mirror_reflection_glare: 3/5"
+    },
+
+    "technical": {
+      "resolution": "4K",
+      "depth_of_field": "shallow, face in focus",
+      "lens_characteristics": "slight wide-angle distortion, smartphone look"
+    }
+  },
+
+  "prompt_builder": {
+    "format": "{meta.device_profile}, {meta.isp_pipeline}, {subject.gender}, {subject.age}, {subject.expression}, {subject.skin}, wearing {attire.style}, {attire.brand_vibe}, {pose.selfie_type}, {pose.angle}, {pose.framing}, {pose.arm_position}, {environment.location}, {environment.background}, {lighting.mode}, {technical.resolution}, {technical.depth_of_field}, {technical.lens_characteristics}, {brand_injection}",
+    "brand_injection": "in the style of {brand.persona}, mood: {brand_dna.keywords.mood}"
+  },
+
+  "negative_prompt": [
+    "professional studio lighting",
+    "DSLR quality bokeh",
+    "perfect model pose",
+    "overly retouched skin",
+    "color graded cinematic look",
+    "distorted hand anatomy",
+    "blurry face or eyes"
+  ],
+
+  "selfie_types": {
+    "direct": {
+      "description": "직접 셀카",
+      "when_to_use": "기본 셀카, 특별한 지정 없을 때 기본값",
+      "mood_match": ["기본", "셀카", "일상", "인스타"],
+      "characteristics": ["arm-length distance", "front camera", "slight wide-angle"]
+    },
+    "mirror": {
+      "description": "거울 셀카",
+      "when_to_use": "전신/OOTD 셀카, 화장실/옷가게 거울, 코디 확인",
+      "mood_match": ["거울", "전신", "OOTD", "코디", "피팅룸"],
+      "characteristics": ["mirror reflection", "phone visible", "back camera quality"]
+    },
+    "flash": {
+      "description": "플래시 셀카",
+      "when_to_use": "밤/어두운 곳, 클럽/파티, 트렌디한 플래시 감성",
+      "mood_match": ["플래시", "밤", "클럽", "파티", "어두운"],
+      "characteristics": ["strong flash", "dark background contrast", "specular highlights"]
+    },
+    "natural": {
+      "description": "자연광 셀카",
+      "when_to_use": "창가, 야외, 따뜻하고 자연스러운 느낌",
+      "mood_match": ["자연광", "창가", "따뜻한", "부드러운", "야외"],
+      "characteristics": ["window light", "soft shadows", "warm tones"]
+    },
+    "beauty_content": {
+      "description": "뷰티 유튜버/브랜드 콘텐츠 셀카",
+      "characteristics": [
+        "tripod-mounted or fixed camera position",
+        "eye-level angle, straight-on or slight 10-degree tilt",
+        "ring light catchlight visible in eyes",
+        "upper body to face framing (YouTube thumbnail composition)",
+        "hands near face or holding product",
+        "engaging expression, as if talking to camera"
+      ],
+      "pose_variants": [
+        "chin_rest: one hand gently resting under chin, tilted head",
+        "product_hold: holding product near cheekbone, slight smile",
+        "face_touch: fingertips lightly touching cheek, showcasing skin",
+        "frame_face: both hands framing face, playful expression",
+        "apply_gesture: mimicking makeup application motion",
+        "hair_touch: one hand gently running through hair, effortless beauty moment",
+        "double_peace: both hands making heart or V sign near face, bright cheerful expression"
+      ],
+      "lighting_override": {
+        "type": "ring_light",
+        "catchlight": "circular ring reflection in both eyes",
+        "fill": "soft frontal, minimal shadow",
+        "color_temp": "5500K daylight balanced"
+      },
+      "environment_override": {
+        "background": "clean minimal beauty space, slightly blurred vanity or shelf",
+        "props": "beauty products subtly visible in bokeh background",
+        "atmosphere": "bright, inviting, professional yet personal"
+      }
+    },
+    "beauty_grwm": {
+      "description": "GRWM(Get Ready With Me) 스타일",
+      "characteristics": [
+        "slightly overhead angle (15-20 degrees above eye level)",
+        "natural window light mixed with vanity mirror light",
+        "mirror or vanity visible in frame",
+        "casual intimate atmosphere",
+        "mid-application moment captured"
+      ],
+      "pose_variants": [
+        "mirror_lean: leaning toward vanity mirror, concentrated expression",
+        "blending: blending makeup with fingers or sponge on cheek",
+        "lip_apply: applying lip product, slightly parted lips",
+        "check_mirror: looking at small mirror held in hand"
+      ],
+      "lighting_override": {
+        "type": "mixed_vanity",
+        "key_light": "window light from side",
+        "fill": "vanity mirror warm light",
+        "catchlight": "rectangular mirror reflection in eyes",
+        "color_temp": "mixed warm 3500K-5500K"
+      },
+      "environment_override": {
+        "background": "vanity mirror and beauty desk setup, slightly messy authentic feel",
+        "props": "scattered makeup products, brushes, mirror",
+        "atmosphere": "intimate, casual, morning routine warmth"
+      }
+    }
+  }
+}

@@ -1,0 +1,76 @@
+{
+  "_description": "FNF Studio 이미지 생성 파이프라인 정의 - 속도 최적화 버전",
+  "_version": "2.0",
+  "_updated_at": "2026-01-21",
+
+  "pipeline": {
+    "name": "image-generation-fast",
+    "description": "브랜드 DNA 기반 빠른 이미지 생성",
+
+    "stages": [
+      {
+        "id": "routing",
+        "name": "라우팅",
+        "agent": "studio-director.md",
+        "model": "haiku",
+        "input": ["user_request"],
+        "output": ["brand_key", "prompt_engine"],
+        "skip_condition": null
+      },
+      {
+        "id": "load_dna",
+        "name": "브랜드 DNA 로드",
+        "skill": "brand-dna/_index.json",
+        "input": ["brand_key"],
+        "output": ["brand_dna"],
+        "cache": true
+      },
+      {
+        "id": "generate",
+        "name": "이미지 생성",
+        "skills": ["병렬처리_parallel-processing", "배치처리_batch-processing"],
+        "input": ["brand_dna", "prompt_engine", "batch_count"],
+        "output": ["images"],
+        "config": {
+          "max_workers": 4,
+          "batch_size": 5,
+          "timeout_ms": 120000
+        }
+      },
+      {
+        "id": "combine",
+        "name": "결과 결합",
+        "skill": "배치처리_batch-processing",
+        "input": ["images"],
+        "output": ["combined_tensor", "generation_report"]
+      }
+    ],
+
+    "optional_stages": [
+      {
+        "id": "efficiency_check",
+        "name": "성능 검수",
+        "agent": "efficiency-guard.md",
+        "model": "haiku",
+        "trigger": "on_request",
+        "input": ["execution_stats"],
+        "output": ["efficiency_report"]
+      }
+    ]
+  },
+
+  "execution_config": {
+    "parallel_enabled": true,
+    "cache_brand_dna": true,
+    "skip_validation": true,
+    "log_level": "info"
+  },
+
+  "stage_dependencies": {
+    "routing": [],
+    "load_dna": ["routing"],
+    "generate": ["load_dna"],
+    "combine": ["generate"],
+    "efficiency_check": ["combine"]
+  }
+}

@@ -132,7 +132,10 @@
         "BOTTOM = COLORED body (opaque, matches shade) with liquid inside",
         "NEVER reverse: colored part is ALWAYS the bottom body, clear part is ALWAYS the top cap",
         "When cap is removed, the doe-foot applicator wand extends from cap downward",
-        "Logo is on the OPAQUE colored body, NOT on the transparent cap"
+        "Logo is on the OPAQUE colored body, NOT on the transparent cap",
+        "When APPLYING: cap is SEPARATED from body. Model holds cap+wand, doe-foot tip touches lips",
+        "The BODY TUBE must NOT touch the lips. Only the applicator tip (attached to cap) touches lips",
+        "Think nail polish: pull cap off → brush comes with cap → paint with brush tip → bottle stays away"
       ],
       "common_ai_errors": [
         "Making the entire tube one solid color (missing transparent cap)",

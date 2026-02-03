@@ -90,6 +90,13 @@ config = types.GenerateContentConfig(
 )
 ```
 
+### 4.5 VLM 제품 분석 (제품 레퍼런스 있을 때)
+제품 레퍼런스 이미지가 제공되면, **생성 전에 VLM으로 제품을 자동 분석**하여 상세 묘사를 생성합니다.
+배경 교체의 모델 물리 분석(VFX)과 동일한 패턴입니다.
+- VLM 분석 결과(형태, 재질, 투명도, 로고 위치, 사용법 등)를 프롬프트에 자동 주입
+- 수동 설명보다 정확도 40%+ 향상 (product_accuracy 0→30 → 98 검증됨)
+- 분석 실패 시 `brand-dna/{brand}.json`의 `products` 섹션으로 폴백
+
 ### 5. 품질 검증
 - **일반 카테고리**: 인물보존(35%) + 조명(20%) + 구도(15%) + 피부(15%) + 배경(15%)
 - **시딩UGC**: UGC리얼리즘(35%) + 인물보존(25%) + 시나리오정합(20%) + 피부상태(10%) + Anti-Polish(10%)
@@ -3421,12 +3428,13 @@ result = workflow.generate(
 
 ---
 
-# 파이프라인 (6단계)
+# 파이프라인 (7단계)
 
 ```
 사용자 입력 → Step 1: 브랜드 라우팅 + 템플릿 로드
             → Step 2: AI 시나리오 판단 (scenario, skin_state, camera_style 자동 선택)
-            → Step 3: 프롬프트 조립 (UGC 리얼리즘 최우선)
+            → Step 2.5: VLM 제품 분석 (제품 레퍼런스 → 자동 묘사 생성)
+            → Step 3: 프롬프트 조립 (UGC 리얼리즘 최우선 + 제품 분석 결과 주입)
             → Step 4: 이미지 생성 (Gemini 3 Pro, 2K)
             → Step 5: 리얼리즘 검증 (UGC 전용 기준)
             → Step 6: 결과 반환 + 시딩 가이드 메모
@@ -3487,6 +3495,91 @@ result = workflow.generate(
 | `after_skincare` | `post_product` |
 | `morning_routine` | `bare_clean` → `post_product` |
 | `workout_post` | `sweaty_flushed` |
+
+## Step 2.5: VLM 제품 분석 (Product VLM Analysis)
+
+**제품 레퍼런스 이미지가 있을 때**, VLM으로 제품을 먼저 분석하고 그 결과를 프롬프트에 주입합니다.
+배경 교체 워크플로의 모델 물리 분석(VFX)과 동일한 패턴입니다.
+
+> **왜 필요한가?** 수동으로 제품 설명을 작성하면 캡/바디 구분, 투명도, 로고 위치 등 세부 사항이 부정확해짐.
+> VLM이 직접 이미지를 보고 분석하면 훨씬 정확한 제품 묘사가 가능.
+
+### 분석 프롬프트
+
+```python
+PRODUCT_ANALYSIS_PROMPT = """You are a product photography expert.
+Analyze these reference images of a cosmetic product in EXTREME detail.
+
+Describe the following with precision:
+1. OVERALL SHAPE: Exact shape, proportions (height vs width ratio), silhouette
+2. MATERIALS: What is each part made of? Transparent? Opaque? Frosted? Glossy? Matte?
+3. TWO-PART STRUCTURE:
+   - CAP/TOP: Material, color, opacity, what's inside (applicator?), shape of cap top
+   - BODY/BOTTOM: Material, color, opacity, what's visible through it, shape
+4. COLORS: Exact colors of each part. Is color from the material or from liquid inside?
+5. LOGO/TEXT: What text/logo is on it? Where exactly? On which part? What color/font?
+6. PROPORTIONS: How tall vs wide? Cap-to-body ratio?
+7. APPLICATOR: What type? Doe-foot? Brush? Where is it attached?
+8. HOW IT'S USED: When you pull the cap off, what happens? What does the separated state look like?
+
+Be extremely specific. This description will be used to generate accurate product images.
+Output as structured text, NOT JSON."""
+```
+
+### 분석 함수
+
+```python
+def analyze_product(ref_images, api_key):
+    """VLM으로 제품 레퍼런스 이미지를 분석하여 상세 묘사 생성"""
+    client = genai.Client(api_key=api_key)
+
+    parts = []
+    for i, img in enumerate(ref_images):
+        parts.append(types.Part(text=f"PRODUCT IMAGE {i+1}:"))
+        parts.append(pil_to_part(img, max_size=1024))
+    parts.append(types.Part(text=PRODUCT_ANALYSIS_PROMPT))
+
+    response = client.models.generate_content(
+        model="gemini-2.5-flash",  # VLM 분석은 텍스트 모델 사용
+        contents=[types.Content(role="user", parts=parts)],
+        config=types.GenerateContentConfig(temperature=0.1)
+    )
+    return response.text  # 상세 제품 묘사 텍스트
+```
+
+### 분석 결과를 프롬프트에 주입
+
+```python
+# Step 3에서 프롬프트 조립 시:
+product_analysis = analyze_product([ref_product, ref_holding, ref_pose], api_key)
+
+# BASE_PROMPT 안에 플레이스홀더로 주입
+prompt = BASE_PROMPT.replace("{product_analysis}", product_analysis)
+```
+
+### 핵심 원칙
+
+| 원칙 | 설명 |
+|------|------|
+| **분석 우선** | 수동 제품 설명 대신 VLM 자동 분석 결과를 사용 |
+| **레퍼런스 다각도** | 제품 전체샷 + 들고 있는 샷 + 사용 포즈 등 2-3장 제공 |
+| **캐싱** | 동일 제품 반복 생성 시 분석 결과 재사용 (1회 분석 → N회 생성) |
+| **폴백** | 분석 실패 시 brand-dna의 products 섹션 수동 설명으로 폴백 |
+
+### brand-dna products 섹션 연동
+
+VLM 분석이 실패할 경우, `brand-dna/{brand}.json`의 `products` 섹션에 저장된 수동 제품 설명을 사용합니다.
+
+```python
+# 폴백 예시
+if product_analysis is None:
+    with open(f"brand-dna/{brand}.json") as f:
+        brand_data = json.load(f)
+    product_analysis = json.dumps(brand_data.get("products", {}), indent=2)
+```
+
+> **참고**: `banillaco.json`의 `products.b_lip_tint` 섹션에 캡/바디 구조, 사용법, AI 흔한 오류 등이 사전 정의되어 있음.
+> 다른 브랜드/제품도 동일 포맷으로 `products` 섹션을 추가하면 자동 폴백 가능.
 
 ## Step 3: 프롬프트 조립
 
@@ -3627,4 +3720,5 @@ Before/After 시나리오는 자동으로 2장을 페어로 생성합니다:
 ---
 
 **통합일**: 2026-02-03
+**최종 업데이트**: 2026-02-03 (VLM 제품 분석 단계 추가, brand-dna products 섹션 연동)
 **통합 출처**: brand-cut, background-swap, daily-casual, seeding-ugc

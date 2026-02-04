@@ -33,26 +33,17 @@ IMAGE_MODEL = "gemini-3-pro-image-preview"
 | `2K` | 2048x2048 | **일반 제작용 (기본값)** |
 | `4K` | 4096x4096 | 고품질 최종 결과물 |
 
-### Temperature 가이드
+### 콘텐츠 타입별 기본 설정 (Template + Aspect Ratio + Temperature)
 
-| 용도 | Temperature | 설명 |
-|------|-------------|------|
-| 배경 교체 / 참조 이미지 보존 | `0.2` | 충실도 최대 |
-| 브랜드컷 에디토리얼 | `0.2 ~ 0.3` | 착장 충실도 유지 |
-| 셀피 / 일상컷 | `0.3` | 자연스러운 변형 |
-| 시딩 UGC | `0.35` | 자연스러운 다양성 |
-| 자유 생성 | `0.3 ~ 0.5` | 창의적 다양성 |
-| 실험적/아트 | `0.7 ~ 0.9` | 다양한 결과 |
-
-### 콘텐츠 타입별 기본 설정
-
-| 타입 | Template | Aspect Ratio | Temperature | 용도 |
+| 타입 | Template | Aspect Ratio | Temperature | 설명 |
 |------|----------|--------------|-------------|------|
-| Editorial/Brand Cut | editorial.json | 3:4 | 0.2 | 전문 브랜드 화보 |
-| Selfie | selfie.json | 9:16 | 0.3 | 셀카/SNS |
-| Daily Casual | daily_casual.json | 4:5 | 0.3 | 일상컷 |
-| Seeding UGC | seeding_ugc.json | 9:16 | 0.35 | 인플루언서 시딩 |
-| Background Swap | background-swap.json | Original | 0.2 | 배경 교체 |
+| Editorial/Brand Cut | editorial.json | 3:4 | 0.2 ~ 0.3 | 전문 브랜드 화보 (착장 충실도 유지) |
+| Selfie | selfie.json | 9:16 | 0.3 | 셀카/SNS (자연스러운 변형) |
+| Daily Casual | daily_casual.json | 4:5 | 0.3 | 일상컷 (자연스러운 변형) |
+| Seeding UGC | seeding_ugc.json | 9:16 | 0.35 | 인플루언서 시딩 (자연스러운 다양성) |
+| Background Swap | background-swap.json | Original | 0.2 | 배경 교체 (충실도 최대) |
+| 자유 생성 | - | - | 0.3 ~ 0.5 | 창의적 다양성 |
+| 실험적/아트 | - | - | 0.7 ~ 0.9 | 다양한 결과 |
 
 ### API 설정 코드 패턴
 

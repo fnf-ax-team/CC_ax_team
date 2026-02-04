@@ -87,7 +87,21 @@ SKILL.md (워크플로 실행 로직 - CLAUDE.md 참조)
 ```
 
 > **원칙**: CLAUDE.md = 규칙 정의, SKILL.md = 워크플로 전용 설정만 유지. 중복 금지.
-> 전체 아키텍처 다이어그램: [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) (Mermaid 12개 포함)
+
+---
+
+## 🏗️ 시스템 아키텍처
+
+전체 시스템 구조, 워크플로 파이프라인, 품질 검증 흐름을 Mermaid 다이어그램 12개로 정리했습니다.
+
+**→ [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md)**
+
+포함 내용:
+- 시스템 전체 구조도 (입력 → 라우팅 → 생성 → 검증)
+- 문서 계층 다이어그램 (CLAUDE.md ↔ SKILL.md ↔ Brand DNA)
+- 5종 워크플로 파이프라인 (브랜드컷, 배경교체, 시딩UGC, 일상컷, 제품연출)
+- 품질 검증 3종 비교 (브랜드컷 6항목 / 배경교체 7항목 / UGC 5항목)
+- 공통 인프라 (API 키 로테이션, 에러 처리, 출력 디렉토리)
 
 ---
 
@@ -278,18 +292,7 @@ Gemini 3 Pro Image API를 활용한 5종 콘텐츠 생성 통합 스킬.
 
 **필수 환경변수:** `GEMINI_API_KEY` (복수 키 쉼표 구분 가능)
 
-**📁 폴더 구조 (왜 이렇게 나뉘어 있나?):**
-
-| 폴더 | 역할 | 예시 |
-|------|------|------|
-| `CLAUDE.md` | 이미지 생성 시 Claude가 **반드시** 따르는 규칙 | 모델명, 해상도, Temperature, 브랜드 라우팅 |
-| `SKILL.md` | 워크플로 전체 가이드 (단계별 파이프라인) | 분석→프롬프트 조립→생성→검증→리트라이 |
-| `brand-dna/` | 브랜드별 성격·톤·금지요소 JSON | `mlb-marketing.json`, `discovery.json` 등 6개 |
-| `directors/` | 디렉터 페르소나 (촬영 감독 스타일) | Tyrone Lebon(MLB), Hedi Slimane(Sergio) 등 7명 |
-| `templates/` | 콘텐츠 타입별 프롬프트 템플릿 | `editorial.json`, `selfie.json`, `seeding_ugc.json` |
-| `workflows/` | 워크플로별 상세 파이프라인 | `brand-cut.md`, `background-swap.md` |
-
-> **왜 분리?** 브랜드마다 DNA·디렉터·템플릿이 다릅니다. 예: "MLB 화보 3장" 요청 시 워크플로가 `brand-dna/mlb-marketing.json` + `directors/tyrone-lebon.json` + `templates/editorial.json`을 자동 조합합니다. 분리되어 있어야 브랜드·스타일 조합을 자유롭게 바꿀 수 있습니다.
+> 규칙/문서 구조는 위 [📌 CLAUDE.md](#-claudemd-이미지-생성-절대-규칙) 섹션 참조. 폴더 상세는 하단 [📂 폴더 구조](#-폴더-구조) 참조.
 
 ---
 
@@ -362,8 +365,8 @@ CC_ax_team/
 ├── README.md
 ├── skills/
 │   ├── fnf-image-gen/              # 🎨 AI 이미지 생성 통합
-│   │   ├── CLAUDE.md               # ⚠️ 절대 규칙 (모델/해상도/Temperature)
-│   │   ├── SKILL.md                # 워크플로 가이드 (5종 카테고리)
+│   │   ├── CLAUDE.md               # 절대 규칙 (위 섹션 참조)
+│   │   ├── SKILL.md                # 워크플로 가이드
 │   │   ├── brand-dna/              # 브랜드별 DNA JSON (6개 브랜드)
 │   │   │   ├── mlb-marketing.json  #   MLB 마케팅 (영앤리치/시크)
 │   │   │   ├── discovery.json      #   Discovery (아웃도어/고프코어)

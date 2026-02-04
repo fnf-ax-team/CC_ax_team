@@ -292,24 +292,14 @@ dirty messy background, blurry out of focus face
 
 ## Step 4: 이미지 생성
 
-```python
-# Gemini API 호출
-config = types.GenerateContentConfig(
-    temperature=0.35,   # 일반보다 살짝 높음 (자연스러운 변형 유도)
-    response_modalities=["IMAGE", "TEXT"],
-    image_config=types.ImageConfig(
-        aspect_ratio="9:16",   # TikTok/릴스/쇼츠 세로 포맷 필수
-        image_size="2K"
-    )
-)
-```
+> API 설정 코드 패턴, 모델, 해상도, 에러 처리 → `CLAUDE.md` "Gemini API 절대 규칙" 참조
+> 구현 코드 레퍼런스 → `이미지생성_레퍼런스_image-gen-reference/SKILL.md` Section 2 참조
 
+**시딩UGC 전용 설정값:**
 | 설정 | 값 | 비고 |
 |------|-----|------|
-| 모델 | `gemini-3-pro-image-preview` | 필수 |
 | temperature | 0.35 | 자연스러운 변형 유도 (일반 0.3보다 약간 높음) |
-| 비율 | 9:16 | TikTok/릴스/쇼츠 필수 |
-| 해상도 | 2K | 프로덕션 릴리즈 품질 |
+| aspect_ratio | 9:16 | TikTok/릴스/쇼츠 세로 포맷 필수 |
 
 ## Step 5: 리얼리즘 검증 (UGC 전용)
 

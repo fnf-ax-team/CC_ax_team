@@ -206,6 +206,7 @@ LLM API 공식 문서를 Playwright MCP로 수집합니다.
 - UGC 리얼리즘 검증 + Anti-Polish 체크
 - Before/After 페어 자동 생성
 - 시나리오 자동 매칭 (pain_point, before_after, daily_routine, healthy_skin)
+- GRWM 촬영 규칙 강화 (카메라 프레임 노출 방지)
 
 **필수 환경변수:** `GEMINI_API_KEY`
 
@@ -223,6 +224,11 @@ Gemini 3 Pro Image API를 활용한 5종 콘텐츠 생성 통합 스킬.
 | 일상컷 | 타인 촬영/타이머 일상 사진 | 4:5 |
 | 시딩UGC | 틱톡/릴스 시딩 콘텐츠 | 9:16 |
 | 배경교체 | 기존 사진 배경 변경 | 원본유지 |
+
+**[NEW] 브랜드컷 v2 Shot Card 시스템:**
+- VLM 분석 기반 포즈/표정/앵글 카탈로그 (`pose_library.json`)
+- 구조화 Key-Value 프롬프트 (의상 누락 방지, 포즈 다양성 향상)
+- 14-slot 참조 이미지 전략적 배치
 
 **사용 예시:**
 - "바닐라코 화보 생성해줘" (브랜드컷)
@@ -348,4 +354,4 @@ CC_ax_team/
 
 **Made with ❤️ by AX Team**
 
-_Last Updated: 2026-02-04 (seeding-ugc 스킬 추가)_
+_Last Updated: 2026-02-04 (브랜드컷 v2 Shot Card, 시딩UGC GRWM 규칙 개선)_

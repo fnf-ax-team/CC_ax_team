@@ -129,13 +129,45 @@ result = workflow.generate(
 
 ### Camera Style 자동 매칭
 
+#### 1단계: 시나리오/동작 기반 자동 결정 (최우선)
+
+**핵심 원칙**: 틱톡/릴스 시딩 콘텐츠에서 제품 사용 장면은 **폰을 거치하고 양손을 자유롭게 쓰는 GRWM(Get Ready With Me) 구도**가 표준입니다. 셀카 포즈(한 손에 폰)는 "고민 보여주기"나 "결과 확인" 장면에만 사용합니다.
+
+| 동작/상황 | → camera_style | 이유 |
+|-----------|----------------|------|
+| 제품 바르기 (파운데이션, 크림, 세럼 등) | `propped_timelapse` | 양손 필요, GRWM 스타일 |
+| 스킨케어 루틴 전체 과정 | `propped_timelapse` | 양손 필요, 고정 카메라 |
+| 클렌징/세안 | `propped_timelapse` | 양손 필요 |
+| 메이크업 과정 | `propped_timelapse` | 양손 필요, 거울 앞 고정 |
+| 마스크팩 붙이기 | `propped_timelapse` | 양손 필요 |
+| 피부 고민 보여주기 (트러블, 유분 등) | `selfie_complaint` | 한 손으로 문제 부위 가리키기 |
+| 결과/비포애프터 확인 | `selfie_complaint` | 한 손 셀카로 결과 보여주기 |
+| 거울 앞 셀카 (제품 사용 X) | `mirror_film` | 거울 앞 상태 확인 |
+| 텍스처/발색 클로즈업 | `pov_application` | 손등/팔 클로즈업 |
+| 야외/일상 장면 | `friend_recording` | 제3자 촬영 느낌 |
+
+#### 2단계: 사용자 키워드 오버라이드
+
+사용자가 명시적으로 camera style을 지정하면 1단계를 오버라이드합니다:
+
 | 사용자 키워드 | → camera_style |
 |---------------|----------------|
-| "셀카", "클로즈업", "고민" | `selfie_complaint` |
-| "거울", "루틴", "바르기" | `mirror_film` |
+| "셀카", "클로즈업" | `selfie_complaint` |
+| "거울" | `mirror_film` |
 | "텍스처", "사용법" | `pov_application` |
-| "야외", "일상", "캔디드" | `friend_recording` |
-| "전체과정", "고정" | `propped_timelapse` |
+| "야외", "캔디드" | `friend_recording` |
+| "고정", "GRWM", "겟레디" | `propped_timelapse` |
+
+#### propped_timelapse 구도 상세 (GRWM 표준)
+
+| 항목 | 설명 |
+|------|------|
+| **폰 위치** | 선반/거치대에 세워놓음, 살짝 위에서 아래로 보는 각도 |
+| **손** | 양손 자유, 한 손으로 제품 들고 다른 손으로 바르기 |
+| **시선** | 거울 또는 폰 화면을 보며 바르는 중 (카메라 직접 응시 X) |
+| **프레이밍** | 얼굴+어깨, 약간 오프센터 OK, 고정이지만 완벽하지 않은 구도 |
+| **안정성** | 대체로 안정적이나 즉석 거치라 미세한 흔들림 |
+| **프롬프트 필수 포함** | "phone propped on shelf filming, both hands free, NOT holding phone, GRWM style fixed camera" |
 
 > **mirror_film 주의사항**: 거울 반사 구도가 아닌 거울 앞에서 프론트카메라로 직접 찍는 방식. 폰이 거울에 비치는 구도 사용 금지 (유령 핸드폰 방지). 프롬프트에 "NOT reflected in mirror, direct front camera shot" 명시 필요.
 

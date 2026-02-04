@@ -60,10 +60,14 @@ for img in result['images']:
             → Step 2: 리소스 로드 (DNA + 디렉터 + 템플릿)
             → Step 3: 착장 분석 (VLM)
             → Step 4: 프롬프트 조립 (하이브리드 DX+JSON)
+            → Step 4-B: Shot Card 시스템 (v2 프롬프트) ← NEW!
             → Step 5: 이미지 생성 (Gemini 3 Pro)
             → Step 6: 검증 (VLM 품질 판정)
             → Step 7: 스마트 재시도 (실패 이미지 자동 보정)
             → Step 8: 결과 반환
+
+v1 경로: Step 1-2-3-4-5-6-7-8 (하이브리드 프롬프트)
+v2 경로: Step 1-2-4B-5-6-7-8 (Shot Card 시스템, 착장 분석 스킵)
 ```
 
 ---
@@ -321,6 +325,674 @@ Based on the reference garment image, generate a photo where the model wears thi
 - 디렉터 페르소나의 `forbidden_keywords`는 반드시 negative prompt에 포함
 - 브랜드 DNA의 `color_temperature`를 lighting 섹션에 반영
 - 착장 분석에서 추출한 `distinctive_details`만 프롬프트에 포함 (기본 무지 아이템은 생략)
+
+---
+
+<br/>
+
+# ╔══════════════════════════════════════════════════════════════════╗
+# ║                                                                  ║
+# ║   Step 4-B: Shot Card 시스템 (v2 프롬프트)                       ║
+# ║                                                                  ║
+# ╚══════════════════════════════════════════════════════════════════╝
+
+> **작성일**: 2026-02-04
+> **테스트 결과**: v1 대비 포즈 다양성, 눈 크기, 의상 표현력, 색감 일관성 모두 개선 확인
+> **검증 상태**: 3개 shot 생성 성공 (chair_power, floor_gaze, extreme_closeup_fierce)
+
+## 개요
+
+Shot Card System은 **포즈/표정/앵글을 VLM으로 사전 분석한 카탈로그(pose_library.json)**와
+**구조화된 Key-Value 프롬프트 포맷**을 결합하여, v1의 제너릭한 결과물을 극복하는 v2 워크플로입니다.
+
+### v1 vs v2 비교
+
+| 항목 | v1 (기존 하이브리드) | v2 (Shot Card) |
+|------|---------------------|----------------|
+| **포즈 다양성** | 서있기/걷기 반복 | 의자, 바닥, 클로즈업 등 다양 |
+| **눈 크기** | 작고 찡그림 | 크고 또렷 (개선) |
+| **의상 누락** | 2-3벌 누락 빈번 | 전체 아이템 표현 |
+| **색감** | 따뜻한/뉴트럴 톤 | 쿨톤 일관성 |
+| **구도** | 제너릭 풀바디 | 다양한 앵글/프레이밍 |
+| **프롬프트 형식** | Prose (문장) | Key-Value (구조화) |
+| **참조 이미지** | 랜덤 할당 | 14-slot 전략적 배치 |
+
+---
+
+## Step 4-B-1: pose_library.json 구조
+
+### 파일 위치
+```
+.claude/skills/prompt-templates/pose_library.json
+```
+
+### 생성 방법
+```bash
+python analyze_style_library.py
+```
+
+38개의 MLB 스타일 참조 이미지를 Gemini 2.5 Flash VLM으로 분석하여 생성.
+
+### 엔트리 구조
+
+```json
+{
+  "id": "S100",
+  "pose_type": "sitting, powerful crossed-legs",
+  "body_description": "Full body: seated on black leather chair, left leg crossed over right at knee. Torso upright with slight lean back, right arm rests on chair arm, left hand on left knee. Head centered with slight downward tilt.",
+  "weight_distribution": "centered on seat, balanced between both hips",
+  "legs": "left leg crossed over right at knee, both feet flat on floor (right heel lifted slightly)",
+  "arms_hands": "right arm rests on chair arm naturally, left hand rests on left knee palm down",
+  "head_tilt": "slight downward (5-10 degrees)",
+  "torso_angle": "upright with slight backward lean (~10 degrees)",
+  "expression_type": "neutral, composed",
+  "eyes": "direct gaze to camera, calm, slightly narrowed",
+  "mouth": "closed, relaxed",
+  "expression_energy": "low-medium (confident but understated)",
+  "framing": "full body",
+  "camera_angle": "eye-level, straight on",
+  "estimated_lens": "50mm equivalent (normal)",
+  "environment_interaction": "seated on chair, natural posture",
+  "background_type": "plain white studio backdrop, minimalist",
+  "outfit_items_visible": [
+    "black bomber jacket (opened)",
+    "white inner tee (visible at collar)",
+    "light wash jeans",
+    "white sneakers",
+    "black cap with white logo"
+  ],
+  "color_temperature": "cool neutral (white backdrop, natural skin tones)",
+  "lighting_direction": "frontal soft diffused",
+  "editorial_boldness": 5,
+  "tags": ["sitting", "chair", "crossed-legs", "powerful-stance", "direct-gaze", "minimalist", "studio", "full-body", "neutral-expression"]
+}
+```
+
+### 주요 필드 설명
+
+| 필드 | 설명 | 활용 |
+|------|------|------|
+| `id` | 포즈 고유 ID (S001~S145) | Shot card에서 참조 |
+| `pose_type` | 포즈 한 줄 요약 | 프롬프트 헤더 |
+| `body_description` | 상세 신체 포지션 | 프롬프트 POSE 섹션 |
+| `expression_type` | 표정 타입 | EXPRESSION 섹션 |
+| `eyes`, `mouth` | 눈/입 디테일 | 표정 재현 |
+| `framing` | 프레이밍 (full-body/upper-body/closeup) | FRAMING 섹션 |
+| `camera_angle` | 카메라 앵글 | FRAMING 섹션 |
+| `outfit_items_visible` | 보이는 의상 아이템 목록 | OUTFIT 섹션 |
+| `editorial_boldness` | 에디토리얼 대담함 (1-10) | 스타일 강도 조절 |
+| `tags` | 검색 태그 | 포즈 검색/필터링 |
+
+---
+
+## Step 4-B-2: Shot Card JSON 구조
+
+### Shot Card 정의
+
+하나의 생성 샷(shot)에 필요한 모든 정보를 담은 JSON 객체.
+
+```json
+{
+  "shot_id": "chair_power",
+  "pose_id": "S100",
+  "expression_override": {
+    "eyes": "large almond eyes, wide open, intense direct gaze",
+    "mouth": "closed, subtle confident smirk",
+    "energy": "medium-high (confident swagger)"
+  },
+  "framing_override": {
+    "type": "full body",
+    "camera_angle": "eye-level, straight on",
+    "lens": "50mm"
+  },
+  "outfit_items": [
+    {
+      "label": "black bomber jacket",
+      "state": "opened, relaxed fit",
+      "ref_file": "mlb_style/bomber_01.jpg"
+    },
+    {
+      "label": "white inner tee",
+      "state": "visible at collar",
+      "ref_file": null
+    },
+    {
+      "label": "light wash jeans",
+      "state": "regular fit",
+      "ref_file": "mlb_style/jeans_02.jpg"
+    },
+    {
+      "label": "white sneakers",
+      "state": "clean, laced",
+      "ref_file": "mlb_style/sneakers_03.jpg"
+    },
+    {
+      "label": "black cap with white MLB logo",
+      "state": "worn forward",
+      "ref_file": "mlb_style/cap_04.jpg"
+    }
+  ],
+  "face_refs": [0, 1, 2],
+  "style_refs": ["mlb_editorial_01.jpg", "mlb_editorial_02.jpg"],
+  "background": "plain white studio backdrop, minimalist, no texture",
+  "lighting": "frontal soft diffused, even skin lighting, no harsh shadows"
+}
+```
+
+### Shot Card 필드 설명
+
+| 필드 | 필수 | 설명 |
+|------|------|------|
+| `shot_id` | Yes | 샷 고유 ID (사람이 읽을 수 있는 이름) |
+| `pose_id` | Yes | pose_library.json의 id 참조 (예: "S100") |
+| `expression_override` | No | 표정 오버라이드 (pose의 기본 표정 대신 사용) |
+| `framing_override` | No | 프레이밍 오버라이드 (pose의 기본 프레이밍 대신 사용) |
+| `outfit_items` | Yes | 의상 아이템 목록 (각 아이템은 label/state/ref_file) |
+| `face_refs` | Yes | 얼굴 참조 이미지 인덱스 (MLB_KARINA 디렉토리 내) |
+| `style_refs` | No | 스타일 참조 이미지 파일명 목록 |
+| `background` | Yes | 배경 설명 |
+| `lighting` | Yes | 조명 설명 |
+
+---
+
+## Step 4-B-3: 구조화 Key-Value 프롬프트 포맷
+
+v1의 prose 스타일 프롬프트 대신, **명확한 섹션 헤더와 key: value 쌍**으로 구성.
+
+### 포맷 예시
+
+```
+---GENERATION DIRECTIVE---
+
+type: ultra_photorealistic_fashion_editorial
+quality: 8k, maximum detail, professional photography
+reference_fidelity: CRITICAL - follow all reference images EXACTLY
+
+---POSE DETAILS (from pose_library S100)---
+Full body: seated on black leather chair, left leg crossed over right at knee.
+Torso upright with slight lean back, right arm rests on chair arm, left hand on left knee.
+Head centered with slight downward tilt.
+
+weight_distribution: centered on seat, balanced between both hips
+legs: left leg crossed over right at knee, both feet flat on floor (right heel lifted slightly)
+arms_hands: right arm rests on chair arm naturally, left hand rests on left knee palm down
+head_tilt: slight downward (5-10 degrees)
+torso_angle: upright with slight backward lean (~10 degrees)
+
+---FRAMING---
+type: full body
+camera_angle: eye-level, straight on
+lens: 50mm equivalent (normal perspective)
+
+---EXPRESSION---
+CRITICAL: LARGE ALMOND EYES, WIDE OPEN, INTENSE DIRECT GAZE
+eyes: large almond eyes, wide open, intense direct gaze
+mouth: closed, subtle confident smirk
+energy: medium-high (confident swagger)
+
+---OUTFIT (MANDATORY - ALL 5 ITEMS MUST BE VISIBLE)---
+1. [MANDATORY] black bomber jacket - opened, relaxed fit
+2. [MANDATORY] white inner tee - visible at collar
+3. [MANDATORY] light wash jeans - regular fit
+4. [MANDATORY] white sneakers - clean, laced
+5. [MANDATORY] black cap with white MLB logo - worn forward
+
+CRITICAL: All 5 items above MUST appear in the final image. NO substitutions.
+
+---BACKGROUND---
+plain white studio backdrop, minimalist, no texture
+
+---LIGHTING---
+frontal soft diffused, even skin lighting, no harsh shadows
+
+---COLOR TEMPERATURE---
+cool neutral tones, white backdrop, natural skin tones
+
+---SKIN---
+natural skin texture with visible pores, subtle imperfections, realistic subsurface scattering
+NO plastic skin, NO waxy appearance, NO airbrushed look
+
+---FORBIDDEN---
+warm tones, golden hour, graffiti, dirty backgrounds, extra fingers, plastic skin, text overlays
+
+---STYLE---
+MLB Marketing Editorial in the style of Tyrone Lebon - The Old Money Rebel
+```
+
+### v1 Prose 스타일과 비교
+
+**v1 (Prose)**:
+```
+Generate an ultra photorealistic fashion editorial image featuring a young
+adult woman in her mid-20s seated on a black leather chair with her left
+leg crossed over her right. She should wear a black bomber jacket (opened),
+white inner tee, light wash jeans, white sneakers, and a black cap with
+white MLB logo. Her expression should be neutral with a direct gaze to the
+camera. The background should be a plain white studio backdrop...
+```
+
+→ AI가 문장을 파싱하며 디테일을 놓침. 의상 누락 빈번.
+
+**v2 (Key-Value)**:
+```
+---OUTFIT (MANDATORY - ALL 5 ITEMS MUST BE VISIBLE)---
+1. [MANDATORY] black bomber jacket - opened, relaxed fit
+2. [MANDATORY] white inner tee - visible at collar
+3. [MANDATORY] light wash jeans - regular fit
+4. [MANDATORY] white sneakers - clean, laced
+5. [MANDATORY] black cap with white MLB logo - worn forward
+
+CRITICAL: All 5 items above MUST appear in the final image. NO substitutions.
+```
+
+→ 명확한 체크리스트. 누락 방지.
+
+---
+
+## Step 4-B-4: Reference Image Allocation (14-slot 전략)
+
+Gemini API는 최대 약 14개의 이미지를 동시에 입력 가능 (모델에 따라 다름, 안전하게 14개로 제한).
+
+### 우선순위 순서
+
+| 우선순위 | 타입 | 개수 | 설명 |
+|---------|------|------|------|
+| 1 | Pose Reference | 1 | pose_id에 해당하는 포즈 이미지 (필수) |
+| 2 | Face References | 2-4 | 얼굴 참조 (최소 2개, 권장 3개) |
+| 3 | Outfit References | N | outfit_items에 ref_file 지정된 아이템 (전부 포함 필수) |
+| 4 | Style References | 0-2 | 분위기 참조 (슬롯 남으면 포함) |
+
+### Allocation 로직
+
+```python
+def allocate_references(shot_card: dict, pose_library: dict, max_slots: int = 14) -> list:
+    """
+    14-slot 전략에 따라 참조 이미지 할당
+
+    Returns:
+        List of (image_pil, label) tuples
+    """
+    refs = []
+
+    # 1. Pose reference (최우선)
+    pose_id = shot_card["pose_id"]
+    pose_data = pose_library.get(pose_id)
+    if pose_data and pose_data.get("image_file"):
+        pose_img = Image.open(pose_data["image_file"])
+        refs.append((pose_img, f"[POSE REFERENCE - Generate EXACTLY this pose]: {pose_id}"))
+
+    # 2. Face references (2-4개)
+    face_indices = shot_card.get("face_refs", [])
+    for idx in face_indices[:4]:  # 최대 4개
+        face_img = load_face_ref(idx)  # MLB_KARINA/{idx}.jpg
+        refs.append((face_img, f"[FACE REFERENCE {idx+1} - Preserve facial features EXACTLY]:\nCRITICAL: LARGE ALMOND EYES, WIDE OPEN"))
+
+    # 3. Outfit references (전부 포함 필수)
+    for item in shot_card.get("outfit_items", []):
+        ref_file = item.get("ref_file")
+        if ref_file:
+            outfit_img = Image.open(ref_file)
+            refs.append((outfit_img, f"[OUTFIT REFERENCE - {item['label']}]: {item['state']}"))
+
+    # 4. Style references (슬롯 남으면)
+    remaining_slots = max_slots - len(refs)
+    style_files = shot_card.get("style_refs", [])
+    for style_file in style_files[:remaining_slots]:
+        style_img = Image.open(style_file)
+        refs.append((style_img, "[STYLE REFERENCE - Overall mood and color grading]:"))
+
+    return refs[:max_slots]
+```
+
+### Reference Label 전략
+
+각 참조 이미지에는 **명확한 역할 라벨**을 붙임.
+
+| 타입 | 라벨 예시 |
+|------|----------|
+| Pose | `[POSE REFERENCE - Generate EXACTLY this pose]: S100` |
+| Face | `[FACE REFERENCE 1 - Preserve facial features EXACTLY]:\nCRITICAL: LARGE ALMOND EYES, WIDE OPEN` |
+| Outfit | `[OUTFIT REFERENCE - black bomber jacket]: opened, relaxed fit` |
+| Style | `[STYLE REFERENCE - Overall mood and color grading]:` |
+
+---
+
+## Step 4-B-5: build_prompt_parts() 순서
+
+```python
+def build_prompt_parts(shot_card: dict, pose_library: dict) -> list:
+    """
+    Shot card에서 multimodal parts 생성 (text + images)
+
+    Returns:
+        List of types.Part (text or inline_data)
+    """
+    parts = []
+
+    # 1. Structured text prompt
+    text_prompt = build_structured_prompt(shot_card, pose_library)
+    parts.append(types.Part.from_text(text_prompt))
+
+    # 2. References (14-slot allocation)
+    refs = allocate_references(shot_card, pose_library, max_slots=14)
+
+    for img_pil, label in refs:
+        # Label as text
+        parts.append(types.Part.from_text(label))
+        # Image as inline data
+        parts.append(pil_to_part(img_pil))
+
+    return parts
+```
+
+### Parts 순서 Diagram
+
+```
+[Text Prompt]
+  ↓
+[Pose Label] → [Pose Image]
+  ↓
+[Face Label 1] → [Face Image 1]
+  ↓
+[Face Label 2] → [Face Image 2]
+  ↓
+[Face Label 3] → [Face Image 3]
+  ↓
+[Outfit Label 1] → [Outfit Image 1]
+  ↓
+[Outfit Label 2] → [Outfit Image 2]
+  ↓
+...
+  ↓
+[Style Label 1] → [Style Image 1]
+  ↓
+[Style Label 2] → [Style Image 2]
+```
+
+---
+
+## Step 4-B-6: build_structured_prompt() 함수
+
+```python
+def build_structured_prompt(shot_card: dict, pose_library: dict) -> str:
+    """
+    Shot card + pose_library에서 구조화 Key-Value 프롬프트 생성
+    """
+    pose_id = shot_card["pose_id"]
+    pose_data = pose_library.get(pose_id, {})
+
+    # Expression override
+    expr = shot_card.get("expression_override", {})
+    eyes = expr.get("eyes", pose_data.get("eyes", "neutral"))
+    mouth = expr.get("mouth", pose_data.get("mouth", "closed"))
+    energy = expr.get("energy", pose_data.get("expression_energy", "medium"))
+
+    # Framing override
+    frame = shot_card.get("framing_override", {})
+    framing_type = frame.get("type", pose_data.get("framing", "full body"))
+    camera_angle = frame.get("camera_angle", pose_data.get("camera_angle", "eye-level"))
+    lens = frame.get("lens", pose_data.get("estimated_lens", "50mm"))
+
+    # Outfit checklist
+    outfit_items = shot_card.get("outfit_items", [])
+    outfit_lines = []
+    for i, item in enumerate(outfit_items, 1):
+        outfit_lines.append(f"{i}. [MANDATORY] {item['label']} - {item['state']}")
+
+    outfit_str = "\n".join(outfit_lines)
+
+    # Background, Lighting
+    bg = shot_card.get("background", "neutral background")
+    lighting = shot_card.get("lighting", "soft diffused")
+
+    # Assemble
+    prompt = f"""---GENERATION DIRECTIVE---
+
+type: ultra_photorealistic_fashion_editorial
+quality: 8k, maximum detail, professional photography
+reference_fidelity: CRITICAL - follow all reference images EXACTLY
+
+---POSE DETAILS (from pose_library {pose_id})---
+{pose_data.get('body_description', 'standard pose')}
+
+weight_distribution: {pose_data.get('weight_distribution', 'balanced')}
+legs: {pose_data.get('legs', 'natural stance')}
+arms_hands: {pose_data.get('arms_hands', 'relaxed at sides')}
+head_tilt: {pose_data.get('head_tilt', 'neutral')}
+torso_angle: {pose_data.get('torso_angle', 'upright')}
+
+---FRAMING---
+type: {framing_type}
+camera_angle: {camera_angle}
+lens: {lens}
+
+---EXPRESSION---
+CRITICAL: LARGE ALMOND EYES, WIDE OPEN, INTENSE DIRECT GAZE
+eyes: {eyes}
+mouth: {mouth}
+energy: {energy}
+
+---OUTFIT (MANDATORY - ALL {len(outfit_items)} ITEMS MUST BE VISIBLE)---
+{outfit_str}
+
+CRITICAL: All {len(outfit_items)} items above MUST appear in the final image. NO substitutions.
+
+---BACKGROUND---
+{bg}
+
+---LIGHTING---
+{lighting}
+
+---COLOR TEMPERATURE---
+cool neutral tones, natural skin tones
+
+---SKIN---
+natural skin texture with visible pores, subtle imperfections, realistic subsurface scattering
+NO plastic skin, NO waxy appearance, NO airbrushed look
+
+---FORBIDDEN---
+warm tones, golden hour, graffiti, dirty backgrounds, extra fingers, plastic skin, text overlays
+
+---STYLE---
+MLB Marketing Editorial in the style of Tyrone Lebon - The Old Money Rebel
+"""
+
+    return prompt
+```
+
+---
+
+## Step 4-B-7: 샷 카드 기반 생성 스크립트
+
+### 파일: `generate_brandcut_v2.py`
+
+```python
+from google import genai
+from google.genai import types
+from PIL import Image
+import json
+
+def load_pose_library(path: str = ".claude/skills/prompt-templates/pose_library.json") -> dict:
+    with open(path, 'r', encoding='utf-8') as f:
+        data = json.load(f)
+    return {entry["id"]: entry for entry in data}
+
+def generate_from_shot_card(
+    shot_card: dict,
+    pose_library: dict,
+    api_key: str,
+    model: str = "gemini-3-pro-image-preview",
+    aspect_ratio: str = "3:4",
+    image_size: str = "2K",
+    temperature: float = 0.2
+) -> Image.Image:
+    """Shot card 기반 이미지 생성"""
+
+    client = genai.Client(api_key=api_key)
+
+    # 1. Build prompt parts
+    parts = build_prompt_parts(shot_card, pose_library)
+
+    # 2. Generate
+    config = types.GenerateContentConfig(
+        temperature=temperature,
+        response_modalities=["IMAGE"],
+        image_config=types.ImageConfig(
+            aspect_ratio=aspect_ratio,
+            image_size=image_size
+        )
+    )
+
+    response = client.models.generate_content(
+        model=model,
+        contents=parts,
+        config=config
+    )
+
+    # 3. Extract image
+    if response.candidates and response.candidates[0].content.parts:
+        for part in response.candidates[0].content.parts:
+            if hasattr(part, 'inline_data') and part.inline_data:
+                img_bytes = part.inline_data.data
+                return Image.open(io.BytesIO(img_bytes))
+
+    raise ValueError("No image generated")
+
+# Example usage
+if __name__ == "__main__":
+    pose_lib = load_pose_library()
+
+    shot = {
+        "shot_id": "chair_power",
+        "pose_id": "S100",
+        "expression_override": {
+            "eyes": "large almond eyes, wide open, intense direct gaze",
+            "mouth": "closed, subtle confident smirk",
+            "energy": "medium-high (confident swagger)"
+        },
+        "outfit_items": [
+            {"label": "black bomber jacket", "state": "opened", "ref_file": "ref/bomber.jpg"},
+            {"label": "white inner tee", "state": "visible", "ref_file": None},
+            {"label": "light wash jeans", "state": "regular fit", "ref_file": "ref/jeans.jpg"},
+            {"label": "white sneakers", "state": "clean", "ref_file": "ref/sneakers.jpg"},
+            {"label": "black cap", "state": "worn forward", "ref_file": "ref/cap.jpg"}
+        ],
+        "face_refs": [0, 1, 2],
+        "style_refs": ["mlb_01.jpg", "mlb_02.jpg"],
+        "background": "plain white studio backdrop",
+        "lighting": "frontal soft diffused"
+    }
+
+    result_img = generate_from_shot_card(shot, pose_lib, api_key=os.getenv("GEMINI_API_KEY"))
+    result_img.save("output_chair_power.png")
+```
+
+---
+
+## Step 4-B-8: 검증된 Shot 예시
+
+### 2026-02-04 테스트 결과
+
+3개 shot 생성 완료, 모두 v1 대비 개선 확인:
+
+| Shot ID | Pose ID | 특징 | v1 대비 개선 |
+|---------|---------|------|-------------|
+| `chair_power` | S100 | 의자에 앉아 다리 꼬기, 정면 응시 | 포즈 정확도 ↑, 의상 전부 표현 ↑ |
+| `floor_gaze` | S099 | 바닥에 앉아 시선 아래, 편안한 포즈 | 눈 크기 ↑, 색감 쿨톤 유지 ↑ |
+| `extreme_closeup_fierce` | S096 | 극단적 클로즈업, 강렬한 표정 | 표정 디테일 ↑, 플라스틱 피부 감소 ↑ |
+
+### Shot Card Template (chair_power)
+
+```json
+{
+  "shot_id": "chair_power",
+  "pose_id": "S100",
+  "expression_override": {
+    "eyes": "large almond eyes, wide open, intense direct gaze",
+    "mouth": "closed, subtle confident smirk",
+    "energy": "medium-high (confident swagger)"
+  },
+  "framing_override": {
+    "type": "full body",
+    "camera_angle": "eye-level, straight on",
+    "lens": "50mm"
+  },
+  "outfit_items": [
+    {
+      "label": "black bomber jacket",
+      "state": "opened, relaxed fit",
+      "ref_file": "mlb_style/bomber_01.jpg"
+    },
+    {
+      "label": "white inner tee",
+      "state": "visible at collar",
+      "ref_file": null
+    },
+    {
+      "label": "light wash jeans",
+      "state": "regular fit",
+      "ref_file": "mlb_style/jeans_02.jpg"
+    },
+    {
+      "label": "white sneakers",
+      "state": "clean, laced",
+      "ref_file": "mlb_style/sneakers_03.jpg"
+    },
+    {
+      "label": "black cap with white MLB logo",
+      "state": "worn forward",
+      "ref_file": "mlb_style/cap_04.jpg"
+    }
+  ],
+  "face_refs": [0, 1, 2],
+  "style_refs": ["mlb_editorial_01.jpg", "mlb_editorial_02.jpg"],
+  "background": "plain white studio backdrop, minimalist, no texture",
+  "lighting": "frontal soft diffused, even skin lighting, no harsh shadows"
+}
+```
+
+---
+
+## Step 4-B-9: v2 워크플로 전체 흐름
+
+```
+1. Shot Card 준비 (JSON)
+   ↓
+2. pose_library.json 로드
+   ↓
+3. build_structured_prompt(shot_card, pose_library)
+   → 구조화 Key-Value 텍스트 프롬프트 생성
+   ↓
+4. allocate_references(shot_card, pose_library, max_slots=14)
+   → 우선순위에 따라 참조 이미지 할당 (pose > face > outfit > style)
+   ↓
+5. build_prompt_parts(shot_card, pose_library)
+   → [Text, Pose, Face1, Face2, Face3, Outfit1, Outfit2, ..., Style1, Style2] parts 조립
+   ↓
+6. generate_content(model="gemini-3-pro-image-preview", contents=parts, config=...)
+   → Gemini API 호출 (aspect_ratio=3:4, image_size=2K, temperature=0.2)
+   ↓
+7. 결과 이미지 추출
+   ↓
+8. VLM 검증 (Step 6 그대로 적용)
+   ↓
+9. 필요시 재시도 (Step 7 그대로 적용)
+```
+
+---
+
+## Step 4-B-10: v1과 v2 선택 가이드
+
+| 상황 | 권장 버전 |
+|------|----------|
+| 포즈/앵글이 정해져 있고, 정확히 재현해야 함 | **v2 (Shot Card)** |
+| 38개 포즈 라이브러리 중 하나를 선택 가능 | **v2** |
+| 의상이 3개 이상이고 누락 없이 전부 표현해야 함 | **v2** |
+| 얼굴 크기/눈 크기 문제 (작게 나오는 경우) | **v2** (LARGE EYES 명시) |
+| 색감 일관성이 중요 (쿨톤/웜톤 명확히) | **v2** (KEY-VALUE로 명시) |
+| 빠른 프로토타입, 포즈는 자유 | **v1 (하이브리드)** |
+| 참조 이미지 없이 텍스트만으로 생성 | **v1** |
+| 착장 분석(VLM)이 필요한 경우 | **v1** (Step 3 포함) |
 
 ---
 
@@ -1286,6 +1958,8 @@ delay_between  : 0.5초 (기본), 429 에러 많으면 1.0~2.0으로 증가
 ├── prompt-templates/                       # 스타일 템플릿
 │   ├── editorial.json
 │   ├── selfie.json
+│   ├── pose_library.json                   # [v2] 포즈/표정/앵글 VLM 분석 카탈로그 (38 entries)
+│   ├── MLB_editorial.json                  # [v2] MLB 에디토리얼 v2 템플릿
 │   └── backgrounds/                        # 배경 프리셋
 ├── (MLB마케팅)_시티미니멀_tyrone-lebon/     # 디렉터 페르소나
 ├── (MLB그래픽)_스트릿레전드_shawn-stussy/
@@ -1296,9 +1970,19 @@ delay_between  : 0.5초 (기본), 429 에러 많으면 1.0~2.0으로 증가
 └── (제품연출)_한국힙이커머스_musinsa-29cm/
 ```
 
+### v2 Shot Card 관련 스크립트
+
+```
+project_root/
+├── analyze_style_library.py                # [v2] VLM 포즈 분석 스크립트 (38개 참조 이미지 분석)
+├── generate_brandcut_v2.py                 # [v2] Shot card 기반 생성 스크립트
+└── [기존 v1 스크립트들...]
+```
+
 ---
 
-**작성일**: 2026-02-02
-**버전**: 1.0
+**작성일**: 2026-02-04 (v2 Shot Card System 추가)
+**버전**: 2.0
 **통합 출처**: fnf-generate, 브랜드라우팅_brand-routing, 프롬프트패턴_prompt-patterns, 이미지생성기본_image-generation-base, 검증품질관리_validation-quality, 착장분석_clothing-analysis
 **참고**: editorial-prompt, selfie-prompt는 이 스킬에 통합됨
+**v2 추가**: pose_library.json 기반 Shot Card System, 구조화 Key-Value 프롬프트, 14-slot Reference Allocation

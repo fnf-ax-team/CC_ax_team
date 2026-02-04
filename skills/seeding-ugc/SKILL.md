@@ -160,14 +160,19 @@ result = workflow.generate(
 
 #### propped_timelapse 구도 상세 (GRWM 표준)
 
+**절대 규칙: 카메라/폰이 프레임에 절대 보이면 안 됨.** 카메라가 촬영하고 있으므로 카메라 자체는 보이지 않는 것이 물리적으로 당연함.
+
 | 항목 | 설명 |
 |------|------|
-| **폰 위치** | 선반/거치대에 세워놓음, 살짝 위에서 아래로 보는 각도 |
-| **손** | 양손 자유, 한 손으로 제품 들고 다른 손으로 바르기 |
-| **시선** | 거울 또는 폰 화면을 보며 바르는 중 (카메라 직접 응시 X) |
-| **프레이밍** | 얼굴+어깨, 약간 오프센터 OK, 고정이지만 완벽하지 않은 구도 |
+| **카메라** | **프레임에 절대 보이지 않음** - 카메라가 촬영 중이므로 물리적으로 안 보임 |
+| **앵글** | 약간 아래에서 위로 올려다보는 각도 (폰이 책상/선반 위에 세워져 있으므로) 또는 정면 eye-level |
+| **손** | 양손 자유. 한 손에 손거울/제품, 다른 손으로 퍼프/브러시/손가락으로 바르기 |
+| **시선** | 손거울을 보며 바르기 OR 카메라(=시청자)를 보며 바르기. 둘 다 자연스러움 |
+| **소도구** | 손거울, 퍼프/스펀지, 브러시, 쿠션팩트, 앞머리 롤러/헤어밴드 등 실제 GRWM 소품 |
+| **프레이밍** | 얼굴+어깨+상반신, 약간 오프센터 OK |
 | **안정성** | 대체로 안정적이나 즉석 거치라 미세한 흔들림 |
-| **프롬프트 필수 포함** | "phone propped on shelf filming, both hands free, NOT holding phone, GRWM style fixed camera" |
+| **프롬프트 필수 포함** | "filmed by propped phone, camera NOT visible in frame, both hands free, GRWM style, looking at hand mirror or looking at camera while applying" |
+| **Negative 필수 포함** | "phone visible in frame, camera visible, smartphone in shot, hand holding phone" |
 
 > **mirror_film 주의사항**: 거울 반사 구도가 아닌 거울 앞에서 프론트카메라로 직접 찍는 방식. 폰이 거울에 비치는 구도 사용 금지 (유령 핸드폰 방지). 프롬프트에 "NOT reflected in mirror, direct front camera shot" 명시 필요.
 

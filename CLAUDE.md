@@ -2,6 +2,34 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+## 자동 노트 규칙
+
+사용자가 **"노트 <"** 로 시작하는 메시지를 보내면, 즉시 `/oh-my-claudecode:note` 스킬을 호출하여 notepad.md에 기록한다. 별도 확인 없이 바로 저장.
+
+**기록 방식**: 사용자가 `<` 뒤에 짧게 써도, Claude가 현재 대화 맥락을 분석하여 아래 항목을 자동으로 채워서 상세하게 기록한다:
+
+```
+## [날짜] 세션 노트
+
+### 작업 목표
+- 이번 세션에서 하려던 것
+
+### 완료된 작업
+- 구체적으로 뭘 했는지 (파일명, 함수명 포함)
+
+### 미완료 / 다음 할 일
+- 어디서 멈췄는지, 다음에 뭘 해야 하는지
+
+### 핵심 결정사항
+- 기술 선택, 아키텍처 결정 등 (있으면)
+
+### 참고 파일
+- 관련 파일 경로 목록
+```
+
+- 예: `노트 < 피그마 작업 중간 저장` → Claude가 대화 내용 기반으로 위 양식을 채워서 저장
+- 새 세션 시작 시 `notepad.md`를 확인하면 이전 작업 맥락 복원 가능
+
 ## Project Overview
 
 FNF Studio is an AI-powered image generation platform for fashion brand photography. It uses the Gemini API to generate and edit images with background replacement, brand-specific styling, and quality validation workflows.
@@ -225,14 +253,19 @@ GEMINI_API_KEY=key1,key2,key3,key4,key5
 
 ## Output Directory Structure
 
+모든 출력은 `Fnf_studio_outputs/` 단일 폴더로 통합됩니다. (`core/config.py`의 `OUTPUT_BASE_DIR`)
+
 ```
-output/
-├── release/           # Passed quality check (total≥90, anatomy≥90, photorealism≥85)
-├── review/            # Failed quality check (needs manual review)
-├── manual_review/     # Auto-retry pipeline failures
-│   └── diagnosis/     # JSON diagnosis files
-├── logs/              # Pipeline reports
-└── pipeline_report_*.json
+Fnf_studio_outputs/
+├── {brand}/{workflow}/  # 브랜드별/워크플로별 하위 폴더
+│   ├── release/         # Passed quality check (total≥95, model_preservation=100)
+│   ├── manual_review/   # Auto-retry pipeline failures
+│   │   └── diagnosis/   # JSON diagnosis files
+│   ├── logs/            # Pipeline reports
+│   └── _temp/           # 임시 파일 (자동 정리)
+├── seeding_ugc/         # 시딩 UGC 결과물
+├── edit/                # 틴트/편집 결과물
+└── logs/                # 전체 파이프라인 리포트
 ```
 
 ---

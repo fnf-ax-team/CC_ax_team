@@ -17,30 +17,20 @@ description: AI 이미지 생성 통합 스킬. 브랜드컷(화보), 셀피, �
 - "시딩 이미지 만들어줘", "틱톡 시딩 콘텐츠", "UGC 스타일로"
 - "배경 바꿔줘", "배경 교체해줘"
 
-## 필수 환경변수
-
-```bash
-GEMINI_API_KEY=key1,key2,key3   # 쉼표로 구분, 복수 키 가능 (rate limit 대응)
-```
-
-## 필수 모델
-
-```python
-# 반드시 이 모델만 사용 (다른 모델 사용 금지)
-model = "gemini-3-pro-image-preview"
-```
+> **Gemini API 규칙 (모델, 해상도, Temperature, API키, 에러처리)** → `CLAUDE.md` 참조
+> **브랜드 라우팅 테이블** → `CLAUDE.md` 참조
 
 ---
 
 ## 5종 콘텐츠 카테고리
 
-| 카테고리 | 템플릿 | 목적 | 종횡비 | temperature |
-|----------|--------|------|--------|-------------|
-| **브랜드컷(화보)** | `templates/editorial.json` | 공식 화보/룩북 | 3:4 | 0.2 |
-| **셀피** | `templates/selfie.json` | 인스타 셀카 | 9:16 | 0.3 |
-| **일상컷** | `templates/daily_casual.json` | 일상 기록 사진 | 4:5 | 0.3 |
-| **시딩UGC** | `templates/seeding_ugc.json` | 틱톡/릴스 시딩 콘텐츠 | 9:16 | 0.35 |
-| **배경교체** | `templates/background-swap.json` | 기존 이미지 배경 변경 | 원본 유지 | 0.2 |
+| 카테고리 | 템플릿 | 목적 |
+|----------|--------|------|
+| **브랜드컷(화보)** | `templates/editorial.json` | 공식 화보/룩북 |
+| **셀피** | `templates/selfie.json` | 인스타 셀카 |
+| **일상컷** | `templates/daily_casual.json` | 일상 기록 사진 |
+| **시딩UGC** | `templates/seeding_ugc.json` | 틱톡/릴스 시딩 콘텐츠 |
+| **배경교체** | `templates/background-swap.json` | 기존 이미지 배경 변경 |
 
 ### 카테고리 선택 기준
 
@@ -63,14 +53,7 @@ model = "gemini-3-pro-image-preview"
 ### 2. 브랜드 라우팅
 브랜드가 언급되면 `brand-dna/` 에서 해당 JSON을 로드합니다.
 
-| 브랜드 | DNA 파일 | 디렉터 |
-|--------|----------|--------|
-| Banillaco (바닐라코) | `banillaco.json` | 맑은뷰티 (ahn-joo-young) |
-| Discovery (디스커버리) | `discovery.json` | 테크니컬유틸리티 (yosuke-aizawa) |
-| Duvetica (듀베티카) | `duvetica.json` | 럭셔리장인 (brunello-cucinelli) |
-| MLB 마케팅 | `mlb-marketing.json` | 시티미니멀 (tyrone-lebon) |
-| MLB 그래픽 | `mlb-graphic.json` | 스트릿레전드 (shawn-stussy) |
-| Sergio Tacchini | `sergio-tacchini.json` | 실루엣혁명 (hedi-slimane) |
+> 브랜드 → DNA → 디렉터 매칭 테이블 → `CLAUDE.md` "브랜드 라우팅 테이블" 참조
 
 ### 3. AI 판단으로 옵션 선택
 각 템플릿 JSON 안의 옵션들 중 상황에 맞는 것을 AI가 자동 선택합니다.
@@ -79,16 +62,7 @@ model = "gemini-3-pro-image-preview"
 ### 4. 프롬프트 조립 + 생성
 카테고리별 템플릿 구조에 따라 프롬프트를 조립하고 Gemini API를 호출합니다.
 
-```python
-config = types.GenerateContentConfig(
-    temperature=카테고리별_temperature,
-    response_modalities=["IMAGE", "TEXT"],
-    image_config=types.ImageConfig(
-        aspect_ratio=카테고리별_비율,
-        image_size="2K"
-    )
-)
-```
+> API 설정 코드 패턴 → `CLAUDE.md` "Gemini API 절대 규칙" 참조
 
 ### 4.5 VLM 제품 분석 (제품 레퍼런스 있을 때)
 제품 레퍼런스 이미지가 제공되면, **생성 전에 VLM으로 제품을 자동 분석**하여 상세 묘사를 생성합니다.
@@ -98,8 +72,8 @@ config = types.GenerateContentConfig(
 - 분석 실패 시 `brand-dna/{brand}.json`의 `products` 섹션으로 폴백
 
 ### 5. 품질 검증
-- **일반 카테고리**: 인물보존(35%) + 조명(20%) + 구도(15%) + 피부(15%) + 배경(15%)
-- **시딩UGC**: UGC리얼리즘(35%) + 인물보존(25%) + 시나리오정합(20%) + 피부상태(10%) + Anti-Polish(10%)
+
+> 워크플로별 검증 기준 (브랜드컷 6항목 / 배경교체 7항목 / UGC 5항목) → `CLAUDE.md` "품질 검증 기준" 참조
 
 ---
 

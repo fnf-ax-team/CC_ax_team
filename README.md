@@ -50,6 +50,7 @@
 | **세션 관리** | session-summary | 종합 세션 요약 문서 생성 |
 | **보고서** | ceo-ppt | 회장님 보고용 PPT 자동 생성 (F&F 디자인) |
 | **이미지 생성** | **fnf-image-gen** | AI 이미지 생성 통합 (브랜드컷, 셀피, 일상컷, 시딩UGC, 배경교체) |
+| **시딩 콘텐츠** | **seeding-ugc** | 인플루언서 시딩용 UGC 이미지 생성 (TikTok/릴스/쇼츠) |
 
 ---
 
@@ -189,6 +190,27 @@ LLM API 공식 문서를 Playwright MCP로 수집합니다.
 
 ---
 
+### seeding-ugc (시딩UGC)
+인플루언서 시딩용 UGC 콘텐츠 이미지를 생성합니다. TikTok/릴스/쇼츠용 9:16 세로 포맷.
+
+**핵심 원칙:** 진짜처럼 보여야 한다. 프로페셔널하게 보이면 실패.
+
+**사용 예시:**
+- "Banillaco 두통+햇빛 선케어 시딩 3장"
+- "유분 고민 → 사용 후 비교 4장"
+- "아침 루틴 스킨케어 과정 5장"
+
+**주요 기능:**
+- 5단계 레이어 프롬프트 구조 (기본설정 → 피사체 → Visual Action → 환경 → 조명)
+- Visual Action 최우선 원칙 (동작/자세를 프롬프트 중심에 배치)
+- UGC 리얼리즘 검증 + Anti-Polish 체크
+- Before/After 페어 자동 생성
+- 시나리오 자동 매칭 (pain_point, before_after, daily_routine, healthy_skin)
+
+**필수 환경변수:** `GEMINI_API_KEY`
+
+---
+
 ### fnf-image-gen (AI 이미지 생성)
 Gemini 3 Pro Image API를 활용한 5종 콘텐츠 생성 통합 스킬.
 
@@ -306,6 +328,8 @@ CC_ax_team/
 │   │   └── SKILL.md
 │   ├── skill-push/
 │   │   └── SKILL.md
+│   ├── seeding-ugc/                   # 📱 시딩UGC 콘텐츠 생성
+│   │   └── SKILL.md
 │   └── skill-sync/
 │       └── SKILL.md
 ```
@@ -324,4 +348,4 @@ CC_ax_team/
 
 **Made with ❤️ by AX Team**
 
-_Last Updated: 2026-02-03 (fnf-image-gen SKILL.md 단일 문서 통합)_
+_Last Updated: 2026-02-04 (seeding-ugc 스킬 추가)_

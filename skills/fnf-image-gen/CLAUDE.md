@@ -114,17 +114,43 @@ GEMINI_API_KEY=key1,key2,key3,key4,key5
 
 ## 품질 검증 기준
 
-### 표준 검증 (브랜드컷/배경교체)
+### 브랜드컷 검증 (Brand Cut)
 
-| Criterion | Weight | 설명 |
-|-----------|--------|------|
-| model_preservation | 35% | 인물 보존도 (Must be 100) |
-| lighting_match | 20% | 조명 일치도 |
-| perspective_match | 15% | 원근감 일치도 |
-| ground_contact | 15% | 지면 접촉 자연스러움 |
-| edge_quality | 15% | 경계 품질 |
+AI 생성 화보의 **스타일 완성도**를 평가합니다.
 
-**Pass 조건**: `model_preservation = 100` AND `total >= 95`
+| Criterion | Weight | Pass 기준 | 설명 |
+|-----------|--------|-----------|------|
+| photorealism | 25% | ≥ 85 | 실제 사진처럼 보이는지 |
+| anatomy | 20% | ≥ 90 | 해부학적 정확성 (손가락, 비율, 관절, 얼굴) |
+| brand_compliance | 20% | ≥ 80 | 브랜드 톤앤매너 준수 (색온도, 무드, 디렉터 스타일) |
+| outfit_accuracy | 15% | ≥ 85 | 착장 재현도 (로고/디테일 유지) |
+| composition | 10% | ≥ 80 | 구도/프레이밍 퀄리티 |
+| lighting_mood | 10% | ≥ 80 | 조명/분위기 (디렉터 의도 반영) |
+
+**Pass 조건**: 가중 평균 ≥ 90 AND `anatomy ≥ 90` AND `photorealism ≥ 85`
+
+**Auto-Fail** (점수 무관 즉시 재생성):
+- 손가락 6개 이상 / 기형적 손가락
+- 얼굴 왜곡 (비대칭, 이중 이미지)
+- 의도하지 않은 텍스트/워터마크
+- 브랜드 금지 요소 위반
+- AI 특유 플라스틱 피부
+
+### 배경교체 검증 (Background Swap)
+
+배경 **합성 품질**을 평가합니다. 인물 보존이 핵심.
+
+| Criterion | Weight | Pass 기준 | 설명 |
+|-----------|--------|-----------|------|
+| model_preservation | 30% | = 100 (필수) | 인물 보존 (포즈, 얼굴, 의상, 스케일) |
+| physics_plausibility | 15% | ≥ 50 (필수) | 물리적 타당성 (앉기→의자, 기대기→벽) |
+| ground_contact | 13% | - | 접지감 (발/그림자 자연스러움) |
+| lighting_match | 12% | - | 조명 방향/강도 일치 |
+| prop_style_consistency | 12% | - | 소품-배경 스타일 일치 |
+| edge_quality | 10% | - | 인물 경계면 깔끔함 |
+| perspective_match | 8% | - | 카메라 앵글/원근 일치 |
+
+**Pass 조건**: `model_preservation = 100` AND `physics_plausibility ≥ 50` AND `total ≥ 95`
 
 ### UGC 검증 (시딩 UGC 전용)
 

@@ -137,26 +137,17 @@ IMAGE_MODEL = "gemini-3-pro-image-preview"
 | `2K` | 2048x2048 | **일반 제작용 (기본값)** |
 | `4K` | 4096x4096 | 고품질 최종 결과물 |
 
-### Temperature 가이드
+### 콘텐츠 타입별 기본 설정 (Template + Aspect Ratio + Temperature)
 
-| 용도 | Temperature | 설명 |
-|------|-------------|------|
-| 배경 교체 / 참조 이미지 보존 | `0.2` | 충실도 최대 |
-| 브랜드컷 에디토리얼 | `0.2 ~ 0.3` | 착장 충실도 유지 |
-| 셀피 / 일상컷 | `0.3` | 자연스러운 변형 |
-| 시딩 UGC | `0.35` | 자연스러운 다양성 |
-| 자유 생성 | `0.3 ~ 0.5` | 창의적 다양성 |
-| 실험적/아트 | `0.7 ~ 0.9` | 다양한 결과 |
-
-### 콘텐츠 타입별 기본 설정
-
-| 타입 | Template | Aspect Ratio | Temperature | 용도 |
+| 타입 | Template | Aspect Ratio | Temperature | 설명 |
 |------|----------|--------------|-------------|------|
-| Editorial/Brand Cut | editorial.json | 3:4 | 0.2 | 전문 브랜드 화보 |
-| Selfie | selfie.json | 9:16 | 0.3 | 셀카/SNS |
-| Daily Casual | daily_casual.json | 4:5 | 0.3 | 일상컷 |
-| Seeding UGC | seeding_ugc.json | 9:16 | 0.35 | 인플루언서 시딩 |
-| Background Swap | background-swap.json | Original | 0.2 | 배경 교체 |
+| Editorial/Brand Cut | editorial.json | 3:4 | 0.2 ~ 0.3 | 전문 브랜드 화보 (착장 충실도 유지) |
+| Selfie | selfie.json | 9:16 | 0.3 | 셀카/SNS (자연스러운 변형) |
+| Daily Casual | daily_casual.json | 4:5 | 0.3 | 일상컷 (자연스러운 변형) |
+| Seeding UGC | seeding_ugc.json | 9:16 | 0.35 | 인플루언서 시딩 (자연스러운 다양성) |
+| Background Swap | background-swap.json | Original | 0.2 | 배경 교체 (충실도 최대) |
+| 자유 생성 | - | - | 0.3 ~ 0.5 | 창의적 다양성 |
+| 실험적/아트 | - | - | 0.7 ~ 0.9 | 다양한 결과 |
 
 ### API 설정 코드 패턴
 
@@ -217,6 +208,7 @@ GEMINI_API_KEY=key1,key2,key3,key4,key5
 | 화보, 에디토리얼, 매거진, 패션 | editorial | `브랜드컷_brand-cut` |
 | 셀피, 일상, SNS, 캐주얼 | selfie | `브랜드컷_brand-cut` |
 | 배경 교체, 배경 바꿔 | background-swap | `배경교체_background-swap` |
+| 스튜디오 배경 교체, 룩북 배경 | studio-relight + background-swap | `스튜디오리라이팅_studio-relight` (자동 감지) |
 | 시딩, UGC, 인플루언서, 틱톡, 릴스 | seeding_ugc | `시딩UGC_seeding-ugc` |
 | 일상컷, 남친샷, 산책, 데일리 | daily_casual | `일상컷_daily-casual` |
 | 제품컷, 물촬, 상세페이지 | product | `(제품연출)_한국힙이커머스_musinsa-29cm` |
@@ -225,17 +217,43 @@ GEMINI_API_KEY=key1,key2,key3,key4,key5
 
 ## 품질 검증 기준
 
-### 표준 검증 (브랜드컷/배경교체)
+### 브랜드컷 검증 (Brand Cut)
 
-| Criterion | Weight | 설명 |
-|-----------|--------|------|
-| model_preservation | 35% | 인물 보존도 (Must be 100) |
-| lighting_match | 20% | 조명 일치도 |
-| perspective_match | 15% | 원근감 일치도 |
-| ground_contact | 15% | 지면 접촉 자연스러움 |
-| edge_quality | 15% | 경계 품질 |
+AI 생성 화보의 **스타일 완성도**를 평가합니다.
 
-**Pass 조건**: `model_preservation = 100` AND `total >= 95`
+| Criterion | Weight | Pass 기준 | 설명 |
+|-----------|--------|-----------|------|
+| photorealism | 25% | ≥ 85 | 실제 사진처럼 보이는지 |
+| anatomy | 20% | ≥ 90 | 해부학적 정확성 (손가락, 비율, 관절, 얼굴) |
+| brand_compliance | 20% | ≥ 80 | 브랜드 톤앤매너 준수 (색온도, 무드, 디렉터 스타일) |
+| outfit_accuracy | 15% | ≥ 85 | 착장 재현도 (로고/디테일 유지) |
+| composition | 10% | ≥ 80 | 구도/프레이밍 퀄리티 |
+| lighting_mood | 10% | ≥ 80 | 조명/분위기 (디렉터 의도 반영) |
+
+**Pass 조건**: 가중 평균 ≥ 90 AND `anatomy ≥ 90` AND `photorealism ≥ 85`
+
+**Auto-Fail** (점수 무관 즉시 재생성):
+- 손가락 6개 이상 / 기형적 손가락
+- 얼굴 왜곡 (비대칭, 이중 이미지)
+- 의도하지 않은 텍스트/워터마크
+- 브랜드 금지 요소 위반
+- AI 특유 플라스틱 피부
+
+### 배경교체 검증 (Background Swap)
+
+배경 **합성 품질**을 평가합니다. 인물 보존이 핵심.
+
+| Criterion | Weight | Pass 기준 | 설명 |
+|-----------|--------|-----------|------|
+| model_preservation | 30% | = 100 (필수) | 인물 보존 (포즈, 얼굴, 의상, 스케일) |
+| physics_plausibility | 15% | ≥ 50 (필수) | 물리적 타당성 (앉기→의자, 기대기→벽) |
+| ground_contact | 13% | - | 접지감 (발/그림자 자연스러움) |
+| lighting_match | 12% | - | 조명 방향/강도 일치 |
+| prop_style_consistency | 12% | - | 소품-배경 스타일 일치 |
+| edge_quality | 10% | - | 인물 경계면 깔끔함 |
+| perspective_match | 8% | - | 카메라 앵글/원근 일치 |
+
+**Pass 조건**: `model_preservation = 100` AND `physics_plausibility ≥ 50` AND `total ≥ 95`
 
 ### UGC 검증 (시딩 UGC 전용)
 
@@ -280,6 +298,7 @@ Fnf_studio_outputs/
 | 브랜드컷 워크플로 | `.claude/skills/브랜드컷_brand-cut/SKILL.md` | 브랜드 화보 파이프라인 구현 시 |
 | 배경교체 워크플로 | `.claude/skills/배경교체_background-swap/SKILL.md` | 배경 교체 파이프라인 구현 시 |
 | 시딩UGC 워크플로 | `.claude/skills/시딩UGC_seeding-ugc/SKILL.md` | UGC 생성 파이프라인 구현 시 |
+| 스튜디오 리라이팅 | `.claude/skills/스튜디오리라이팅_studio-relight/SKILL.md` | 스튜디오 촬영→야외 배경 전환 시 (배경교체의 서브 모듈) |
 
 ---
 

@@ -387,9 +387,7 @@ graph LR
 
 ```mermaid
 flowchart TD
-    REQ["이미지 생성 요청"] --> MODEL{"모델 선택"}
-    MODEL -->|"항상"| GEN3["gemini-3-pro-image-preview<br/>유일한 허용 모델"]
-    MODEL -.->|"금지"| BANNED["gemini-2.0-flash-exp &#10060;<br/>gemini-2.0-flash &#10060;<br/>gemini-2.5-flash &#10060;"]
+    REQ["이미지 생성 요청"] --> GEN3["gemini-3-pro-image-preview"]
 
     GEN3 --> RES{"해상도 설정"}
     RES -->|"테스트"| R1K["1K: 1024x1024"]
@@ -403,7 +401,6 @@ flowchart TD
     TEMP -->|"시딩 UGC"| T035["0.35"]
 
     style GEN3 fill:#c8e6c9,stroke:#388e3c
-    style BANNED fill:#ffcdd2,stroke:#c62828
     style R2K fill:#bbdefb,stroke:#1976d2,stroke-width:3px
 ```
 

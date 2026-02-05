@@ -59,6 +59,12 @@ for img in result['images']:
             → Step 6: 검증 (VLM 품질 판정)
             → Step 7: 스마트 재시도 (실패 이미지 자동 보정)
             → Step 8: 결과 반환
+
+v1 경로: Step 1-2-3-4-5-6-7-8 (하이브리드 프롬프트)
+v2 경로: Step 1-2-3-4B-5-6-7-8 (Shot Card 시스템, VLM 착장 분석 포함)
+
+⚠️ v2에서도 Step 3 착장 분석은 **생략 불가**. Shot Card의 outfit_items에
+ref_file이 있으면 반드시 이미지를 참조로 넣고, 텍스트 설명도 VLM 분석 결과를 사용.
 ```
 
 ---
@@ -218,30 +224,36 @@ import json
 from google import genai
 from google.genai import types
 from PIL import Image
+from core.config import VISION_MODEL
 
-def analyze_fashion_image(image_pil: Image.Image, api_key: str) -> dict:
+def analyze_fashion_image(image_pil: Image.Image, api_key: str, model: str = VISION_MODEL) -> dict:
     """
     이미지에서 유의미한 패션 디테일만 선별적으로 추출
+
+    Args:
+        image_pil: 분석할 이미지
+        api_key: Gemini API 키
+        model: VLM 모델명 (기본값: core.config.VISION_MODEL)
 
     Returns:
         {"status": "success"|"skipped"|"error", "data": [...]}
     """
     client = genai.Client(api_key=api_key)
 
-    # 효율적인 분석을 위한 다운샘플링 (512px)
-    max_size = 512
+    # 효율적인 분석을 위한 다운샘플링 (1024px)
+    max_size = 1024
     if max(image_pil.size) > max_size:
         image_pil.thumbnail((max_size, max_size), Image.Resampling.LANCZOS)
 
     try:
         response = client.models.generate_content(
-            model="gemini-2.0-flash-exp",
+            model=model,
             contents=[types.Content(role="user", parts=[
                 types.Part(text=ANALYSIS_PROMPT), image_pil
             ])],
             config=types.GenerateContentConfig(
                 temperature=0.2,
-                max_output_tokens=800,
+                max_output_tokens=1200,
                 response_mime_type="application/json"
             )
         )
@@ -936,22 +948,34 @@ def handle_error(e: Exception) -> dict:
 ⚠️ 브랜드컷은 **처음부터 생성**하는 워크플로이므로, 배경교체의 "원본 보존" 검증과는 완전히 다릅니다.
 **생성된 이미지 자체의 퀄리티**를 평가합니다.
 
-### 검증 항목 (6가지)
+### 검증 항목 (8가지)
 
 | 항목 | 설명 | 가중치 | 통과 기준 |
 |------|------|--------|-----------|
-| **photorealism** | 포토리얼리즘 (실제 사진처럼 보이는지) | **25%** | ≥ 85 |
-| **anatomy** | 해부학적 정확성 (손가락, 비율, 관절, 얼굴) | **20%** | ≥ 90 |
-| **brand_compliance** | 브랜드 톤앤매너 준수 (색온도, 금지요소, 무드, 디렉터 스타일) | **20%** | ≥ 80 |
-| **outfit_accuracy** | 착장 재현도 (참조 이미지 준 경우 로고/디테일 유지) | **15%** | ≥ 85 |
-| **composition** | 구도/프레이밍 퀄리티 (앵글, 배치, 여백) | **10%** | ≥ 80 |
-| **lighting_mood** | 조명/분위기 (디렉터 의도 반영, 색온도) | **10%** | ≥ 80 |
+| **photorealism** | 포토리얼리즘 (실제 사진처럼 보이는지) | **20%** | ≥ 85 |
+| **anatomy** | 해부학적 정확성 (손가락, 비율, 관절) | **15%** | ≥ 90 |
+| **face_identity** | 얼굴 동일성 (참조 인물과 같은 사람인지) | **15%** | ≥ 90 |
+| **outfit_accuracy** | 착장 재현도 (참조 이미지와 색상/로고/소재 정확 일치) | **15%** | ≥ 85 |
+| **body_type** | 체형 보존 (참조 인물과 같은 체형) | **10%** | ≥ 85 |
+| **brand_compliance** | 브랜드 톤앤매너 준수 (색온도, 무드) | **10%** | ≥ 80 |
+| **composition** | 구도/프레이밍 퀄리티 (앵글, 배치, 여백) | **8%** | ≥ 80 |
+| **lighting_mood** | 조명/분위기 (디렉터 의도 반영) | **7%** | ≥ 80 |
+
+### 핵심 검증 (반드시 참조 이미지와 비교)
+
+> 아래 3개 항목은 **반드시 참조 이미지를 함께 검증 API에 넣어서** 비교 평가해야 합니다.
+
+| 항목 | 비교 대상 | 체크 포인트 |
+|------|----------|------------|
+| **face_identity** | face ref 이미지 | 같은 사람인가? 눈 모양, 코, 턱선, 피부톤 일치 |
+| **outfit_accuracy** | outfit ref 이미지 각각 | 색상 일치? 로고 위치/디자인 일치? 소재감 일치? 실루엣 일치? |
+| **body_type** | face ref 전신 이미지 | 체형이 같은가? 날씬한 모델이 뚱뚱하게 나오면 FAIL |
 
 ### 판정 기준
 
-- **RELEASE_READY**: 전체 가중 평균 ≥ 90 AND anatomy ≥ 90 AND photorealism ≥ 85
-- **NEEDS_REFINEMENT**: 전체 가중 평균 ≥ 80 BUT anatomy 또는 photorealism 미달
-- **REGENERATE**: 전체 가중 평균 < 80 또는 anatomy < 70
+- **RELEASE_READY**: 전체 가중 평균 ≥ 90 AND anatomy ≥ 90 AND photorealism ≥ 85 AND face_identity ≥ 90
+- **NEEDS_REFINEMENT**: 전체 가중 평균 ≥ 80 BUT 핵심 항목 중 하나 미달
+- **REGENERATE**: 전체 가중 평균 < 80 또는 Auto-Fail 조건 충족
 
 ### 즉시 실패 (Auto-Fail) 조건
 
@@ -961,6 +985,10 @@ def handle_error(e: Exception) -> dict:
 |------|------|
 | 손가락 이상 | 6개 이상 또는 기형적 손가락 |
 | 얼굴 왜곡 | 비대칭, 이중 이미지, 흐림 |
+| **얼굴 다른 사람** | 참조 인물과 다른 사람으로 보임 (face_identity < 70) |
+| **착장 불일치** | 참조 이미지와 색상/로고/소재가 명백히 다름 (outfit_accuracy < 70) |
+| **체형 불일치** | 날씬한 모델이 뚱뚱하게 나오거나 그 반대 (body_type < 70) |
+| **누런 톤** | 이미지에 golden/amber/warm cast 있음 (CLAUDE.md 색온도 규칙 위반) |
 | 텍스트/워터마크 | 의도하지 않은 텍스트가 이미지에 포함 |
 | 브랜드 금지 요소 | brand_dna.forbidden_keywords에 해당하는 요소 존재 |
 | 톤앤매너 불일치 | 색온도가 브랜드 방향과 정반대 (예: MLB에 골든아워/웜톤) |
@@ -970,24 +998,49 @@ def handle_error(e: Exception) -> dict:
 ### 검증 프롬프트 (VLM)
 
 ```python
+from core.config import VISION_MODEL
+
 def validate_brand_cut(
     generated_image,
     brand_dna: dict,
-    outfit_reference=None,
+    face_reference=None,
+    outfit_references: list = None,
+    body_type_description: str = "slim, lean",
     director_style: str = "",
     client=None,
-    model: str = "gemini-2.5-flash"
+    model: str = VISION_MODEL,
 ) -> dict:
-    """브랜드컷 생성 이미지 검증 (원본 비교 없음)"""
+    """브랜드컷 생성 이미지 검증 (참조 이미지와 비교)"""
 
-    outfit_instruction = ""
-    if outfit_reference:
-        outfit_instruction = """
-6. outfit_accuracy (0-100): Does the generated outfit match the reference?
-   - Logo placement and design preserved
-   - Color accuracy
-   - Garment silhouette and fit
-   - Key details (hood, zipper, pockets, etc.)"""
+    # 참조 비교 지시문 (face/outfit/body)
+    ref_instructions = ""
+    if face_reference:
+        ref_instructions += """
+6. face_identity (0-100): Is this the SAME PERSON as the face reference?
+   - Same eye shape, nose bridge, jawline, lip shape
+   - Same skin tone and complexion
+   - Recognizable as the same individual
+   - 100 = identical person, 70 = similar but different, 50 = clearly different person
+"""
+    if outfit_references:
+        ref_instructions += """
+7. outfit_accuracy (0-100): Does EACH garment EXACTLY match the outfit reference photos?
+   For EACH item, check ALL of:
+   - Color: exact same shade/hue (not similar - EXACT)
+   - Logo: same design, position, size, color
+   - Material/texture: same fabric appearance
+   - Silhouette: same cut, fit, length
+   - Details: same pockets, zippers, stitching, buttons, patterns
+   Score 100 only if ALL items match ALL details. Score 0 if colors or logos are wrong.
+"""
+    ref_instructions += f"""
+8. body_type (0-100): Does the model's body match "{body_type_description}"?
+   - Is the model slim/lean as specified, or does she look heavier/thicker?
+   - Check: waist-to-hip ratio, arm thickness, face roundness, overall frame
+   - 100 = exactly matches described body type
+   - 50 = noticeably heavier or thicker than described
+   - 0 = completely wrong body type
+"""
 
     forbidden = ", ".join(brand_dna.get("forbidden_keywords", []))
     brand_mood = ", ".join(brand_dna.get("identity", {}).get("mood", []))
@@ -1058,28 +1111,39 @@ SCORE EACH CRITERION (0-100):
    - Shadows are natural and well-placed
    - Color grading matches intended mood
    - Overall atmosphere is cohesive
-{outfit_instruction}
+{ref_instructions}
 
-AUTO-FAIL CONDITIONS (check these first!):
-- Extra/missing/deformed fingers → anatomy = 0
+AUTO-FAIL CONDITIONS (check FIRST!):
+- Extra/deformed fingers → anatomy = 0
 - Plastic/waxy skin → photorealism = 0
-- Unintended text/watermark in image → auto_fail = true
-- Forbidden brand elements → brand_compliance = 0
-- Color temperature completely opposite to brand DNA (e.g., warm golden for MLB cool brand) → brand_compliance = 0
-- NSFW content → auto_fail = true
+- DIFFERENT PERSON from face reference → face_identity < 70 → auto_fail
+- OUTFIT COLORS/LOGOS WRONG vs reference → outfit_accuracy < 70 → auto_fail
+- MODEL TOO FAT/HEAVY vs body type description → body_type < 70 → auto_fail
+- YELLOW/GOLDEN TINT anywhere → brand_compliance = 0, auto_fail = true
+- Unintended text/watermark → auto_fail = true
+- NSFW → auto_fail = true
 
 RESPOND IN JSON:
 {{
   "photorealism": <int 0-100>,
   "anatomy": <int 0-100>,
+  "face_identity": <int 0-100 or null if no face ref>,
+  "outfit_accuracy": <int 0-100 or null if no outfit ref>,
+  "outfit_detail": {{
+    "item_scores": [
+      {{"item": "jacket", "color_match": <int>, "logo_match": <int>, "silhouette_match": <int>}},
+      ...
+    ]
+  }},
+  "body_type": <int 0-100>,
   "brand_compliance": <int 0-100>,
   "brand_compliance_detail": {{
     "color_temperature": <int 0-100>,
+    "yellow_tint_detected": <bool>,
     "forbidden_check": <int 0-100>,
     "mood_match": <int 0-100>,
     "director_style_match": <int 0-100 or null>
   }},
-  "outfit_accuracy": <int 0-100 or null if no reference>,
   "composition": <int 0-100>,
   "lighting_mood": <int 0-100>,
   "auto_fail": <bool>,
@@ -1090,8 +1154,10 @@ RESPOND IN JSON:
 }}"""
 
     parts = [prompt, generated_image]
-    if outfit_reference:
-        parts.append(outfit_reference)
+    if face_reference:
+        parts.append(face_reference)
+    if outfit_references:
+        parts.extend(outfit_references)
 
     gen_config = types.GenerateContentConfig(
         response_mime_type="application/json",
@@ -1106,24 +1172,24 @@ RESPOND IN JSON:
 
     result = json.loads(response.text)
 
-    # 가중 평균 계산
+    # 가중 평균 계산 (8항목)
     weights = {
-        "photorealism": 0.25,
-        "anatomy": 0.20,
-        "brand_compliance": 0.20,
+        "photorealism": 0.20,
+        "anatomy": 0.15,
+        "face_identity": 0.15,
         "outfit_accuracy": 0.15,
-        "composition": 0.10,
-        "lighting_mood": 0.10
+        "body_type": 0.10,
+        "brand_compliance": 0.10,
+        "composition": 0.08,
+        "lighting_mood": 0.07
     }
 
-    if result.get("outfit_accuracy") is None:
-        # 착장 참조 없는 경우 가중치 재분배
-        weights.pop("outfit_accuracy")
-        weights["photorealism"] = 0.30
-        weights["anatomy"] = 0.25
-        weights["brand_compliance"] = 0.25
-        weights["composition"] = 0.10
-        weights["lighting_mood"] = 0.10
+    # 참조 없는 항목 가중치 재분배
+    for key in ["face_identity", "outfit_accuracy"]:
+        if result.get(key) is None:
+            removed_weight = weights.pop(key)
+            weights["photorealism"] += removed_weight / 2
+            weights["anatomy"] += removed_weight / 2
 
     total = sum(
         result.get(k, 0) * v
@@ -1706,13 +1772,35 @@ REFERENCE_PROMPTS = {
 
 CRITICAL - Preserve EXACTLY:
 - Garment shape and silhouette (DO NOT change)
-- All colors including primary and secondary
-- Logo/branding placement and design (DO NOT modify or remove)
-- All features: hood, zipper, pockets, buttons
-- Fabric texture and material appearance
+- All colors including primary and secondary (EXACT shade, not similar)
+- Logo/branding: EXACT same design, position, size, color (DO NOT modify, remove, or reposition)
+- All features: hood, zipper, pockets, buttons, stitching, patches
+- Fabric texture and material appearance (same drape, sheen, weave)
 - Fit style (oversized/regular/slim) and length
+- Pattern/print: EXACT same pattern if any
 
-The garment must be IDENTICAL to reference.""",
+The garment must be IDENTICAL to reference. If the reference shows a RED logo, it must be RED in the output.
+If the reference shows 4 pockets, there must be exactly 4 pockets.""",
+
+    "face": """Based on the reference face images, generate the EXACT SAME PERSON.
+
+CRITICAL - This must be RECOGNIZABLE as the same individual:
+- Same eye shape, size, and spacing
+- Same nose bridge and tip shape
+- Same jawline and chin
+- Same lip shape and fullness
+- Same skin tone and complexion
+- Same hair color and texture
+
+The person in the output must look like the person in the reference, not a similar-looking person.""",
+
+    "body_type": """The model's body type must match the description below.
+
+CRITICAL - Body proportions:
+- If described as 'slim/lean/petite': thin arms, narrow waist, lean legs, small frame
+- NEVER generate a heavier/thicker body than described
+- Check: waist width, arm thickness, face shape, overall frame size
+- The model should NOT look puffy, bloated, or thick if described as slim""",
 
     "all": """Based on the reference image, generate a new image that closely follows:
 - Lighting: Match the light direction, quality, and shadows

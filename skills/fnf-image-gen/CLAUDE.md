@@ -120,18 +120,23 @@ AI 생성 화보의 **스타일 완성도**를 평가합니다.
 
 | Criterion | Weight | Pass 기준 | 설명 |
 |-----------|--------|-----------|------|
-| photorealism | 25% | ≥ 85 | 실제 사진처럼 보이는지 |
-| anatomy | 20% | ≥ 90 | 해부학적 정확성 (손가락, 비율, 관절, 얼굴) |
-| brand_compliance | 20% | ≥ 80 | 브랜드 톤앤매너 준수 (색온도, 무드, 디렉터 스타일) |
-| outfit_accuracy | 15% | ≥ 85 | 착장 재현도 (로고/디테일 유지) |
-| composition | 10% | ≥ 80 | 구도/프레이밍 퀄리티 |
-| lighting_mood | 10% | ≥ 80 | 조명/분위기 (디렉터 의도 반영) |
+| photorealism | 20% | ≥ 85 | 실제 사진처럼 보이는지 |
+| anatomy | 15% | ≥ 90 | 해부학적 정확성 (손가락, 비율, 관절) |
+| face_identity | 15% | ≥ 90 | **얼굴 동일성 (참조 인물과 같은 사람인지)** |
+| outfit_accuracy | 15% | ≥ 85 | **착장 재현도 (참조 이미지와 색상/로고/소재 정확 일치)** |
+| body_type | 10% | ≥ 85 | **체형 보존 (참조 인물과 같은 체형)** |
+| brand_compliance | 10% | ≥ 80 | 브랜드 톤앤매너 준수 (색온도, 무드) |
+| composition | 8% | ≥ 80 | 구도/프레이밍 퀄리티 |
+| lighting_mood | 7% | ≥ 80 | 조명/분위기 (디렉터 의도 반영) |
 
-**Pass 조건**: 가중 평균 ≥ 90 AND `anatomy ≥ 90` AND `photorealism ≥ 85`
+**Pass 조건**: 가중 평균 ≥ 90 AND `anatomy ≥ 90` AND `photorealism ≥ 85` AND `face_identity ≥ 90`
 
 **Auto-Fail** (점수 무관 즉시 재생성):
 - 손가락 6개 이상 / 기형적 손가락
-- 얼굴 왜곡 (비대칭, 이중 이미지)
+- **얼굴 다른 사람** (face_identity < 70)
+- **착장 색상/로고 불일치** (outfit_accuracy < 70)
+- **체형 불일치 (날씬→뚱뚱 등)** (body_type < 70)
+- **누런 톤 (golden/amber/warm cast)** → 색온도 규칙 위반
 - 의도하지 않은 텍스트/워터마크
 - 브랜드 금지 요소 위반
 - AI 특유 플라스틱 피부

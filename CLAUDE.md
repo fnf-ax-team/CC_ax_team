@@ -117,17 +117,28 @@ See `docs/ARCHITECTURE.md` for detailed flow diagram.
 
 이 섹션의 규칙은 **모든 이미지 생성 작업에 항상 적용**됩니다. 위반 시 생성물 전체 삭제 후 재생성 필요.
 
-### 모델 선택
+### 모델 선택 (core/config.py에서 관리)
+
+**모든 모델명은 `core/config.py`에서 import하여 사용. 절대 하드코딩 금지.**
 
 ```python
-# 무조건 이것만 사용
-IMAGE_MODEL = "gemini-3-pro-image-preview"
+from core.config import IMAGE_MODEL, VISION_MODEL
 
-# 절대 금지 (아래 모델 사용 금지)
-# "gemini-2.0-flash-exp-image-generation"  → 인물 축소, 배경 합성 품질 낮음, 색감 불일치
-# "gemini-2.0-flash"                       → 위와 동일
-# "gemini-2.5-flash"                       → 텍스트 전용, 최대 1024px만 지원
+# IMAGE_MODEL = "gemini-3-pro-image-preview"   → 이미지 생성용
+# VISION_MODEL = "gemini-3.0-flash-preview"    → 분석/검증/VLM용
 ```
+
+| 용도 | config 상수 | 현재 값 | 사용처 |
+|------|-------------|---------|--------|
+| 이미지 생성 | `IMAGE_MODEL` | `gemini-3-pro-image-preview` | generate_content(model=IMAGE_MODEL) |
+| 분석/검증/VLM | `VISION_MODEL` | `gemini-3.0-flash-preview` | 착장분석, 품질검증, 배경분석 등 |
+
+**모델 변경 시**: `core/config.py` 한 곳만 수정하면 전체 반영.
+
+**절대 금지 (이미지 생성에 아래 모델 사용 금지)**:
+- `gemini-2.0-flash-exp-image-generation` → 인물 축소, 배경 합성 품질 낮음, 색감 불일치
+- `gemini-2.0-flash` → 위와 동일
+- `gemini-2.5-flash` → 텍스트 전용, 최대 1024px만 지원
 
 ### 해상도 설정
 
@@ -183,6 +194,38 @@ GEMINI_API_KEY=key1,key2,key3,key4,key5
 
 재시도 시 `(attempt + 1) * 5`초 대기, 최대 3회.
 
+### 색온도 절대 규칙 (Color Temperature Policy)
+
+**이 규칙은 모든 이미지 생성에 적용됩니다. 예외 없음.**
+
+| 규칙 | 설명 |
+|------|------|
+| **노을 절대 금지** | golden hour, sunset, warm golden tones 등 노을 관련 키워드 프롬프트 사용 금지 |
+| **누런 톤 금지** | warm amber, warm golden, honey-toned 등 누런 색감 유발 키워드 금지 |
+| **낮 = 한낮 2시** | 낮 배경은 무조건 `bright midday 2PM sun, crisp neutral-cool daylight, 5600K~6200K` |
+| **밤 = 완전한 밤** | 밤 배경은 `urban night, cool artificial lighting, street lamps` |
+| **중간 없음** | 새벽/석양/골든아워/매직아워 등 중간 시간대 금지 |
+
+**프롬프트 색온도 가이드:**
+
+```
+# 허용 (GOOD) ✓
+"bright afternoon sunlight, crisp neutral-cool daylight 6000K"
+"clear midday sun, clean white-blue sky"
+"urban night with cool LED street lighting"
+
+# 금지 (BAD) ✗
+"warm golden afternoon sunlight"     → 누런 톤 유발
+"golden hour warm tones"              → 노을 톤
+"sunset glow"                         → 노을
+"warm amber bounce light"             → 누런 반사광
+```
+
+**배경 프롬프트 작성 시 필수 포함:**
+- `neutral-cool daylight` 또는 `cool-toned`
+- 색온도 명시: `5600K~6200K` (낮) 또는 `cool 4000K~4500K` (밤/인공조명)
+- `no warm cast, no golden tones` 안전장치 추가 권장
+
 ---
 
 ## 브랜드 라우팅 테이블
@@ -217,24 +260,56 @@ GEMINI_API_KEY=key1,key2,key3,key4,key5
 
 ## 품질 검증 기준
 
+### 브랜드컷 우선순위 원칙 (중요도 순)
+
+이미지 생성 모델이 참조할 수 있는 이미지는 **최대 14장**. 아래 우선순위 엄수.
+
+| 우선순위 | 항목 | 설명 | 허용 오차 |
+|---------|------|------|----------|
+| **1 (최우선)** | 착장 보존 | 참조 이미지의 모든 착장 아이템(ACC, 슈즈, 아우터, 이너, 하의 등)이 100% 일치. **디테일 하나라도 틀리면 안됨.** 착장 참조 이미지는 개수 상관없이 **전부** 포함 필수. | 0% |
+| **2** | 인물 보존 | 얼굴이 참조 이미지의 인물과 100% 일치 (눈 크기/모양, 코, 턱선, 피부톤) | 0% |
+| **3** | 포즈 | 자사 브랜드 톤앤매너에 맞는 포즈. 다수 생성 시 모두 다른 포즈 | 자연스러운 범위 |
+| **4** | 표정 | 자사 브랜드 톤앤매너에 맞는 표정 | 자연스러운 범위 |
+| **5** | 앵글 | 자사 브랜드 톤앤매너에 맞는 카메라 앵글 | 자연스러운 범위 |
+| **6** | 구도 | 자사 브랜드 톤앤매너에 맞는 카메라 구도 | 자연스러운 범위 |
+| **7** | 색감/콘트라스트 | 자사 브랜드 톤앤매너에 맞는 색감과 대비 | 브랜드 범위 내 |
+| **8** | 배경 | 금지 요소 미포함 (MLB: 그래피티 금지, 모델 외 타인 금지 / Discovery: 과도한 자연 금지, 도심 웰니스만 허용) | 0% (금지요소) |
+| **9** | 브랜드 톤앤매너 | 전체적으로 자사 브랜드 스타일 가이드(mlb_style 등)와 일치 | 브랜드 범위 내 |
+
+### 참조 이미지 할당 (14슬롯)
+
+| 순서 | 타입 | 개수 | 설명 |
+|------|------|------|------|
+| **1st** | Face | 나머지 슬롯 (착장 제외 후 최대화) | **Face First** - 얼굴을 가장 먼저, 가장 많이 |
+| **2nd** | Outfit | N개 (전부 필수) | 착장 아이템 수만큼 (5개일수도, 더 많거나 적을수도) |
+| **3rd** | Pose | 1 | 포즈 에너지 참조 |
+| **4th** | Style | 나머지 슬롯 | 브랜드 톤앤매너 참조 (없어도 됨) |
+
+**할당 공식**: `Face = 14 - Outfit개수 - 1(Pose) - Style개수`
+
 ### 브랜드컷 검증 (Brand Cut)
 
 AI 생성 화보의 **스타일 완성도**를 평가합니다.
 
 | Criterion | Weight | Pass 기준 | 설명 |
 |-----------|--------|-----------|------|
-| photorealism | 25% | ≥ 85 | 실제 사진처럼 보이는지 |
-| anatomy | 20% | ≥ 90 | 해부학적 정확성 (손가락, 비율, 관절, 얼굴) |
-| brand_compliance | 20% | ≥ 80 | 브랜드 톤앤매너 준수 (색온도, 무드, 디렉터 스타일) |
-| outfit_accuracy | 15% | ≥ 85 | 착장 재현도 (로고/디테일 유지) |
-| composition | 10% | ≥ 80 | 구도/프레이밍 퀄리티 |
-| lighting_mood | 10% | ≥ 80 | 조명/분위기 (디렉터 의도 반영) |
+| photorealism | 20% | ≥ 85 | 실제 사진처럼 보이는지 |
+| anatomy | 15% | ≥ 90 | 해부학적 정확성 (손가락, 비율, 관절) |
+| face_identity | 15% | ≥ 90 | **얼굴 동일성 (참조 인물과 같은 사람인지)** |
+| outfit_accuracy | 15% | ≥ 85 | **착장 재현도 (참조 이미지와 색상/로고/소재 정확 일치)** |
+| body_type | 10% | ≥ 85 | **체형 보존 (참조 인물과 같은 체형)** |
+| brand_compliance | 10% | ≥ 80 | 브랜드 톤앤매너 준수 (색온도, 무드) |
+| composition | 8% | ≥ 80 | 구도/프레이밍 퀄리티 |
+| lighting_mood | 7% | ≥ 80 | 조명/분위기 (디렉터 의도 반영) |
 
-**Pass 조건**: 가중 평균 ≥ 90 AND `anatomy ≥ 90` AND `photorealism ≥ 85`
+**Pass 조건**: 가중 평균 ≥ 90 AND `anatomy ≥ 90` AND `photorealism ≥ 85` AND `face_identity ≥ 90`
 
 **Auto-Fail** (점수 무관 즉시 재생성):
 - 손가락 6개 이상 / 기형적 손가락
-- 얼굴 왜곡 (비대칭, 이중 이미지)
+- **얼굴 다른 사람** (face_identity < 70)
+- **착장 색상/로고 불일치** (outfit_accuracy < 70)
+- **체형 불일치 (날씬→뚱뚱 등)** (body_type < 70)
+- **누런 톤 (golden/amber/warm cast)** → CLAUDE.md 색온도 규칙 위반
 - 의도하지 않은 텍스트/워터마크
 - 브랜드 금지 요소 위반
 - AI 특유 플라스틱 피부

@@ -1,0 +1,28 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(claude mcp add:*)",
+      "mcp__notion__notion-fetch",
+      "Bash(claude mcp list:*)",
+      "WebFetch(domain:docs.snowflake.com)",
+      "mcp__snowflake-reader__query",
+      "mcp__figma-remote-mcp__get_screenshot",
+      "mcp__figma-remote-mcp__whoami",
+      "mcp__figma-remote-mcp__get_metadata",
+      "mcp__figma-remote-mcp__get_design_context",
+      "Bash(ls:*)",
+      "Bash(mkdir:*)",
+      "mcp__snowflake__sql_exec_tool",
+      "Bash(git checkout:*)",
+      "Bash(git add:*)",
+      "Bash(git commit:*)",
+      "Bash(pnpm tsc:*)",
+      "Bash(git push:*)",
+      "Bash(gh pr list:*)",
+      "Bash(lsof:*)",
+      "Bash(kill:*)",
+      "mcp__ide__getDiagnostics",
+      "Bash(node -e:*)"
+    ]
+  }
+}

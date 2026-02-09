@@ -85,6 +85,19 @@ trigger-keywords: ["인플", "인플루언서", "셀럽", "셀카 만들어", "�
    • 소파/거실
    • (직접 입력)
 
+   📏 비율
+   • 9:16 - 스토리/릴스 (기본값)
+   • 4:5 - 인스타 피드
+   • 1:1 - 정사각형
+   • 3:4 - 세로형
+
+   🖼️ 레이아웃
+   • 단일 - 기본 단일 이미지 (기본값)
+   • 2단 세로 - 위아래 두 컷 (다른 포즈/표정)
+   • 흰 여백 - 상하 흰 테두리 + 이미지 (매거진 느낌)
+   • 필름 스트립 - 3컷 세로 필름 느낌
+   • 폴라로이드 - 흰 테두리 + 하단 여백
+
    🔢 수량: 1~10장
 
    ※ 화질은 자연스러운 아이폰 느낌으로 고정"
@@ -132,8 +145,17 @@ GEMINI_API_KEY=key1,key2,key3
 |------|-----|------|
 | **모델** | `gemini-3-pro-image-preview` | 이미지 생성 전용 (필수) |
 | **Temperature** | `0.5` | 자연스러운 다양성 (0.3~0.7 권장) |
-| **Aspect Ratio** | `9:16` | 인스타 스토리/릴스 세로형 |
+| **Aspect Ratio** | `9:16`, `4:5`, `1:1`, `3:4` | 용도에 따라 선택 |
 | **해상도** | `2K` (2048px) | 고품질 (1K/2K/4K 선택 가능) |
+
+### 비율 옵션
+
+| 비율 | 용도 | API 값 |
+|------|------|--------|
+| 9:16 | 스토리/릴스 (세로 풀스크린) | `"9:16"` |
+| 4:5 | 인스타 피드 (세로 직사각) | `"4:5"` |
+| 1:1 | 정사각형 (클래식 인스타) | `"1:1"` |
+| 3:4 | 세로형 (에디토리얼) | `"3:4"` |
 
 **⚠️ 절대 금지 모델:**
 - `gemini-2.0-flash-exp-image-generation` → 품질 낮음
@@ -183,13 +205,14 @@ def pil_to_part(img, max_size=1024):
     return types.Part(inline_data=types.Blob(mime_type="image/png", data=buf.getvalue()))
 
 # ============ 3. 이미지 생성 ============
-def generate_influencer_image(prompt, face_images):
+def generate_influencer_image(prompt, face_images, aspect_ratio="9:16"):
     """
     인플루언서 이미지 생성
 
     Args:
         prompt: 한국어 프롬프트 (예: "이 얼굴로 카페에서 셀카")
         face_images: PIL Image 리스트 (얼굴 참조 이미지 2~3장)
+        aspect_ratio: 비율 ("9:16", "4:5", "1:1", "3:4")
 
     Returns:
         PIL Image or None
@@ -208,7 +231,7 @@ def generate_influencer_image(prompt, face_images):
             temperature=0.5,                    # 0.3~0.7 권장
             response_modalities=["IMAGE", "TEXT"],
             image_config=types.ImageConfig(
-                aspect_ratio="9:16",            # 세로형 (인스타)
+                aspect_ratio=aspect_ratio,      # 비율 선택 가능
                 image_size="2K"                 # 2048px 해상도
             )
         )
@@ -227,11 +250,11 @@ def generate_influencer_image(prompt, face_images):
 ```python
 import time
 
-def generate_with_retry(prompt, face_images, max_retries=3):
+def generate_with_retry(prompt, face_images, aspect_ratio="9:16", max_retries=3):
     """재시도 로직 포함 생성"""
     for attempt in range(max_retries):
         try:
-            return generate_influencer_image(prompt, face_images)
+            return generate_influencer_image(prompt, face_images, aspect_ratio)
         except Exception as e:
             error_str = str(e).lower()
             # 재시도 가능한 에러
@@ -247,6 +270,93 @@ def generate_with_retry(prompt, face_images, max_retries=3):
     return None
 ```
 
+### 레이아웃 처리 (후처리)
+
+```python
+from PIL import Image, ImageDraw
+
+# ============ 레이아웃 함수들 ============
+
+def create_two_panel_vertical(img1, img2, gap=20, bg_color=(255, 255, 255)):
+    """2단 세로 레이아웃 (위아래 두 컷)"""
+    # 같은 너비로 리사이즈
+    width = max(img1.width, img2.width)
+
+    ratio1 = width / img1.width
+    h1 = int(img1.height * ratio1)
+    img1_resized = img1.resize((width, h1), Image.LANCZOS)
+
+    ratio2 = width / img2.width
+    h2 = int(img2.height * ratio2)
+    img2_resized = img2.resize((width, h2), Image.LANCZOS)
+
+    # 합치기
+    total_height = h1 + gap + h2
+    result = Image.new('RGB', (width, total_height), bg_color)
+    result.paste(img1_resized, (0, 0))
+    result.paste(img2_resized, (0, h1 + gap))
+
+    return result
+
+
+def create_white_margin(img, margin_ratio=0.15, bg_color=(255, 255, 255)):
+    """흰 여백 레이아웃 (상하 흰 테두리)"""
+    margin = int(img.height * margin_ratio)
+    new_height = img.height + margin * 2
+
+    result = Image.new('RGB', (img.width, new_height), bg_color)
+    result.paste(img, (0, margin))
+
+    return result
+
+
+def create_film_strip(img1, img2, img3, gap=10, bg_color=(20, 20, 20)):
+    """필름 스트립 레이아웃 (3컷 세로)"""
+    # 같은 너비로 리사이즈
+    width = min(img1.width, img2.width, img3.width)
+
+    imgs = []
+    for img in [img1, img2, img3]:
+        ratio = width / img.width
+        h = int(img.height * ratio)
+        imgs.append(img.resize((width, h), Image.LANCZOS))
+
+    # 필름 구멍 여백
+    film_margin = 30
+    total_height = sum(i.height for i in imgs) + gap * 2 + film_margin * 2
+
+    result = Image.new('RGB', (width + film_margin * 2, total_height), bg_color)
+
+    # 이미지 배치
+    y = film_margin
+    for img in imgs:
+        result.paste(img, (film_margin, y))
+        y += img.height + gap
+
+    # 필름 구멍 그리기 (옵션)
+    draw = ImageDraw.Draw(result)
+    hole_size = 8
+    for y_pos in range(20, total_height, 40):
+        draw.ellipse([5, y_pos, 5 + hole_size, y_pos + hole_size], fill=(40, 40, 40))
+        draw.ellipse([width + film_margin * 2 - 15, y_pos,
+                      width + film_margin * 2 - 15 + hole_size, y_pos + hole_size], fill=(40, 40, 40))
+
+    return result
+
+
+def create_polaroid(img, bottom_margin_ratio=0.12, border=20, bg_color=(255, 255, 255)):
+    """폴라로이드 레이아웃 (흰 테두리 + 하단 여백)"""
+    bottom_margin = int(img.height * bottom_margin_ratio)
+
+    new_width = img.width + border * 2
+    new_height = img.height + border + bottom_margin + border
+
+    result = Image.new('RGB', (new_width, new_height), bg_color)
+    result.paste(img, (border, border))
+
+    return result
+```
+
 ### 전체 사용 예시
 
 ```python
@@ -260,13 +370,21 @@ face_images = [face1, face2]
 # 2. 프롬프트 (한국어로 심플하게!)
 prompt = "이 얼굴로 예쁜 여자, 침대에서 아이폰 셀카, 완전 얼빡, 끼부리는 표정"
 
-# 3. 생성
-result = generate_with_retry(prompt, face_images)
+# 3. 생성 (비율 지정 가능)
+result = generate_with_retry(prompt, face_images, aspect_ratio="4:5")
 
 # 4. 저장
 if result:
     result.save("output.png")
     print("Success!")
+
+# 5. 레이아웃 적용 (선택)
+# 2단 레이아웃 예시
+img1 = generate_with_retry("이 얼굴로 예쁜 여자, 카페, 얼빡, 청순", face_images, aspect_ratio="1:1")
+img2 = generate_with_retry("이 얼굴로 예쁜 여자, 카페, 얼빡, 끼부림", face_images, aspect_ratio="1:1")
+if img1 and img2:
+    collage = create_two_panel_vertical(img1, img2)
+    collage.save("collage_2panel.png")
 ```
 
 ---
@@ -278,7 +396,8 @@ if result:
 | **패키지** | `pip install google-genai pillow` |
 | **모델** | `gemini-3-pro-image-preview` (필수) |
 | **Temperature** | `0.5` (자연스러운 다양성) |
-| **비율** | `9:16` (인스타 스토리/릴스) |
+| **비율** | `9:16` / `4:5` / `1:1` / `3:4` (선택) |
+| **레이아웃** | 단일 / 2단 세로 / 흰 여백 / 필름 스트립 / 폴라로이드 |
 | **해상도** | `2K` (2048px) |
 | **프롬프트** | 한국어로 짧게 (영어 금지) |
 

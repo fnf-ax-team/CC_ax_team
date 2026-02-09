@@ -1,5 +1,5 @@
 ---
-name: hotgirl-influencer
+name: influencer
 description: 얼굴 합성으로 인플루언서/셀럽 스타일 이미지 생성 (성별 무관)
 user-invocable: true
 trigger-keywords: ["인플", "인플루언서", "셀럽", "셀카 만들어", "예쁜 사진"]
@@ -450,10 +450,11 @@ Fnf_studio_outputs/
 ## 파일 구조
 
 ```
-.claude/skills/핫걸인플루언서_hotgirl-influencer/
+skills/fnf-image-gen/인플루언서_influencer/
+├── README.md         # 빠른 시작 가이드
 ├── SKILL.md          # 이 문서
 ├── generate.py       # CLI 실행 스크립트
-└── faces/            # 베이스 얼굴 이미지 폴더
+└── faces/            # 베이스 얼굴 이미지 폴더 (로컬 전용)
     ├── face1.png
     └── face2.png
 ```

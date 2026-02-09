@@ -58,8 +58,7 @@ echo "GEMINI_API_KEY=your_key" > .env
 ```
 인플루언서_influencer/
 ├── README.md      ← 이 문서
-├── SKILL.md       ← 상세 가이드 (API 코드 포함)
-└── generate.py    ← CLI 스크립트
+└── SKILL.md       ← 상세 가이드 (API 코드 포함)
 ```
 
 ## 상세 문서

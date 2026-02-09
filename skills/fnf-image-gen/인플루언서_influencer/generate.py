@@ -98,7 +98,7 @@ def generate_image(prompt, face_images, output_dir):
                 if part.inline_data:
                     result = Image.open(BytesIO(part.inline_data.data))
                     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-                    filename = f"influencer_{timestamp}.png"
+                    filename = f"hotgirl_{timestamp}.png"
                     filepath = os.path.join(output_dir, filename)
                     result.save(filepath, "PNG")
                     return filepath
@@ -114,7 +114,7 @@ def generate_image(prompt, face_images, output_dir):
 
 
 def main():
-    parser = argparse.ArgumentParser(description='인플루언서 이미지 생성')
+    parser = argparse.ArgumentParser(description='핫걸 인플루언서 이미지 생성')
     parser.add_argument('prompt', nargs='*', help='상황 설명 (예: 카페 청순)')
     parser.add_argument('-n', '--count', type=int, default=1, help='생성 수량')
     parser.add_argument('-f', '--faces', nargs='+', help='얼굴 이미지 경로들')
@@ -149,7 +149,7 @@ def main():
             if os.path.exists(os.path.join(current, ".env")):
                 break
             current = os.path.dirname(current)
-        output_dir = os.path.join(current, "Fnf_studio_outputs", "influencer")
+        output_dir = os.path.join(current, "Fnf_studio_outputs", "hotgirl_influencer")
 
     os.makedirs(output_dir, exist_ok=True)
 

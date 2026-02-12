@@ -116,6 +116,40 @@ class BackgroundSwapValidationResult:
             "issues": self.issues,
         }
 
+    def format_korean(self) -> str:
+        """검수표 템플릿 형식으로 출력 (skills/fnf-image-gen/배경교체_background-swap/검수표_템플릿.md 참조)"""
+
+        def check(score, threshold, is_equal=False):
+            if is_equal:
+                return "O" if score == threshold else "X"
+            return "O" if score >= threshold else "X"
+
+        lines = [
+            "## 검수 결과",
+            "",
+            "| 기준 | 비중 | Pass 조건 | 점수 | 통과 |",
+            "|------|------|-----------|------|------|",
+            f"| 인물 보존 | 25% | = 100 | {self.model_preservation} | {check(self.model_preservation, 100, True)} |",
+            f"| 리라이트 자연스러움 | 15% | - | {self.relight_naturalness} | - |",
+            f"| 조명 일치 | 12% | - | {self.lighting_match} | - |",
+            f"| 접지감 | 10% | - | {self.ground_contact} | - |",
+            f"| 물리 타당성 | 10% | >= 50 | {self.physics_plausibility} | {check(self.physics_plausibility, 50)} |",
+            f"| 경계 품질 | 8% | - | {self.edge_quality} | - |",
+            f"| 스타일 일치 | 5% | - | {self.prop_style_consistency} | - |",
+            f"| 색온도 준수 | 5% | >= 80 | {self.color_temperature_compliance} | {check(self.color_temperature_compliance, 80)} |",
+            f"| 원근 일치 | 10% | >= 70 | {self.perspective_match} | {check(self.perspective_match, 70)} |",
+            "",
+            f"**총점**: {self.total_score}/100 | **등급**: {self.grade} | **판정**: {'PASS' if self.passed else 'FAIL'}",
+        ]
+
+        if self.issues:
+            lines.append("")
+            lines.append("### 이슈")
+            for issue in self.issues:
+                lines.append(f"- {issue}")
+
+        return "\n".join(lines)
+
 
 # ============================================================
 # 검증 프롬프트

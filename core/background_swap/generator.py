@@ -341,39 +341,11 @@ def generate_with_validation(
         # 검증
         result = validator.validate(image, source_image)
 
-        # 검증 결과 출력
+        # 검증 결과 출력 (검수표 템플릿 형식)
         print(f"\n{'=' * 60}")
         print(f"검증 결과 (시도 {attempt + 1})")
         print(f"{'=' * 60}")
-        print(f"| 항목                  | 점수 | 기준    | 통과 |")
-        print(f"|----------------------|------|---------|------|")
-        print(
-            f"| 인물 보존            | {result.model_preservation:4d} | = 100   | {'O' if result.model_preservation == 100 else 'X'} |"
-        )
-        print(
-            f"| 리라이트 자연스러움   | {result.relight_naturalness:4d} | -       | - |"
-        )
-        print(f"| 조명 일치            | {result.lighting_match:4d} | -       | - |")
-        print(f"| 접지감               | {result.ground_contact:4d} | -       | - |")
-        print(
-            f"| 물리 타당성          | {result.physics_plausibility:4d} | >= 50   | {'O' if result.physics_plausibility >= 50 else 'X'} |"
-        )
-        print(f"| 경계 품질            | {result.edge_quality:4d} | -       | - |")
-        print(
-            f"| 스타일 일치          | {result.prop_style_consistency:4d} | -       | - |"
-        )
-        print(
-            f"| 색온도 준수          | {result.color_temperature_compliance:4d} | >= 80   | {'O' if result.color_temperature_compliance >= 80 else 'X'} |"
-        )
-        print(f"| 원근 일치            | {result.perspective_match:4d} | -       | - |")
-        print(f"|----------------------|------|---------|------|")
-        print(
-            f"| 총점                 | {result.total_score:4d} | >= 90   | {'O' if result.total_score >= 90 else 'X'} |"
-        )
-        print(f"{'=' * 60}")
-        print(f"등급: {result.grade} | 판정: {'PASS' if result.passed else 'FAIL'}")
-        if result.issues:
-            print(f"이슈: {', '.join(result.issues)}")
+        print(result.format_korean())
         print(f"{'=' * 60}\n")
 
         history.append(

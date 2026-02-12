@@ -8,30 +8,111 @@
 
 ```
 ┌─────────────────────────────────────────────────────────────────────────────┐
-│                           Background Swap Workflow                           │
+│                              배경교체 워크플로                                │
 └─────────────────────────────────────────────────────────────────────────────┘
 
 ┌──────────────┐     ┌──────────────┐     ┌──────────────┐     ┌──────────────┐
-│   INPUT      │     │   ANALYZE    │     │   GENERATE   │     │   VALIDATE   │
+│    입력      │     │    분석      │     │    생성      │     │    검증      │
 │              │     │              │     │              │     │              │
-│ Source Image │────>│ VFX Physics  │────>│ Style        │────>│ 9-Criteria   │
-│ Background   │     │ Source Type  │     │ Transform    │     │ Check        │
-│ Style        │     │ Swap Analysis│     │              │     │              │
+│ 소스 이미지  │────>│ VFX 물리    │────>│ 스타일      │────>│ 9개 기준    │
+│ 배경 스타일  │     │ 소스 타입   │     │ 변환        │     │ 검사        │
+│              │     │ 스왑 분석   │     │              │     │              │
 └──────────────┘     └──────────────┘     └──────────────┘     └──────┬───────┘
                                                                        │
                                           ┌────────────────────────────┘
                                           │
                                           v
                            ┌─────────────────────────────┐
-                           │      PASS (≥95점)?          │
+                           │      통과 (95점 이상)?       │
                            └─────────────────────────────┘
                                     │           │
-                              YES   │           │ NO
+                              예    │           │ 아니오
                                     v           v
                            ┌───────────┐  ┌───────────────┐
-                           │  OUTPUT   │  │ RETRY (max 2) │
-                           │  Image    │  │ + Enhancement │
+                           │  결과물   │  │ 재생성 (최대2)│
+                           │  이미지   │  │ + 프롬프트강화│
                            └───────────┘  └───────────────┘
+```
+
+---
+
+## 데이터 플로우
+
+```
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                               분석 단계                                      │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+소스 이미지
+     │
+     ├──> analyze_model_physics() ──> VFX 데이터 (6영역)
+     │         │
+     │         ├── 카메라: 수평선, 원근감, 초점거리
+     │         ├── 조명: 방향, 고도, 부드러움, 색온도
+     │         ├── 포즈 의존성: 포즈 타입, 지지대 필요
+     │         ├── 설치 논리: 소품 감지, 금지 컨텍스트
+     │         ├── 물리 앵커: 접촉점, 그림자 방향
+     │         └── 의미적 스타일: 분위기, 추천 장소
+     │
+     ├──> detect_source_type() ──> "야외" | "화이트스튜디오" | "컬러스튜디오" | "실내"
+     │
+     └──> analyze_for_background_swap() ──> 스왑 분석
+               │
+               ├── 차량 유무: bool
+               ├── 바닥: {재질, 색상, 톤}
+               ├── 색보정: {온도, 채도}
+               └── 조명: {방향, 강도, 색온도}
+
+
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                               생성 단계                                      │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+분석 결과
+     │
+     └──> build_background_prompt()
+               │
+               ├── 1. 기본 보존 프롬프트 (인물 보존)
+               ├── 2. 구조물 스타일 변환 (위치 고정, 스타일만 변경)
+               ├── 3. ONE UNIT 프롬프트 (차량 감지 시)
+               ├── 4. VFX 물리 제약
+               ├── 5. 참조 배경 분석
+               ├── 6. 스왑 분석 지시문
+               └── 7. 사용자 배경 스타일
+                         │
+                         v
+               generate_background_swap()
+                         │
+                         ├── 비율: 원본 비율 유지
+                         ├── 해상도: "1K" | "2K" | "4K"
+                         └── 온도: 0.2 → 0.1 → 0.05 (재시도 시)
+
+
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                               검증 단계                                      │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+생성 이미지 + 소스 이미지
+     │
+     └──> BackgroundSwapValidator.validate()
+               │
+               ├── 1. 인물 보존 (25%) - 필수 =100
+               ├── 2. 리라이트 자연스러움 (15%)
+               ├── 3. 조명 일치 (12%)
+               ├── 4. 접지감 (10%)
+               ├── 5. 물리 타당성 (10%) - 필수 ≥50
+               ├── 6. 원근 일치 (10%) - 필수 ≥70
+               ├── 7. 경계 품질 (8%)
+               ├── 8. 스타일 일치 (5%)
+               └── 9. 색온도 준수 (5%) - 필수 ≥80
+                         │
+                         v
+               통과 조건:
+               - 총점 ≥ 95
+               - 인물 보존 = 100
+               - 물리 타당성 ≥ 50
+               - 원근 일치 ≥ 70
+               - 색온도 준수 ≥ 80
 ```
 
 ---
@@ -45,11 +126,11 @@ core/background_swap/
 ├── generator.py         # 이미지 생성 + 검증 루프
 ├── prompt_builder.py    # 프롬프트 조립
 ├── templates.py         # 프롬프트 템플릿
-├── validator.py         # 9-criteria 검증기
+├── validator.py         # 9개 기준 검증기
 ├── presets.py           # 스타일 프리셋
 └── presets.json         # 프리셋 데이터
 
-.claude/skills/배경교체_background-swap/
+skills/fnf-image-gen/배경교체_background-swap/
 ├── README.md            # 이 문서
 ├── SKILL.md             # Claude용 스킬 정의
 ├── background-swap-cheatsheet.md
@@ -58,100 +139,19 @@ core/background_swap/
 
 ---
 
-## 데이터 플로우
-
-```
-┌─────────────────────────────────────────────────────────────────────────────┐
-│                              ANALYSIS PHASE                                  │
-└─────────────────────────────────────────────────────────────────────────────┘
-
-Source Image
-     │
-     ├──> analyze_model_physics() ──> VFX Data (6영역)
-     │         │
-     │         ├── geometry: horizon_y, perspective, focal_length
-     │         ├── lighting: direction, elevation, softness, color_temp
-     │         ├── pose_dependency: pose_type, support_required
-     │         ├── installation_logic: prop_detected, forbidden_contexts
-     │         ├── physics_anchors: contact_points, shadow_direction
-     │         └── semantic_style: vibe, recommended_locations
-     │
-     ├──> detect_source_type() ──> "outdoor" | "white_studio" | "colored_studio" | "indoor"
-     │
-     └──> analyze_for_background_swap() ──> Swap Analysis
-               │
-               ├── has_vehicle: bool
-               ├── ground: {material, color, tone}
-               ├── color_grading: {warmth, saturation}
-               └── lighting: {direction, intensity, color_temp}
-
-
-┌─────────────────────────────────────────────────────────────────────────────┐
-│                              GENERATION PHASE                                │
-└─────────────────────────────────────────────────────────────────────────────┘
-
-Analysis Results
-     │
-     └──> build_background_prompt()
-               │
-               ├── 1. BASE_PRESERVATION_PROMPT (인물 보존)
-               ├── 2. STRUCTURE_STYLE_TRANSFORM (구조물 스타일 변환)
-               ├── 3. ONE_UNIT_PROMPTS (차량 감지 시)
-               ├── 4. VFX Physical Constraints
-               ├── 5. Reference Background Analysis
-               ├── 6. Swap Analysis Instructions
-               └── 7. User Background Style
-                         │
-                         v
-               generate_background_swap()
-                         │
-                         ├── aspect_ratio: 원본 비율 유지
-                         ├── image_size: "1K" | "2K" | "4K"
-                         └── temperature: 0.2 → 0.1 → 0.05 (재시도 시)
-
-
-┌─────────────────────────────────────────────────────────────────────────────┐
-│                              VALIDATION PHASE                                │
-└─────────────────────────────────────────────────────────────────────────────┘
-
-Generated Image + Source Image
-     │
-     └──> BackgroundSwapValidator.validate()
-               │
-               ├── 1. model_preservation (25%) - 필수 =100
-               ├── 2. relight_naturalness (15%)
-               ├── 3. lighting_match (12%)
-               ├── 4. ground_contact (10%)
-               ├── 5. physics_plausibility (10%) - 필수 ≥50
-               ├── 6. perspective_match (10%) - 필수 ≥70
-               ├── 7. edge_quality (8%)
-               ├── 8. prop_style_consistency (5%)
-               └── 9. color_temperature_compliance (5%) - 필수 ≥80
-                         │
-                         v
-               Pass Condition:
-               - total_score ≥ 95
-               - model_preservation = 100
-               - physics_plausibility ≥ 50
-               - perspective_match ≥ 70
-               - color_temperature_compliance ≥ 80
-```
-
----
-
 ## 핵심 원칙
 
-### 1. STRUCTURE STYLE TRANSFORM (구조물 스타일 변환)
+### 1. 구조물 스타일 변환
 
 ```
 원본 구조물 위치/원근 유지 + 스타일만 변경
 
-KEEP (변경 금지):
+유지 (변경 금지):
 - 구조물 위치 (x, y 좌표)
 - 원근감, 소실점
 - 깊이 관계
 
-CHANGE (변경 허용):
+변경 (허용):
 - 텍스처, 재질
 - 색상, 마감
 - 스타일/미감
@@ -168,12 +168,12 @@ CHANGE (변경 허용):
 
 | 영역 | 추출값 | 용도 |
 |------|--------|------|
-| Camera Geometry | horizon_y, perspective | 원근 매칭 |
-| Lighting Physics | direction, color_temp | 조명 매칭 |
-| Pose Dependency | support_required | 지지대 필요 여부 |
-| Installation Logic | forbidden_contexts | 금지 컨텍스트 |
-| Physics Anchors | contact_points | 접지/그림자 |
-| Semantic Style | vibe | 분위기 매칭 |
+| 카메라 지오메트리 | 수평선, 원근감 | 원근 매칭 |
+| 조명 물리 | 방향, 색온도 | 조명 매칭 |
+| 포즈 의존성 | 지지대 필요 | 지지대 필요 여부 |
+| 설치 논리 | 금지 컨텍스트 | 금지 컨텍스트 |
+| 물리 앵커 | 접촉점 | 접지/그림자 |
+| 의미적 스타일 | 분위기 | 분위기 매칭 |
 
 ---
 
@@ -216,9 +216,9 @@ result = generate_with_validation(
 
 ---
 
-## 검증 기준 (9-criteria)
+## 검증 기준 (9개)
 
-| # | 항목 | 비중 | Pass 기준 |
+| # | 항목 | 비중 | 통과 기준 |
 |---|------|------|----------|
 | 1 | 인물 보존 | 25% | = 100 (필수) |
 | 2 | 리라이트 자연스러움 | 15% | - |
@@ -230,7 +230,7 @@ result = generate_with_validation(
 | 8 | 스타일 일치 | 5% | - |
 | 9 | 색온도 준수 | 5% | ≥ 80 (필수) |
 
-**Pass 조건**: 총점 ≥ 95 + 필수 항목 모두 충족
+**통과 조건**: 총점 ≥ 95 + 필수 항목 모두 충족
 
 ---
 
@@ -238,6 +238,6 @@ result = generate_with_validation(
 
 | 버전 | 날짜 | 변경 내용 |
 |------|------|----------|
-| 5.1.0 | 2026-02-12 | STRUCTURE_STYLE_TRANSFORM 추가, aspect_ratio 원본 유지, 총점 95점 기준 |
+| 5.1.0 | 2026-02-12 | 구조물 스타일 변환 추가, 비율 원본 유지, 총점 95점 기준 |
 | 5.0.0 | 2026-02-11 | 모듈 분리 (core/background_swap/) |
-| 4.0.0 | 2026-02-10 | 9-criteria 검증 체계 |
+| 4.0.0 | 2026-02-10 | 9개 기준 검증 체계 |

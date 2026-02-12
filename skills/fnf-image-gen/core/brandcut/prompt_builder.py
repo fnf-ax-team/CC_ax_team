@@ -67,42 +67,59 @@ def _build_pose_section(pose_analysis: Optional[dict], user_options: dict) -> di
     """
     포즈 섹션 빌드 - pose_analysis["pose"]에서 추출
 
-    pose_analysis 구조:
+    치트시트 스키마:
     {
-        "pose": {
-            "stance": "leaning against car wheel",
-            "weight": "on left leg",
-            "body_direction": "facing camera at 30 degrees right",
-            "left_leg": "bent, knee pointing outward, foot resting on car wheel",
-            "right_leg": "straight, extended forward, foot flat on ground",
-            "leg_spacing": "wide apart",
-            "left_arm": "bent at elbow, hand resting on left thigh",
-            "left_hand": "relaxed, fingers slightly curved",
-            "right_arm": "relaxed, hanging by side",
-            "right_hand": "relaxed",
-            "shoulders": "left shoulder slightly higher, relaxed",
-            "torso": "leaning back slightly against car",
-            "head": "tilted slightly left, facing camera"
-        }
+        "stance": "",
+        "왼팔": "",
+        "오른팔": "",
+        "왼손": "",
+        "오른손": "",
+        "왼다리": "",
+        "오른다리": "",
+        "힙": ""
     }
+
+    VLM 분석 결과 (영어) → 치트시트 스키마 (한국어 키) 매핑
     """
     pose = pose_analysis.get("pose", {}) if pose_analysis else {}
 
+    # MLB DNA 기본값 (레퍼런스 없을 때 적용)
+    # - 파워포즈: 공간 지배, 다리 벌림, 당당함, 자신감
+    MLB_POSE_DEFAULTS = {
+        "stance": "power stance, standing tall with confident posture, weight on one leg",
+        "왼팔": "hand on hip, elbow pointing outward, assertive",
+        "오른팔": "relaxed at side, natural hang",
+        "왼손": "resting on hip, fingers spread confidently",
+        "오른손": "relaxed, natural position",
+        "왼다리": "straight, supporting weight, firmly planted",
+        "오른다리": "relaxed, spread apart for wide power stance",
+        "힙": "weight shifted to one side, S-curve silhouette",
+    }
+
     return {
-        "stance": pose.get("stance", user_options.get("포즈.stance", "stand")),
-        "체중분배": pose.get("weight", "균등"),
-        "몸방향": pose.get("body_direction", "정면"),
-        "왼팔": pose.get("left_arm", user_options.get("포즈.왼팔", "natural")),
-        "오른팔": pose.get("right_arm", user_options.get("포즈.오른팔", "relaxed")),
-        "왼손": pose.get("left_hand", user_options.get("포즈.왼손", "relaxed")),
-        "오른손": pose.get("right_hand", user_options.get("포즈.오른손", "relaxed")),
-        "왼다리": pose.get("left_leg", user_options.get("포즈.왼다리", "support")),
-        "오른다리": pose.get("right_leg", user_options.get("포즈.오른다리", "knee_10")),
-        "다리간격": pose.get("leg_spacing", "어깨너비"),
-        "어깨": pose.get("shoulders", "수평"),
-        "상체": pose.get("torso", "똑바로"),
-        "머리": pose.get("head", "정면"),
-        "힙": pose.get("hip", user_options.get("포즈.힙", "neutral")),
+        "stance": pose.get(
+            "stance", user_options.get("포즈.stance", MLB_POSE_DEFAULTS["stance"])
+        ),
+        "왼팔": pose.get(
+            "left_arm", user_options.get("포즈.왼팔", MLB_POSE_DEFAULTS["왼팔"])
+        ),
+        "오른팔": pose.get(
+            "right_arm", user_options.get("포즈.오른팔", MLB_POSE_DEFAULTS["오른팔"])
+        ),
+        "왼손": pose.get(
+            "left_hand", user_options.get("포즈.왼손", MLB_POSE_DEFAULTS["왼손"])
+        ),
+        "오른손": pose.get(
+            "right_hand", user_options.get("포즈.오른손", MLB_POSE_DEFAULTS["오른손"])
+        ),
+        "왼다리": pose.get(
+            "left_leg", user_options.get("포즈.왼다리", MLB_POSE_DEFAULTS["왼다리"])
+        ),
+        "오른다리": pose.get(
+            "right_leg",
+            user_options.get("포즈.오른다리", MLB_POSE_DEFAULTS["오른다리"]),
+        ),
+        "힙": pose.get("hip", user_options.get("포즈.힙", MLB_POSE_DEFAULTS["힙"])),
     }
 
 
@@ -121,47 +138,79 @@ def _build_expression_section(
             "mood": "cool, confident, chic"
         }
     }
+
+    MLB DNA 기본값 (레퍼런스 없을 때):
+    - 베이스: fierce (강렬함)
+    - 바이브: confident_chic (도도한 자신감)
+    - 시선: direct_intense (강렬한 눈빛)
+    - 눈: wide_open (큰 눈, 또렷)
     """
     expression = pose_analysis.get("expression", {}) if pose_analysis else {}
 
-    # 무드에서 베이스 추출
+    # 무드에서 베이스 추출 (레퍼런스 없으면 MLB DNA: fierce)
     mood_raw = expression.get("mood", "")
-    if "cool" in mood_raw.lower() or "confident" in mood_raw.lower():
-        base = "cool"
-    elif "dreamy" in mood_raw.lower():
-        base = "dreamy"
-    elif "natural" in mood_raw.lower():
-        base = "natural"
-    elif "serious" in mood_raw.lower():
-        base = "serious"
+    if mood_raw:
+        # 레퍼런스 있음 - 분석 결과 사용
+        if "fierce" in mood_raw.lower() or "intense" in mood_raw.lower():
+            base = "fierce"
+        elif "cool" in mood_raw.lower() or "confident" in mood_raw.lower():
+            base = "cool"
+        elif "dreamy" in mood_raw.lower():
+            base = "dreamy"
+        elif "natural" in mood_raw.lower():
+            base = "natural"
+        elif "serious" in mood_raw.lower():
+            base = "serious"
+        else:
+            base = "fierce"  # MLB DNA 기본값
     else:
-        base = user_options.get("표정.베이스", "cool")
+        # 레퍼런스 없음 - MLB DNA 기본값
+        base = user_options.get("표정.베이스", "fierce")
 
-    # 입 상태 추출
+    # 입 상태 추출 (MLB DNA: closed, 다물고 도도하게)
     mouth_raw = expression.get("mouth", "")
-    if "open" in mouth_raw.lower() or "parted" in mouth_raw.lower():
-        mouth = "parted"
-    elif "smile" in mouth_raw.lower():
-        mouth = "smile"
+    if mouth_raw:
+        if "open" in mouth_raw.lower() or "parted" in mouth_raw.lower():
+            mouth = "parted"
+        elif "smile" in mouth_raw.lower():
+            mouth = "smile"
+        else:
+            mouth = "closed"
     else:
-        mouth = "closed"
+        mouth = "closed"  # MLB DNA 기본값
 
-    # 시선 추출 (eyes에서)
+    # 시선 추출 (MLB DNA: direct_intense, 강렬한 눈빛으로 카메라 응시)
     eyes_raw = expression.get("eyes", "")
-    if "direct" in eyes_raw.lower() or "camera" in eyes_raw.lower():
-        gaze = "direct"
-    elif "past" in eyes_raw.lower() or "away" in eyes_raw.lower():
-        gaze = "past"
+    if eyes_raw:
+        if "intense" in eyes_raw.lower():
+            gaze = "direct_intense"
+        elif "direct" in eyes_raw.lower() or "camera" in eyes_raw.lower():
+            gaze = "direct"
+        elif "past" in eyes_raw.lower() or "away" in eyes_raw.lower():
+            gaze = "past"
+        else:
+            gaze = "direct_intense"  # MLB DNA 기본값
     else:
-        gaze = user_options.get("표정.시선", "direct")
+        gaze = user_options.get("표정.시선", "direct_intense")
+
+    # 눈 상태 (MLB DNA: wide_open, K-pop 스타일 큰 눈)
+    eyes_desc = expression.get("eyes", "")
+    if eyes_desc:
+        eyes = eyes_desc
+    else:
+        eyes = user_options.get("표정.눈", "wide_open")
 
     return {
         "베이스": base,
-        "바이브": expression.get("mood", user_options.get("표정.바이브", "mysterious")),
+        "바이브": expression.get(
+            "mood", user_options.get("표정.바이브", "confident_chic")
+        ),
         "시선": gaze,
         "입": mouth,
-        "눈": expression.get("eyes", "natural"),
-        "눈썹": expression.get("eyebrows", "natural"),
+        "눈": eyes,
+        "눈썹": expression.get(
+            "eyebrows", user_options.get("표정.눈썹", "natural_arched")
+        ),
     }
 
 

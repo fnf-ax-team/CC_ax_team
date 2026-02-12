@@ -120,6 +120,13 @@
 | 표정 | 바이브 | mysterious | 40% |
 | 표정 | 시선 | direct | 50% |
 | 표정 | 입 | closed | 60% |
+| 코디방법 | 아우터 | 정상착용 | `worn normally` |
+| 코디방법 | 상의 | 한쪽어깨노출 | `off-shoulder on one side` |
+| 코디방법 | 하의 | 정상착용 | `worn normally` |
+| 코디방법 | 헤드웨어 | 정상착용 | `worn normally` |
+| 코디방법 | 주얼리 | 정상착용 | `worn normally` |
+| 코디방법 | 가방 | 정상착용 | `worn normally` |
+| 코디방법 | 벨트 | 장식용 | `decorative styling` |
 | 배경 | 장소 | 콘크리트 | 40% |
 | 조명색감 | 조명 | 자연광흐림 | 45% |
 | 조명색감 | 색보정 | 뉴트럴쿨 | 60% |

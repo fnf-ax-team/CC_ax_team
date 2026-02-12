@@ -2,7 +2,7 @@
 name: reference-brandcut
 description: 레퍼런스 이미지 기반 브랜드컷 생성 - 페이스스왑 + 착장스왑 + 배경변경
 user-invocable: true
-trigger-keywords: ["레퍼런스", "참조 이미지", "이거랑 비슷하게", "이 스타일로", "레퍼런스 브랜드컷"]
+trigger-keywords: ["레퍼런스 브랜드컷", "참조 이미지 브랜드컷", "이거랑 비슷하게 브랜드컷", "이 스타일로 브랜드컷", "레퍼런스 브랜드컷"]
 ---
 
 # 레퍼런스 기반 브랜드컷 생성
@@ -17,12 +17,11 @@ trigger-keywords: ["레퍼런스", "참조 이미지", "이거랑 비슷하게",
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
-│  ✅ 이미지 생성: gemini-3-pro-image-preview                  │
-│  ✅ VLM 분석: gemini-3.0-flash-preview (텍스트 분석용)               │
+│  ✅ 이미지 생성: IMAGE_MODEL (gemini-3-pro-image-preview)   │
+│  ✅ VLM 분석: VISION_MODEL (gemini-3-flash-preview)         │
 │                                                             │
-│  ❌ 절대 금지:                                               │
-│     - gemini-2.0-flash-exp-image-generation (품질 낮음)     │
-│     - 배경 이미지 직접 전달 (어색한 합성 유발)               │
+│  ⚠️  반드시 core/config.py 에서 import 해서 사용!           │
+│  ❌ 배경 이미지 직접 전달 금지 (어색한 합성 유발)           │
 └─────────────────────────────────────────────────────────────┘
 ```
 
@@ -74,58 +73,58 @@ trigger-keywords: ["레퍼런스", "참조 이미지", "이거랑 비슷하게",
 
 ---
 
-## 대화 플로우 (효율적 버전)
+## 대화 플로우 (경로 순차 → 옵션 클릭 → 일괄 분석)
 
-> **원칙**: 한 번에 모든 경로를 수집해서 왔다갔다 최소화
+> **원칙**: 경로 하나씩 질문 → 옵션 클릭 선택 → 마지막에 한번에 분석/생성
+
+### 플로우
 
 ```
-1. 사용자: "레퍼런스로 브랜드컷 만들어줘" / "이 이미지랑 비슷하게"
+1. 사용자: "레퍼런스 브랜드컷"
 
-2. Claude: "레퍼런스 이미지 경로 알려주세요!"
+2. Claude: "레퍼런스 이미지 경로?"
+3. 사용자: D:\ref.jpg
 
-3. 사용자: [이미지 경로]
+4. Claude: "얼굴 폴더 경로?"
+5. 사용자: D:\faces
 
-4. Claude: [레퍼런스 분석 결과 테이블 보여주기]
-   그 다음 바로:
-   "다음 경로들을 알려주세요:
-   1. 얼굴 폴더 (필수)
-   2. 착장 폴더 (선택 - 없으면 레퍼런스 착장 사용)
-   3. 배경 이미지 (선택 - 없으면 레퍼런스 배경 사용)"
+6. Claude: "착장 폴더? (없으면 '없음' 또는 엔터)"
+7. 사용자: D:\outfits (또는 "없음")
 
-5. 사용자: [경로들 한 번에 또는 나눠서 입력]
-   예: "얼굴: D:\faces, 착장: D:\outfits"
-   예: "D:\faces" (얼굴만, 나머지는 레퍼런스 사용)
+8. Claude: "배경 이미지? ('레퍼런스 처럼'' 또는 '입력')"
+9. 사용자: 없음
 
-6. Claude: [모든 분석 결과 테이블로 보여주기]
-   - 얼굴 선택 결과
-   - 착장 분석 결과 (있으면)
-   - 배경 분석 결과 (있으면)
+10. Claude: [AskUserQuestion - 비율/수량 클릭 선택]
 
-7. Claude: [AskUserQuestion - 비율/수량 한 번에 선택]
+11. 사용자: 클릭으로 선택
 
-8. Claude: [이미지 생성]
+12. Claude:
+    - 모든 이미지 한번에 병렬 분석
+    - 분석 결과 테이블 출력
+    - 이미지 생성
+    - 결과 저장 및 경로 안내
 ```
 
-### 경로 입력 파싱 예시
+### 경로 질문 (순차, 일반 텍스트)
 
-사용자가 다양한 형태로 입력해도 파싱:
-- `D:\faces` → 얼굴만
-- `얼굴: D:\faces, 착장: D:\outfits` → 얼굴 + 착장
-- `D:\faces / D:\outfits / D:\bg.jpg` → 순서대로 얼굴/착장/배경
-- `face=D:\faces outfit=D:\outfits bg=D:\bg.jpg` → 키=값 형태
+| 순서 | 질문 | 필수 |
+|------|------|------|
+| 1 | "레퍼런스 이미지 경로?" | ✅ |
+| 2 | "얼굴 폴더 경로?" | ✅ |
+| 3 | "착장 폴더? (없으면 '없음')" | ❌ |
+| 4 | "배경 이미지? (없으면 '없음')" | ❌ |
 
-### AskUserQuestion - 최종 옵션만
+### 옵션 선택 (AskUserQuestion 클릭)
 
 ```python
-# 비율 + 수량 한 번에 선택 (다른 건 텍스트로 받음)
 AskUserQuestion(questions=[
     {
         "question": "이미지 비율을 선택해주세요",
         "header": "비율",
         "options": [
             {"label": "3:4 (Recommended)", "description": "에디토리얼 표준, 세로형"},
-            {"label": "4:5", "description": "인스타그램 피드 최적화"},
-            {"label": "9:16", "description": "스토리/릴스용 세로 풀스크린"},
+            {"label": "4:5", "description": "인스타그램 피드"},
+            {"label": "9:16", "description": "스토리/릴스"},
             {"label": "1:1", "description": "정사각형"}
         ],
         "multiSelect": False
@@ -134,7 +133,7 @@ AskUserQuestion(questions=[
         "question": "몇 장 생성할까요?",
         "header": "수량",
         "options": [
-            {"label": "1장", "description": "테스트용 빠른 생성"},
+            {"label": "1장", "description": "테스트용"},
             {"label": "3장 (Recommended)", "description": "다양한 결과 비교"},
             {"label": "5장", "description": "충분한 선택지"}
         ],
@@ -142,6 +141,13 @@ AskUserQuestion(questions=[
     }
 ])
 ```
+
+### 기본값
+
+| 항목 | 기본값 |
+|------|--------|
+| 착장 | 레퍼런스 착장 유지 |
+| 배경 | 레퍼런스 배경 유지 |
 
 ---
 
@@ -182,38 +188,84 @@ REFERENCE_ANALYSIS_PROMPT = """
 """
 ```
 
-### 착장 이미지 분석
+### 착장 이미지 분석 (VLM 자동화)
+
+**핵심**: 착장 폴더의 각 이미지를 VLM으로 개별 분석 → 프롬프트에 자동 포함
 
 ```python
-OUTFIT_ANALYSIS_PROMPT = """
-이 이미지의 착장(의류/액세서리)을 분석해서 AI 이미지 생성에 사용할 수 있도록
-상세하게 설명해주세요.
+from core.config import VISION_MODEL  # gemini-3-flash-preview
 
-다음 항목별로 분석해주세요:
-1. headwear (모자/헤어액세서리): 종류, 색상, 소재, 브랜드 로고 위치
-2. outer (아우터): 종류, 색상, 소재, 디테일, 로고/패턴
-3. top (상의): 종류, 색상, 소재, 넥라인, 기장
-4. bottom (하의): 종류, 색상, 소재, 핏, 기장
-5. shoes (신발): 종류, 색상, 소재, 브랜드
-6. accessories (액세서리): 가방, 목걸이, 귀걸이 등
+OUTFIT_ITEM_ANALYSIS_PROMPT = """
+이 이미지의 의류/액세서리를 분석해서 AI 이미지 생성 프롬프트용으로 상세하게 설명해주세요.
 
-JSON 형식:
+JSON 형식으로 응답:
 {
-  "headwear": {"type": "", "color": "", "material": "", "details": ""},
-  "outer": {"type": "", "color": "", "material": "", "details": "", "logo": ""},
-  "top": {"type": "", "color": "", "material": "", "details": ""},
-  "bottom": {"type": "", "color": "", "material": "", "fit": "", "details": ""},
-  "shoes": {"type": "", "color": "", "material": "", "brand": ""},
-  "accessories": [{"type": "", "description": ""}],
-  "outfit_summary": "전체 착장을 한 문장으로 요약 (프롬프트용)",
-  "style_keywords": ["스타일 키워드1", "스타일 키워드2"]
+  "item_type": "의류 종류 (예: beanie, jacket, pants, bag, top)",
+  "color": "구체적 색상 (예: dark charcoal gray, ivory cream)",
+  "material": "소재/질감 (예: fuzzy mohair, washed denim, leather)",
+  "logo": {
+    "exists": true/false,
+    "text": "로고 텍스트 (예: NY, Red Sox)",
+    "position": "위치 (예: right side, center, front left)",
+    "color": "로고 색상"
+  },
+  "details": "기타 특징 (예: wide fit, cargo pockets, stripe trim)",
+  "prompt_description": "이미지 생성용 한 줄 설명 (영어)"
 }
 
 **중요**:
-- 로고 위치가 있으면 정확히 명시 (예: front_left, back_center)
-- 색상은 구체적으로 (예: "brown" 대신 "chocolate brown", "burgundy")
-- outfit_summary는 이미지 생성 프롬프트에 바로 사용할 수 있게 작성
+- 소재/질감을 매우 구체적으로 (fuzzy, fluffy, smooth, washed 등)
+- 로고 위치를 정확하게 (center, left, right, front, back)
+- prompt_description은 영어로, AI가 재현할 수 있게 상세하게
 """
+
+def analyze_outfit_with_vlm(image_path):
+    """착장 이미지를 VLM으로 분석해서 세부사항 추출"""
+    client = genai.Client(api_key=get_next_api_key())
+
+    img = Image.open(image_path).convert("RGB")
+    if max(img.size) > 1024:
+        img.thumbnail((1024, 1024), Image.LANCZOS)
+
+    buf = BytesIO()
+    img.save(buf, format="PNG")
+    img_part = types.Part(inline_data=types.Blob(mime_type="image/png", data=buf.getvalue()))
+
+    response = client.models.generate_content(
+        model=VISION_MODEL,  # config에서 로드
+        contents=[types.Content(role="user", parts=[
+            types.Part(text=OUTFIT_ITEM_ANALYSIS_PROMPT),
+            img_part
+        ])],
+        config=types.GenerateContentConfig(
+            temperature=0.2,
+            response_modalities=["TEXT"]
+        )
+    )
+
+    # JSON 파싱
+    text = response.candidates[0].content.parts[0].text
+    if "```json" in text:
+        text = text.split("```json")[1].split("```")[0]
+    elif "```" in text:
+        text = text.split("```")[1].split("```")[0]
+
+    return json.loads(text.strip())
+
+def analyze_all_outfits(outfit_folder):
+    """착장 폴더 전체를 VLM으로 분석"""
+    outfit_paths = [
+        os.path.join(outfit_folder, f)
+        for f in os.listdir(outfit_folder)
+        if f.lower().endswith(('.jpg', '.jpeg', '.png', '.webp'))
+    ]
+
+    analyses = []
+    for path in outfit_paths:
+        analysis = analyze_outfit_with_vlm(path)
+        analyses.append(analysis)
+
+    return analyses
 ```
 
 ### 배경 이미지 분석 (텍스트 변환용, 인물 무시)
@@ -380,6 +432,9 @@ from io import BytesIO
 import os
 import json
 
+# Config에서 모델 상수 로드 (절대 하드코딩 금지!)
+from core.config import IMAGE_MODEL, VISION_MODEL
+
 # ============ API 키 로드 ============
 def load_api_keys():
     """프로젝트 루트의 .env에서 API 키 로드"""
@@ -420,7 +475,7 @@ def analyze_with_vlm(image_path, prompt):
     img = Image.open(image_path).convert("RGB")
 
     response = client.models.generate_content(
-        model="gemini-2.0-flash",  # VLM 분석용
+        model=VISION_MODEL,  # config에서 로드
         contents=[types.Content(role="user", parts=[
             types.Part(text=prompt),
             pil_to_part(img)
@@ -547,7 +602,7 @@ def generate_reference_brandcut(
 
         try:
             response = client.models.generate_content(
-                model="gemini-3-pro-image-preview",  # 이미지 생성용
+                model=IMAGE_MODEL,  # gemini-3-pro-image-preview (config에서 로드)
                 contents=[types.Content(role="user", parts=parts)],
                 config=types.GenerateContentConfig(
                     temperature=0.3,
@@ -637,56 +692,106 @@ for i, img in enumerate(results):
 
 ## V3 프롬프트 템플릿
 
+### 이미지 순서 규칙 (중요!)
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│  IMAGE ORDER (AI가 혼동하지 않도록 명확히 구분)              │
+├─────────────────────────────────────────────────────────────┤
+│  IMAGE 1: REFERENCE - 포즈/표정/머리카락/구도 복사 대상     │
+│  IMAGE 2-3: FACE - 이 얼굴만 사용                          │
+│  IMAGE 4+: OUTFIT - 이 착장만 사용 (레퍼런스 착장 무시)    │
+└─────────────────────────────────────────────────────────────┘
+```
+
+### 프롬프트에 레퍼런스 특징 명시 필수
+
+레퍼런스 이미지만 전달하면 AI가 제대로 따라하지 않음.
+**반드시 텍스트로도 구체적 특징 명시:**
+
+```python
+# 레퍼런스 분석 후 프롬프트에 추가할 내용
+[FROM REFERENCE IMAGE - COPY EXACTLY]
+- POSE: {구체적 포즈 설명}
+- EXPRESSION: {구체적 표정 설명}
+- HEAD ANGLE: {머리 각도}
+- HAIR: {머리카락 상태 - 바람에 날림 등}
+- BODY POSITION: {자세}
+```
+
+### V3 프롬프트 템플릿
+
 ```python
 V3_PROMPT_TEMPLATE = """
-[CRITICAL INSTRUCTION - FACE SWAP + OUTFIT SWAP + BACKGROUND CHANGE]
+[CRITICAL - IMAGE ROLE ASSIGNMENT]
 
-You are given:
-1. A REFERENCE IMAGE - This shows the EXACT pose, expression, angle, composition, and framing to replicate
-2. FACE IMAGES - Use this face instead of the reference face
-3. OUTFIT IMAGES - Use these outfits instead of the reference outfit
+You are receiving multiple images. Each has a SPECIFIC role:
 
-YOUR TASK:
-- Keep the EXACT same pose from the reference image
-- Keep the EXACT same expression from the reference image
-- Keep the EXACT same camera angle from the reference image
-- Keep the EXACT same composition/framing from the reference image
-- Keep the EXACT same body proportions (model proportions, long legs, slim)
-- SWAP the face with the provided face images
-- SWAP the outfit with the provided outfit images
-- CHANGE the background based on the text description below
+🎯 IMAGE 1 (FIRST IMAGE): REFERENCE
+- This is your POSE/EXPRESSION/HAIR reference
+- COPY the pose EXACTLY
+- COPY the expression EXACTLY
+- COPY the hair movement EXACTLY
+- COPY the head angle EXACTLY
+- COPY the body position EXACTLY
+- Do NOT use the face from this image
+- Do NOT use the outfit from this image
 
-This is essentially a FACE SWAP + OUTFIT SWAP operation.
-The pose and composition MUST match the reference image EXACTLY.
+👤 IMAGE 2-3: FACE REFERENCE
+- Use ONLY the face from these images
+- Apply this face to the person
 
-[BODY PROPORTIONS - MUST PRESERVE]
-- Fashion model proportions (8-head ratio)
-- Long legs (4+ heads)
-- Slim, elongated silhouette
-- Small head proportion
-- Height appearance: 170-175cm
+👕 IMAGE 4+: OUTFIT REFERENCE
+- Use ONLY these outfits
+- IGNORE all clothing from IMAGE 1 (reference)
+- Do NOT mix with reference outfit
 
-[OUTFIT TO USE - From outfit images]
+[FROM REFERENCE IMAGE 1 - COPY EXACTLY]
+- POSE: {pose_description}
+- EXPRESSION: {expression_description}
+- HEAD ANGLE: {head_angle_description}
+- HAIR: {hair_description}
+- BACKGROUND: {background_description}
+
+[OUTFIT - USE ONLY FROM OUTFIT IMAGES]
 {outfit_descriptions}
+- DO NOT use any clothing from reference image
+- NO mixing with reference outfit
 
-[BACKGROUND - Generate from text, NOT from reference]
-{background_description}
+[BODY PROPORTIONS]
+- Fashion model proportions (8-head ratio)
+- Long legs, slim silhouette
+- Height: 170-175cm
 
 [LIGHTING]
-- Match the lighting mood from reference
-- Dramatic studio lighting
+- Match lighting from reference
 - Cool color temperature (5500-6000K)
 
 [OUTPUT]
-- Photo aspect ratio: 3:4 vertical portrait
+- Aspect ratio: 3:4 vertical
 - High-end fashion editorial quality
-- Magazine cover worthy
-- Sharp focus, professional photography
-- Natural skin texture (NOT plastic/artificial)
+- Sharp focus, natural skin texture
 
-REMEMBER: The pose, expression, angle, and composition MUST be IDENTICAL to the reference image.
-Only the face, outfit, and background should change.
+⚠️ CRITICAL REMINDERS:
+1. Pose/expression/hair from IMAGE 1 ONLY
+2. Face from IMAGE 2-3 ONLY
+3. Outfit from IMAGE 4+ ONLY
+4. Do NOT mix sources
 """
+```
+
+### 착장 폴더 전체 로드
+
+```python
+def load_outfit_images(outfit_folder):
+    """착장 폴더의 모든 이미지 자동 로드"""
+    extensions = {'.jpg', '.jpeg', '.png', '.webp'}
+    outfit_paths = [
+        os.path.join(outfit_folder, f)
+        for f in os.listdir(outfit_folder)
+        if os.path.splitext(f)[1].lower() in extensions
+    ]
+    return outfit_paths  # 전체 반환, 하드코딩 X
 ```
 
 ---

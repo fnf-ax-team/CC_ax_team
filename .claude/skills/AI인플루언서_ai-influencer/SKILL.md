@@ -206,73 +206,167 @@ db/ai_influencer/{캐릭터명}/
 
 ## 대화형 워크플로 (CRITICAL)
 
-### Step 1: 캐릭터 확인
+**사용자에게 단계별로 질문하며 진행한다. 한꺼번에 묻지 않는다!**
+
+---
+
+### Step 1: 얼굴 이미지 요청
 
 ```
-현재 등록된 캐릭터: 루나 (Luna)
-- 얼굴 이미지: 3장 (front, side, smile)
-- 스타일: MLB, 스트릿, 캐주얼
+얼굴 이미지를 알려주세요.
 
-이 캐릭터로 진행할까요?
+생성할 인물의 얼굴 이미지 경로를 입력해주세요.
+(1~2장 권장, 다양한 각도면 더 좋아요)
+
+예: D:\images\face.jpg
 ```
 
-### Step 2: 프리셋 이미지 선택
+**파일 확인 후 썸네일 또는 파일명 표시**
 
-| 순서 | 항목 | 선택 방법 |
-|------|------|----------|
-| 1 | 포즈 | 프리셋 ID 또는 커스텀 이미지 |
-| 2 | 표정 | 프리셋 ID 또는 커스텀 이미지 |
-| 3 | 착장 | 착장 이미지 (직접 제공) |
-| 4 | 배경 | 프리셋 ID 또는 커스텀 이미지 |
+---
 
-**클릭 옵션 제공:**
+### Step 2: 착장 이미지 요청
 
 ```
-포즈 프리셋을 선택하세요:
-[전신_01] 걷는 포즈, 로우앵글
-[전신_05] 스트릿 워킹
-[상반신_03] 팔 올린 포즈
-[커스텀] 직접 이미지 업로드
+착장 이미지를 알려주세요.
+
+입힐 옷 이미지들의 경로를 입력해주세요.
+(여러 장이면 쉼표로 구분하거나 폴더 경로)
+
+예: D:\images\outfit1.jpg, D:\images\outfit2.jpg
 ```
 
-### Step 3: 이미지 전송 (API 호출)
+**파일 확인 후 아이템 목록 표시**
+
+---
+
+### Step 3: 레퍼런스 이미지 요청 (선택)
+
+```
+레퍼런스 이미지가 있으신가요?
+
+| 유형 | 설명 | 필수 |
+|------|------|------|
+| 포즈 | 따라할 포즈 이미지 | 권장 |
+| 표정 | 따라할 표정 이미지 | 선택 |
+| 배경 | 원하는 배경 이미지 | 선택 |
+
+경로를 입력하거나, 없으면 "없음"이라고 해주세요.
+```
+
+**AskUserQuestion 예시:**
+```python
+{
+    "questions": [{
+        "question": "어떤 레퍼런스 이미지가 있나요?",
+        "header": "레퍼런스",
+        "options": [
+            {"label": "모두 있음", "description": "포즈, 표정, 배경 이미지 모두 제공"},
+            {"label": "포즈만", "description": "포즈 레퍼런스만 제공"},
+            {"label": "포즈+배경", "description": "포즈와 배경 이미지 제공"},
+            {"label": "없음", "description": "레퍼런스 없이 텍스트로 지정"}
+        ],
+        "multiSelect": false
+    }]
+}
+```
+
+---
+
+### Step 4: 비율 선택
 
 ```python
-# 프롬프트: 역할 설명만 (텍스트 최소화)
-prompt = """
-[IMAGE ROLES]
-IMAGE 1: POSE/EXPRESSION REFERENCE - Copy exact pose and expression
-IMAGE 2-4: FACE REFERENCE - Use this person's face (40% weight)
-IMAGE 5-6: OUTFIT REFERENCE - Wear exactly these clothes
-IMAGE 7: BACKGROUND REFERENCE - Use this environment
-
-[OUTPUT]
-Natural influencer photo, authentic, realistic skin texture
-"""
-
-# 이미지 순서대로 전송
-contents = [
-    prompt,
-    pose_image,           # 포즈+표정 레퍼런스
-    *face_images,         # 얼굴 3-5장
-    *outfit_images,       # 착장
-    background_image,     # 배경 (선택)
-]
+{
+    "questions": [{
+        "question": "이미지 비율을 선택해주세요",
+        "header": "비율",
+        "options": [
+            {"label": "9:16 (권장)", "description": "스토리/릴스용 세로"},
+            {"label": "3:4", "description": "세로 화보"},
+            {"label": "4:5", "description": "인스타 피드"},
+            {"label": "1:1", "description": "정사각형"}
+        ],
+        "multiSelect": false
+    }]
+}
 ```
 
-### Step 4: 생성 + 검증
+---
+
+### Step 5: 수량 선택
 
 ```python
-result = generate_ai_influencer(
-    character=character,
-    pose_preset="전신_05",        # 또는 pose_image=Path("...")
-    expression_preset="시크_02",   # 또는 expression_image=Path("...")
-    outfit_images=[img1, img2],
-    background_preset="핫플카페_08",
-    aspect_ratio="9:16",
-    resolution="2K",
-    temperature=0.5,
-)
+{
+    "questions": [{
+        "question": "몇 장 생성할까요?",
+        "header": "수량",
+        "options": [
+            {"label": "3장 (권장)", "description": "570원 (190원 x 3)"},
+            {"label": "1장", "description": "190원 - 테스트용"},
+            {"label": "5장", "description": "950원"},
+            {"label": "10장", "description": "1,900원"}
+        ],
+        "multiSelect": false
+    }]
+}
+```
+
+---
+
+### Step 6: 화질 선택
+
+```python
+{
+    "questions": [{
+        "question": "화질을 선택해주세요",
+        "header": "화질",
+        "options": [
+            {"label": "2K (권장)", "description": "2048px - SNS/웹용"},
+            {"label": "4K", "description": "4096px - 인쇄용 (비용 2배)"}
+        ],
+        "multiSelect": false
+    }]
+}
+```
+
+---
+
+### Step 7: 최종 확인 및 생성
+
+```
+## 생성 설정 확인
+
+| 항목 | 값 |
+|------|-----|
+| 얼굴 | face.jpg |
+| 착장 | outfit1.jpg, outfit2.jpg (2개) |
+| 포즈 레퍼런스 | pose.jpg |
+| 표정 레퍼런스 | expression.jpg |
+| 배경 레퍼런스 | background.jpg |
+| 비율 | 3:4 |
+| 수량 | 10장 |
+| 화질 | 2K |
+| 예상 비용 | 1,900원 |
+
+이대로 생성할까요?
+```
+
+**확인 후 생성 시작**
+
+---
+
+### 워크플로 요약
+
+```
+1. 얼굴 이미지 → 경로 입력받기
+2. 착장 이미지 → 경로 입력받기
+3. 레퍼런스 이미지 → 포즈/표정/배경 (선택)
+4. 비율 선택 → AskUserQuestion
+5. 수량 선택 → AskUserQuestion
+6. 화질 선택 → AskUserQuestion
+7. 최종 확인 → 설정 표 보여주고 확인
+8. 생성 실행 → 진행률 표시
+9. 결과 출력 → 저장 경로 안내
 ```
 
 ---
@@ -566,7 +660,9 @@ python tests/influencer/test_reference_cases.py --test test1 --cases H
 
 ---
 
-**버전**: 2.1.0
+**버전**: 2.2.0
 **작성일**: 2026-02-26
 **방식**: 이미지 레퍼런스 기반 (텍스트 최소화)
-**변경사항**: VLM 포즈 분석 모듈 추가, 프롬프트 최적화 원칙 추가
+**변경사항**:
+- v2.2.0: 대화형 워크플로 개선 (단계별 질문 방식)
+- v2.1.0: VLM 포즈 분석 모듈 추가, 프롬프트 최적화 원칙 추가

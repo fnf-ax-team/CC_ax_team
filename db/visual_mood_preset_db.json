@@ -1,0 +1,328 @@
+{
+  "version": "1.0.0",
+  "created_at": "2026-02-24",
+  "description": "비주얼/무드 프리셋 DB - 필름 텍스처 및 컬러 그레이딩",
+
+  "visual_presets": [
+    {
+      "id": "SPRING_001",
+      "season": "SPRING",
+      "source_image": "SPRING (1).jpeg",
+      "비주얼_무드": {
+        "필름_텍스처": {
+          "질감": "clean digital, soft focus edges",
+          "보정법": "subtle lift in shadows, soft contrast",
+          "분위기": "dreamy casual"
+        },
+        "컬러_그레이딩": {
+          "주요색조": "warm beige, cream undertones",
+          "채도": "slightly muted, soft pastels",
+          "노출": "balanced, soft diffused daylight"
+        },
+        "조명": {
+          "광원": "natural daylight, overcast",
+          "방향": "front-side soft light",
+          "그림자": "soft, minimal contrast"
+        }
+      }
+    },
+    {
+      "id": "SPRING_002",
+      "season": "SPRING",
+      "source_image": "SPRING (2).png",
+      "비주얼_무드": {
+        "필름_텍스처": {
+          "질감": "clean digital, sharp",
+          "보정법": "bright and clean, minimal editing",
+          "분위기": "fresh airport fashion"
+        },
+        "컬러_그레이딩": {
+          "주요색조": "neutral with warm undertones",
+          "채도": "vibrant, natural colors",
+          "노출": "high-key, bright daylight"
+        },
+        "조명": {
+          "광원": "strong natural daylight",
+          "방향": "overhead sun",
+          "그림자": "defined but not harsh"
+        }
+      }
+    },
+    {
+      "id": "SPRING_003",
+      "season": "SPRING",
+      "source_image": "SPRING (3).png",
+      "비주얼_무드": {
+        "필름_텍스처": {
+          "질감": "slight grain, urban gritty feel",
+          "보정법": "lifted blacks, street style edit",
+          "분위기": "urban street snap"
+        },
+        "컬러_그레이딩": {
+          "주요색조": "warm neutral, earthy tones",
+          "채도": "balanced, natural",
+          "노출": "balanced daylight with urban shadows"
+        },
+        "조명": {
+          "광원": "natural daylight",
+          "방향": "side lighting",
+          "그림자": "medium contrast, urban shadows"
+        }
+      }
+    },
+    {
+      "id": "SPRING_004",
+      "season": "SPRING",
+      "source_image": "SPRING (4).png",
+      "비주얼_무드": {
+        "필름_텍스처": {
+          "질감": "soft digital, clean",
+          "보정법": "cool tone filter, soft contrast",
+          "분위기": "soft pastel mood"
+        },
+        "컬러_그레이딩": {
+          "주요색조": "cool muted, pastel pink accent",
+          "채도": "desaturated, soft muted",
+          "노출": "flat overcast light, even exposure"
+        },
+        "조명": {
+          "광원": "overcast daylight",
+          "방향": "diffused all around",
+          "그림자": "very soft, minimal"
+        }
+      }
+    },
+    {
+      "id": "SPRING_005",
+      "season": "SPRING",
+      "source_image": "SPRING (5).png",
+      "비주얼_무드": {
+        "필름_텍스처": {
+          "질감": "faded film grain, vintage analog",
+          "보정법": "washed out blacks, faded highlights, VSCO film look",
+          "분위기": "nostalgic vintage street"
+        },
+        "컬러_그레이딩": {
+          "주요색조": "warm desaturated, faded browns",
+          "채도": "heavily desaturated, muted vintage",
+          "노출": "slightly overexposed, lifted shadows"
+        },
+        "조명": {
+          "광원": "natural daylight",
+          "방향": "backlit/side",
+          "그림자": "faded, low contrast"
+        }
+      }
+    },
+    {
+      "id": "SPRING_006",
+      "season": "SPRING",
+      "source_image": "SPRING (6).jpeg",
+      "비주얼_무드": {
+        "필름_텍스처": {
+          "질감": "clean digital",
+          "보정법": "warm indoor tone, natural edit",
+          "분위기": "cozy cafe vibe"
+        },
+        "컬러_그레이딩": {
+          "주요색조": "warm indoor amber, pink accents",
+          "채도": "natural, balanced saturation",
+          "노출": "balanced indoor light"
+        },
+        "조명": {
+          "광원": "indoor natural + artificial mix",
+          "방향": "front soft light",
+          "그림자": "soft, warm"
+        }
+      }
+    },
+    {
+      "id": "SUMMER_001",
+      "season": "SUMMER",
+      "source_image": "SUMMER (1).png",
+      "비주얼_무드": {
+        "필름_텍스처": {
+          "질감": "slight natural grain",
+          "보정법": "earthy warm edit, natural look",
+          "분위기": "edgy outdoor editorial"
+        },
+        "컬러_그레이딩": {
+          "주요색조": "warm earthy, green foliage accent",
+          "채도": "natural, earthy tones",
+          "노출": "bright harsh sunlight"
+        },
+        "조명": {
+          "광원": "direct sunlight",
+          "방향": "overhead/backlit",
+          "그림자": "strong defined shadows"
+        }
+      }
+    },
+    {
+      "id": "SUMMER_002",
+      "season": "SUMMER",
+      "source_image": "SUMMER (2).png",
+      "비주얼_무드": {
+        "필름_텍스처": {
+          "질감": "clean digital",
+          "보정법": "neutral warm, slight lift",
+          "분위기": "casual street snap"
+        },
+        "컬러_그레이딩": {
+          "주요색조": "neutral warm beige",
+          "채도": "slightly desaturated, muted",
+          "노출": "flat even light, overcast feel"
+        },
+        "조명": {
+          "광원": "diffused daylight",
+          "방향": "front even light",
+          "그림자": "minimal, flat"
+        }
+      }
+    },
+    {
+      "id": "SUMMER_003",
+      "season": "SUMMER",
+      "source_image": "SUMMER (3).jpeg",
+      "비주얼_무드": {
+        "필름_텍스처": {
+          "질감": "flash photography grain, harsh",
+          "보정법": "high contrast, flash pop",
+          "분위기": "night out, party vibe, Y2K flash aesthetic"
+        },
+        "컬러_그레이딩": {
+          "주요색조": "cool blue-gray, yellow accent from graphic",
+          "채도": "punchy contrast, deep blacks",
+          "노출": "flash exposed face, dark background falloff"
+        },
+        "조명": {
+          "광원": "direct flash",
+          "방향": "front harsh flash",
+          "그림자": "hard dramatic shadows behind"
+        }
+      }
+    },
+    {
+      "id": "SUMMER_004",
+      "season": "SUMMER",
+      "source_image": "SUMMER (4).jpg",
+      "비주얼_무드": {
+        "필름_텍스처": {
+          "질감": "clean digital, casual snap",
+          "보정법": "bright natural, minimal edit",
+          "분위기": "european street casual"
+        },
+        "컬러_그레이딩": {
+          "주요색조": "warm daylight neutral",
+          "채도": "natural vibrant",
+          "노출": "bright daylight, well exposed"
+        },
+        "조명": {
+          "광원": "natural daylight",
+          "방향": "front/side soft",
+          "그림자": "natural soft"
+        }
+      }
+    },
+    {
+      "id": "SUMMER_005",
+      "season": "SUMMER",
+      "source_image": "SUMMER (5).jpg",
+      "비주얼_무드": {
+        "필름_텍스처": {
+          "질감": "clean digital, polished",
+          "보정법": "neutral clean, slight contrast boost",
+          "분위기": "chic indoor lifestyle"
+        },
+        "컬러_그레이딩": {
+          "주요색조": "neutral cool gray, white balance",
+          "채도": "balanced, clean",
+          "노출": "indoor natural light, balanced"
+        },
+        "조명": {
+          "광원": "large window natural light",
+          "방향": "side soft light",
+          "그림자": "soft gradient"
+        }
+      }
+    },
+    {
+      "id": "SUMMER_006",
+      "season": "SUMMER",
+      "source_image": "SUMMER (6).jpg",
+      "비주얼_무드": {
+        "필름_텍스처": {
+          "질감": "clean digital",
+          "보정법": "neutral urban, slight cool tone",
+          "분위기": "city walk street style"
+        },
+        "컬러_그레이딩": {
+          "주요색조": "neutral cool, urban gray-red brick",
+          "채도": "natural, slightly muted",
+          "노출": "daylight balanced"
+        },
+        "조명": {
+          "광원": "natural daylight",
+          "방향": "side/back light",
+          "그림자": "medium contrast, urban"
+        }
+      }
+    },
+    {
+      "id": "STUDIO_EDITORIAL_001",
+      "season": "ALL",
+      "name": "카리나 스타일 (스튜디오 화보)",
+      "description": "MLB 카리나 화보 스타일 - 하이엔드 패션 에디토리얼, 스튜디오 촬영",
+      "source_reference": "MLB_KARINA",
+      "비주얼_무드": {
+        "필름_텍스처": {
+          "질감": "clean digital, sharp, no grain",
+          "보정법": "high-end editorial retouch, K-beauty glow skin",
+          "분위기": "high-end fashion editorial"
+        },
+        "컬러_그레이딩": {
+          "주요색조": "neutral cool, subtle blue-gray undertone",
+          "채도": "natural, balanced",
+          "노출": "balanced, clean highlights"
+        },
+        "조명": {
+          "광원": "large softbox, studio strobe",
+          "방향": "front-side 45 degree key light with fill",
+          "그림자": "soft, minimal, beauty lighting"
+        }
+      },
+      "촬영_세팅": {
+        "렌즈": "50mm 또는 85mm",
+        "배경": "심플한 그레이/쿨톤 스튜디오"
+      }
+    },
+    {
+      "id": "OUTDOOR_CASUAL_001",
+      "season": "ALL",
+      "name": "강혜원 스타일 (인플루언서 일상)",
+      "description": "MLB 강혜원 화보 스타일 - 인플루언서 일상, 야외 로케이션, 인스타 피드용",
+      "source_reference": "25FW_MLB 강혜원",
+      "비주얼_무드": {
+        "필름_텍스처": {
+          "질감": "clean digital, natural smartphone quality, no grain",
+          "보정법": "minimal edit, natural skin texture, Instagram-ready",
+          "분위기": "influencer daily content, casual street"
+        },
+        "컬러_그레이딩": {
+          "주요색조": "neutral natural, soft muted tones",
+          "채도": "slightly muted, natural",
+          "노출": "soft natural light, balanced"
+        },
+        "조명": {
+          "광원": "natural daylight, overcast sky, ambient outdoor light",
+          "방향": "diffused all around, soft side light",
+          "그림자": "soft natural shadows, minimal contrast"
+        }
+      },
+      "촬영_세팅": {
+        "렌즈": "스마트폰 광각 (24-28mm)",
+        "배경": "야외 로케이션, 도심 골목, 벽돌벽, 콘크리트"
+      }
+    }
+  ]
+}

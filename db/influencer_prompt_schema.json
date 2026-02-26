@@ -1,0 +1,315 @@
+{
+  "version": "1.0",
+  "updated": "2026-02-24",
+  "description": "AI 인플루언서 이미지 생성용 프롬프트 스키마",
+  "preset_references": {
+    "표정": "expression_presets.json",
+    "포즈": "pose_presets.json",
+    "촬영_세팅": "camera_presets.json (포즈와 1:1 매칭)",
+    "배경": "background_presets.json",
+    "스타일링": "styling_preset_db.json",
+    "비주얼_무드": "visual_mood_preset_db.json"
+  },
+
+  "schema": {
+    "모델": {
+      "국적": "",
+      "성별": "",
+      "나이": ""
+    },
+
+    "헤어": {
+      "스타일": "",
+      "컬러": "",
+      "질감": ""
+    },
+
+    "표정": {
+      "preset_id": "",
+      "베이스": "",
+      "바이브": "",
+      "눈": "",
+      "시선": "",
+      "입": ""
+    },
+
+    "포즈": {
+      "preset_id": "",
+      "stance": "",
+      "왼팔": "",
+      "오른팔": "",
+      "왼손": "",
+      "오른손": "",
+      "왼다리": "",
+      "오른다리": "",
+      "힙": ""
+    },
+
+    "배경": {
+      "preset_id": "",
+      "지역": "",
+      "시간대": "",
+      "색감": "",
+      "장소": "",
+      "분위기": "",
+      "인물제외": "배경에 다른 사람 없음. 주인공 한 명만 등장."
+    },
+
+    "스타일링": {
+      "preset_id": "",
+      "overall_vibe": "",
+      "아이템": {
+        "아우터": "",
+        "상의": "",
+        "하의": "",
+        "신발": "",
+        "헤드웨어": "",
+        "주얼리": "",
+        "가방": "",
+        "벨트": ""
+      },
+      "코디방법": {
+        "아우터": "",
+        "상의": "",
+        "하의": "",
+        "신발": "",
+        "헤드웨어": "",
+        "주얼리": "",
+        "가방": "",
+        "벨트": ""
+      }
+    },
+
+    "비주얼_무드": {
+      "preset_id": "",
+      "필름_텍스처": {
+        "질감": "",
+        "보정법": ""
+      },
+      "컬러_그레이딩": {
+        "주요색조": "",
+        "채도": "",
+        "노출": ""
+      },
+      "조명": {
+        "광원": "",
+        "방향": "",
+        "그림자": ""
+      }
+    },
+
+    "촬영_세팅": {
+      "preset_id": "",
+      "프레이밍": "",
+      "렌즈": "",
+      "앵글": "",
+      "높이": "",
+      "구도": "",
+      "조리개": ""
+    },
+
+    "네거티브": ""
+  },
+
+  "field_rules": {
+    "모델": {
+      "국적": {"required": true, "default": "한국인", "options": ["한국인", "일본인", "중국인", "동남아시아인", "서양인"]},
+      "성별": {"required": true, "default": "여성", "options": ["여성", "남성"]},
+      "나이": {"required": false, "default": "20대 초반", "options": ["10대 후반", "20대 초반", "20대 중반", "20대 후반", "30대 초반"]}
+    },
+
+    "헤어": {
+      "스타일": {"required": false, "default": "straight_loose", "options": ["straight_loose", "wavy", "ponytail", "bun", "braids", "short_bob"]},
+      "컬러": {"required": false, "default": "dark_brown", "options": ["black", "dark_brown", "brown", "blonde", "red", "ash_gray"]},
+      "질감": {"required": false, "default": "sleek", "options": ["sleek", "voluminous", "textured", "messy"]}
+    },
+
+    "표정": {
+      "preset_id": {"required": false, "note": "expression_presets.json의 ID 참조 (예: 시크_02, 러블리_03)"},
+      "베이스": {"required": true, "default": "cool", "options": ["cool", "natural", "dreamy", "playful", "cute"]},
+      "바이브": {"required": false, "options": ["sensual", "bold", "mysterious", "effortless", "unbothered", "intense", "innocent", "intimate", "fresh", "flirty", "adorable"]},
+      "눈": {"required": true, "fixed": "큰 눈", "note": "항상 '큰 눈' 고정"},
+      "시선": {"required": false, "default": "direct", "options": ["direct", "side gaze", "downcast", "3/4 측면"]},
+      "입": {"required": false, "default": "closed", "options": ["closed", "slightly parted", "soft smile", "slight pout"]}
+    },
+
+    "포즈": {
+      "preset_id": {"required": false, "note": "pose_presets.json의 ID 참조 (예: 전신_05, 상반신_12, 앉기_07)"},
+      "stance": {"required": true, "options": ["stand", "lean_wall", "sit", "walk", "kneel", "lean"]},
+      "왼팔": {"required": false},
+      "오른팔": {"required": false},
+      "왼손": {"required": false},
+      "오른손": {"required": false},
+      "왼다리": {"required": false},
+      "오른다리": {"required": false},
+      "힙": {"required": false, "note": "무게중심 분배"}
+    },
+
+    "배경": {
+      "preset_id": {"required": false, "note": "background_presets.json의 ID 참조 (예: 핫플카페_08, 그래피티_03)"},
+      "지역": {"required": false, "examples": ["한국/성수", "한국/홍대", "미국/뉴욕", "프랑스/파리", "일본/도쿄"]},
+      "시간대": {"required": false, "options": ["주간", "야간", "오전", "오후", "황혼", "실내"]},
+      "색감": {"required": false, "examples": ["쿨그레이, 블랙, 메탈릭", "웜브라운, 테라코타", "화이트, 그린, 우드톤"]},
+      "장소": {"required": true, "note": "구체적인 장소 설명 (이미지 안 보고도 이해할 수 있도록)"},
+      "분위기": {"required": false, "examples": ["힙하고 모던한", "인더스트리얼", "낭만적인", "캐주얼한"]},
+      "인물제외": {"required": true, "fixed": "배경에 다른 사람 없음. 주인공 한 명만 등장.", "note": "항상 포함 - 배경에 다른 인물 생성 방지"}
+    },
+
+    "스타일링": {
+      "preset_id": {"required": false, "note": "styling_preset_db.json의 ID 참조 (예: SPRING_003)"},
+      "overall_vibe": {"required": false, "examples": ["스트릿 캐주얼", "Y2K 섹시", "로맨틱 캐주얼", "애슬레저"]},
+      "아이템": {
+        "아우터": {"required": false, "examples": ["MLB 그린 바시티 자켓", "오버사이즈 데님 자켓"]},
+        "상의": {"required": true, "examples": ["MLB 화이트 반팔 티셔츠 with NY 로고", "크롭 탱크탑"]},
+        "하의": {"required": true, "examples": ["와이드 핏 카고 데님", "미니스커트", "레깅스"]},
+        "신발": {"required": false, "examples": ["MLB 청키 스니커즈", "컨버스 하이탑"]},
+        "헤드웨어": {"required": false, "examples": ["MLB CP66 볼캡", "비니", "버킷햇"]},
+        "주얼리": {"required": false, "examples": ["볼드한 실버 체인 목걸이", "후프 이어링"]},
+        "가방": {"required": false, "examples": ["나일론 메신저 백", "미니 크로스바디"]},
+        "벨트": {"required": false}
+      },
+      "코디방법": {
+        "아우터": {"required": false, "options": ["정상착용", "어깨에_걸침", "한팔만_소매에_넣고_착용", "지퍼_반오픈", "지퍼_오픈", "손에_들고"]},
+        "상의": {"required": false, "options": ["정상착용", "크롭_배꼽노출", "오프숄더_한쪽어깨_흘러내림", "넣어입기", "손으로_살짝_들어올림"]},
+        "하의": {"required": false, "options": ["정상착용", "하이웨이스트", "로우라이즈", "로우라이즈_속옷밴드노출", "밑단_롤업"]},
+        "신발": {"required": false, "options": ["정상착용", "루즈삭스_함께", "크루삭스_함께", "레그워머_함께"]},
+        "헤드웨어": {"required": false, "options": ["정방향", "뒤로쓰기", "옆으로쓰기", "살짝_들어올림"]},
+        "주얼리": {"required": false, "options": ["정상착용", "레이어드_여러개", "옷_바깥쪽으로_노출"]},
+        "가방": {"required": false, "options": ["한쪽어깨", "크로스바디_앞으로", "크로스바디_옆으로", "끈_짧게_밀착", "끈_길게_루즈", "토트_팔꿈치에_걸침"]},
+        "벨트": {"required": false}
+      }
+    },
+
+    "비주얼_무드": {
+      "preset_id": {"required": false, "note": "visual_mood_preset_db.json의 ID 참조 (예: SPRING_005)"},
+      "필름_텍스처": {
+        "질감": {"required": false, "default": "clean digital, natural smartphone quality, no grain", "examples": ["clean digital", "slight grain", "35mm film grain", "flash photography grain"]},
+        "보정법": {"required": false, "default": "minimal edit, natural skin texture, Instagram-ready", "examples": ["faded black, high contrast", "warm indoor tone", "VSCO film look", "minimal edit"]}
+      },
+      "컬러_그레이딩": {
+        "주요색조": {"required": false, "default": "neutral natural, soft muted tones", "examples": ["warm beige", "cool muted", "neutral with warm undertones"]},
+        "채도": {"required": false, "default": "slightly muted, natural", "options": ["vibrant", "natural", "slightly muted", "desaturated", "heavily desaturated"]},
+        "노출": {"required": false, "default": "soft natural light, balanced", "examples": ["high-key", "balanced", "slightly overexposed", "flash exposed"]}
+      },
+      "조명": {
+        "광원": {"required": false, "examples": ["natural daylight", "overcast", "direct flash", "indoor natural + artificial mix"]},
+        "방향": {"required": false, "examples": ["front-side", "overhead", "backlit", "diffused all around"]},
+        "그림자": {"required": false, "examples": ["soft, minimal", "medium contrast", "hard dramatic"]}
+      }
+    },
+
+    "촬영_세팅": {
+      "preset_id": {"required": false, "note": "camera_presets.json의 ID 참조 (포즈 preset_id와 동일하게 자동 연동)"},
+      "프레이밍": {"required": true, "options": ["FS", "MFS", "MS", "MCU", "CU"], "descriptions": {
+        "FS": "전신 (Full Shot) - 머리부터 발끝까지",
+        "MFS": "무릎위 (Medium Full Shot) - 무릎 위로",
+        "MS": "허리위 (Medium Shot) - 허리 위로",
+        "MCU": "가슴위 (Medium Close-Up) - 가슴 위로",
+        "CU": "얼굴 (Close-Up) - 어깨와 얼굴"
+      }},
+      "렌즈": {"required": false, "default": "50mm", "options": ["35mm", "50mm", "85mm", "스마트폰 광각 (24-28mm)"]},
+      "앵글": {"required": false, "default": "약간측면", "options": ["정면", "약간측면", "3/4측면", "측면"]},
+      "높이": {"required": false, "default": "살짝로앵글", "options": ["눈높이", "살짝로앵글", "로앵글", "하이앵글", "살짝하이앵글"]},
+      "구도": {"required": false, "default": "중앙", "options": ["중앙", "왼쪽1/3", "오른쪽1/3"]},
+      "조리개": {"required": false, "fixed": "f/2.8", "note": "배경 아웃포커싱용 고정값"}
+    },
+
+    "네거티브": {
+      "required": true,
+      "default": "other people, crowd, bystanders, passersby, multiple people, bright smile, teeth showing, golden hour, warm amber, plastic skin, deformed fingers, AI look, overprocessed",
+      "conditional": {
+        "CU_프레이밍": "full body visible 추가",
+        "walk_포즈": "static pose, standing still 추가",
+        "차량_배경": "front grille visible, license plate 추가"
+      }
+    }
+  },
+
+  "usage_example": {
+    "모델": {
+      "국적": "한국인",
+      "성별": "여성",
+      "나이": "20대 초반"
+    },
+    "헤어": {
+      "스타일": "straight_loose",
+      "컬러": "dark_brown",
+      "질감": "sleek"
+    },
+    "표정": {
+      "preset_id": "시크_02",
+      "베이스": "cool",
+      "바이브": "mysterious, effortless",
+      "눈": "큰 눈",
+      "시선": "3/4 측면",
+      "입": "closed"
+    },
+    "포즈": {
+      "preset_id": "전신_05",
+      "stance": "walk",
+      "왼팔": "팔꿈치 구부려 가슴 높이로 들어올림",
+      "오른팔": "자연스럽게 뒤로 스윙",
+      "왼손": "가방 들기",
+      "오른손": "자연스럽게 펴서 뒤로",
+      "왼다리": "앞으로 내딛기 (무릎 구부림)",
+      "오른다리": "뒤로 뻗어서 발끝 지면 터치",
+      "힙": "왼쪽 다리에 무게중심"
+    },
+    "배경": {
+      "preset_id": "핫플카페_08",
+      "지역": "한국/성수",
+      "시간대": "주간",
+      "색감": "그레이, 블랙, 콘크리트",
+      "장소": "성수동 인더스트리얼 카페. 노출 콘크리트, 검은 철제 빔, 에디슨 전구. 공장 리모델링 느낌.",
+      "분위기": "로우하고 힙한 성수 감성",
+      "인물제외": "배경에 다른 사람 없음. 주인공 한 명만 등장."
+    },
+    "스타일링": {
+      "preset_id": "SPRING_003",
+      "overall_vibe": "스트릿 캐주얼",
+      "아이템": {
+        "아우터": "MLB 그린 바시티 자켓",
+        "상의": "MLB 화이트 크롭 탱크탑 with NY 로고",
+        "하의": "와이드 핏 카고 데님",
+        "신발": "MLB 청키 스니커즈",
+        "헤드웨어": "MLB CP66 볼캡",
+        "가방": "나일론 크로스바디 백"
+      },
+      "코디방법": {
+        "아우터": "한팔만_소매에_넣고_착용, 어깨에_걸침",
+        "상의": "크롭_배꼽노출",
+        "하의": "정상착용",
+        "신발": "루즈삭스_함께",
+        "헤드웨어": "정방향",
+        "가방": "크로스바디_앞으로"
+      }
+    },
+    "비주얼_무드": {
+      "preset_id": "SPRING_003",
+      "필름_텍스처": {
+        "질감": "clean digital, natural smartphone quality, no grain",
+        "보정법": "minimal edit, natural skin texture, Instagram-ready"
+      },
+      "컬러_그레이딩": {
+        "주요색조": "neutral natural, soft muted tones",
+        "채도": "slightly muted, natural",
+        "노출": "soft natural light, balanced"
+      },
+      "조명": {
+        "광원": "natural daylight",
+        "방향": "side lighting",
+        "그림자": "medium contrast, urban shadows"
+      }
+    },
+    "촬영_세팅": {
+      "preset_id": "전신_05",
+      "프레이밍": "FS",
+      "렌즈": "35mm",
+      "앵글": "약간측면",
+      "높이": "살짝로앵글",
+      "구도": "중앙",
+      "조리개": "f/2.8"
+    },
+    "네거티브": "other people, crowd, bystanders, passersby, multiple people, bright smile, teeth showing, golden hour, warm amber, plastic skin, deformed fingers, AI look, overprocessed"
+  }
+}

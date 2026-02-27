@@ -104,7 +104,8 @@ CRITICAL: 이미지에 보이는 모든 패션 아이템을 빠짐없이 분석�
                 "primary": "주 색상",
                 "secondary": "보조 색상 (있으면)"
             },
-            "texture": "시각적 재질 특성 (예: fuzzy mohair, washed denim, satin polyester)"
+            "texture": "시각적 재질 특성 (예: fuzzy mohair, washed denim, satin polyester)",
+            "state": "착용 상태 (normal/open/draped/rolled/backwards/cropped/tucked/off_shoulder/held/one_arm 중 하나. 기본값: normal)"
         }
     ],
     "overall_style": "전체 스타일 (예: sporty streetwear)",

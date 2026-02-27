@@ -21,13 +21,13 @@ trigger-keywords: ["레퍼런스 브랜드컷", "참조 이미지 브랜드컷",
 │  ✅ VLM 분석: VISION_MODEL (gemini-3-flash-preview)         │
 │                                                             │
 │  ⚠️  반드시 core/config.py 에서 import 해서 사용!           │
-│  ❌ 배경 이미지 직접 전달 금지 (어색한 합성 유발)           │
+│  ✅ 배경 이미지 직접 전달 가능 (V4 업데이트)                │
 └─────────────────────────────────────────────────────────────┘
 ```
 
 ---
 
-## V3 핵심 컨셉
+## V4 핵심 컨셉
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
@@ -37,11 +37,12 @@ trigger-keywords: ["레퍼런스 브랜드컷", "참조 이미지 브랜드컷",
 │  레퍼런스에서 유지:        변경:                            │
 │  ├─ 포즈 (EXACT)          ├─ 얼굴 → 제공된 얼굴로 교체     │
 │  ├─ 표정 (EXACT)          ├─ 착장 → 제공된 착장으로 교체   │
-│  ├─ 앵글/구도 (EXACT)     └─ 배경 → 텍스트 설명으로 생성   │
+│  ├─ 앵글/구도 (EXACT)     └─ 배경 → 이미지 또는 텍스트     │
 │  ├─ 프레이밍 (EXACT)                                        │
 │  └─ 체형 비율 (EXACT)                                       │
 │                                                             │
-│  ⚠️  레퍼런스 이미지는 API에 직접 전달 (텍스트 변환 X)      │
+│  ✅ 모든 이미지를 1회 API 호출로 동시 전달                  │
+│  ✅ 배경 이미지 직접 전달 시 더 정확한 배경 재현 가능       │
 └─────────────────────────────────────────────────────────────┘
 ```
 
@@ -52,17 +53,25 @@ trigger-keywords: ["레퍼런스 브랜드컷", "참조 이미지 브랜드컷",
 | 입력 | 필수 | 수량 | 처리 방식 |
 |------|------|------|----------|
 | 레퍼런스 이미지 | ✅ | 1장 | **API에 직접 전달** (포즈/표정/구도 보존) |
-| 얼굴 이미지 폴더 | ✅ | 자동 1~2장 선택 | 이미지로 직접 전달 (Face Swap) |
-| 착장 이미지 폴더 | ✅ | N장 | 이미지로 직접 전달 + VLM 분석 텍스트 (Outfit Swap) |
-| 배경 이미지/텍스트 | ❌ | 0~1장 | VLM 분석 → **텍스트로만** 전달 (인물 무시) |
+| 얼굴 이미지 | ✅ | 1~2장 | **API에 직접 전달** (Face Swap) |
+| 착장 이미지 | ❌ | N장 | **API에 직접 전달** (Outfit Swap) |
+| 배경 이미지 | ❌ | 0~1장 | **API에 직접 전달** (정확한 배경 재현) ← V4 변경! |
 
 ### 이미지 전달 순서 (중요!)
 
 ```
-1. 프롬프트 (텍스트)
-2. 레퍼런스 이미지 (첫 번째 - 포즈 기준)
-3. 얼굴 이미지들 (Face Swap 대상)
-4. 착장 이미지들 (Outfit Swap 대상)
+┌─────────────────────────────────────────────────────────────┐
+│  1회 API 호출에 모든 이미지 동시 전달                        │
+├─────────────────────────────────────────────────────────────┤
+│                                                             │
+│  1. 프롬프트 (텍스트) - 각 이미지 역할 명시                 │
+│  2. IMAGE 1: 레퍼런스 이미지 (포즈/표정/앵글 기준)          │
+│  3. IMAGE 2: 얼굴 이미지 (Face Swap 대상)                   │
+│  4. IMAGE 3: 착장 이미지 (Outfit Swap 대상)                 │
+│  5. IMAGE 4: 배경 이미지 (Background 기준) ← V4 추가!       │
+│                                                             │
+│  → Gemini가 한번에 합성하여 결과물 생성                     │
+└─────────────────────────────────────────────────────────────┘
 ```
 
 ### 착장 처리 방식 (듀얼 어프로치)
@@ -153,11 +162,12 @@ AskUserQuestion(questions=[
 
 ## VLM 분석 프롬프트
 
-### 레퍼런스 이미지 분석
+### 레퍼런스 이미지 분석 (V2 - 순간포착 느낌 포함)
 
 ```python
 REFERENCE_ANALYSIS_PROMPT = """
-이 이미지를 분석해서 다음 정보를 JSON으로 추출해주세요:
+이 이미지를 분석해서 다음 정보를 JSON으로 추출해주세요.
+특히 "순간포착(candid)" vs "작정하고 찍은(posed)" 느낌을 정확히 구분해주세요.
 
 {
   "style": {
@@ -165,10 +175,26 @@ REFERENCE_ANALYSIS_PROMPT = """
     "color_tone": "색감 (예: 차가운 톤, 따뜻한 톤, 뉴트럴)",
     "aesthetic": "미학적 스타일 (예: 에디토리얼, 캐주얼, 하이패션)"
   },
+  "expression": {
+    "mouth": "입 상태 (닫힘/살짝 벌림/말하는 중/웃음)",
+    "eyes": "눈 상태 (정면 응시/측면/자연스러운 시선/감음)",
+    "overall_vibe": "촬영 느낌 (posed/candid/caught-mid-moment)",
+    "specific_details": "구체적 묘사 (예: 말하려다 찍힌 느낌, 바람에 머리 날리며)"
+  },
   "pose": {
     "body_position": "자세 (예: 서있음, 앉아있음, 기대어있음)",
     "pose_detail": "구체적 포즈 (예: 벽에 기대어 한 손 주머니에)",
-    "expression": "표정 (예: 무표정, 살짝 미소, 도도한)"
+    "hand_position": "손 위치"
+  },
+  "hair": {
+    "movement": "움직임 (정적/살짝 날림/크게 날림/바람에 휘날림)",
+    "style": "헤어스타일",
+    "direction": "날리는 방향 (있으면)"
+  },
+  "camera": {
+    "type": "카메라 타입 추정 (DSLR/스마트폰/필름)",
+    "focus": "포커스 상태 (sharp/slight-blur/motion-blur)",
+    "feel": "느낌 (professional/casual-snapshot/candid-moment)"
   },
   "composition": {
     "framing": "프레이밍 (예: 클로즈업, 상반신, 전신)",
@@ -183,8 +209,14 @@ REFERENCE_ANALYSIS_PROMPT = """
   "background": {
     "setting": "배경 장소 (예: 콘크리트 벽, 스튜디오, 야외)",
     "description": "배경 상세 설명"
-  }
+  },
+  "prompt_description": "이 정확한 이미지를 재현하기 위한 영어 프롬프트 (상세하게, candid/posed 느낌 포함)"
 }
+
+**중요**:
+- candid/순간포착이면 반드시 표시 (말하려다 찍힘, 자연스러운 순간 등)
+- 머리카락 움직임 상세히 (바람에 날리는 방향, 정도)
+- 스마트폰 느낌이면 명시 (캐주얼 스냅샷, 약간의 흔들림 등)
 """
 ```
 
@@ -268,7 +300,10 @@ def analyze_all_outfits(outfit_folder):
     return analyses
 ```
 
-### 배경 이미지 분석 (텍스트 변환용, 인물 무시)
+### 배경 이미지 분석 (선택사항 - V4에서는 직접 전달 권장)
+
+> **V4 권장**: 배경 이미지를 API에 직접 전달하면 더 정확한 재현 가능.
+> VLM 분석은 배경 이미지가 없거나 텍스트 설명만 필요할 때 사용.
 
 ```python
 BACKGROUND_ANALYSIS_PROMPT = """
@@ -342,7 +377,8 @@ def build_reference_prompt(reference_analysis, outfit_analysis=None, background_
 
     핵심:
     - 착장: outfit_analysis가 있으면 사용, 없으면 레퍼런스 착장 사용
-    - 배경: 텍스트로만 전달 (이미지 직접 전달 X)
+    - 배경: V4에서는 이미지 직접 전달 가능 (더 정확한 재현)
+    - 배경 이미지 있으면 프롬프트에 IMAGE 4 역할만 명시
     """
 
     # 레퍼런스에서 추출한 스타일 요소
@@ -393,8 +429,9 @@ def build_reference_prompt(reference_analysis, outfit_analysis=None, background_
 [착장 - 정확하게 재현]
 {outfit_prompt}
 
-[배경 - 텍스트로만 생성, 인물 없음]
+[배경 - IMAGE 4 참조 또는 텍스트]
 {background_prompt}
+# V4: 배경 이미지가 있으면 "Use background from IMAGE 4" 로 대체
 
 스타일: 고품질 패션 화보, 실제 사진처럼
 """
@@ -664,33 +701,83 @@ for i, img in enumerate(results):
 
 ---
 
-## 핵심 원칙 (V3)
+## 핵심 원칙 (V4)
 
 | 항목 | 처리 방식 |
 |------|----------|
-| 레퍼런스 이미지 | **API에 직접 전달** (포즈/표정/구도 보존 핵심!) |
-| 얼굴 이미지 | **이미지로 직접 전달** (Face Swap) |
-| 착장 이미지 | **이미지로 직접 전달** + VLM 분석 텍스트 보조 (Outfit Swap) |
-| 배경 이미지 | VLM 분석 → **텍스트 프롬프트로만 전달** (인물 무시!) |
+| 레퍼런스 이미지 | **API에 직접 전달** (포즈/표정/머리카락/카메라느낌 보존!) |
+| 얼굴 이미지 | **API에 직접 전달** (Face Swap) |
+| 착장 이미지 | **API에 직접 전달** (Outfit Swap) |
+| 배경 이미지 | **API에 직접 전달** (정확한 배경 재현) ← V4 변경! |
 
-**왜 레퍼런스를 직접 전달?**
-- 텍스트로 변환하면 정확한 포즈/표정/앵글이 손실됨
-- 직접 전달하면 AI가 정확히 같은 포즈를 재현 가능
-- "Face Swap + Outfit Swap" 수준의 정확도 달성
+**왜 모든 이미지를 직접 전달?**
+- 텍스트 변환 시 정보 손실 발생
+- 이미지 직접 전달 시 더 정확한 재현 가능
+- 1회 API 호출로 모든 이미지를 동시에 합성
 
-**왜 배경을 텍스트로만?**
-- 배경 이미지를 직접 전달하면 어색한 합성 발생
-- 텍스트로 설명하면 AI가 자연스럽게 배경을 재생성
-- 조명/그림자/원근감이 자연스럽게 매칭됨
+**배경 이미지 직접 전달의 장점 (V4)**
+- 특정 간판, 가판대, 거리 요소 등 정확히 재현
+- VLM 분석 → 텍스트 변환 과정에서의 정보 손실 방지
+- "이 배경 그대로 사용" 수준의 정확도 달성
 
-**배경 이미지의 인물 무시**
-- 배경 참조용 이미지에 사람이 있어도 **완전히 무시**
-- VLM 분석 시 "인물 제외하고 배경만 분석" 명시
-- prompt_description에 사람 관련 내용 포함 금지
+**배경 이미지에 인물이 있는 경우**
+- 프롬프트에 "IMAGE 4의 배경만 사용, 인물 무시" 명시
+- AI가 배경만 추출하여 새 인물을 합성
 
 ---
 
-## V3 프롬프트 템플릿
+## V3.1 추가 원칙 - 순간포착/카메라 스타일
+
+### Candid vs Posed 구분 (중요!)
+
+레퍼런스 이미지가 **순간포착(candid)** 느낌인지 **작정샷(posed)** 느낌인지 구분해서 프롬프트에 반영.
+
+| 타입 | 특징 | 프롬프트 키워드 |
+|------|------|----------------|
+| Candid | 말하려다 찍힘, 바람에 머리 날림, 자연스러운 순간 | `caught mid-moment`, `spontaneous`, `natural` |
+| Posed | 의도적 포즈, 카메라 응시, 정돈된 느낌 | `deliberate pose`, `looking at camera`, `composed` |
+
+### 머리카락 움직임 보존
+
+| 상태 | 프롬프트 예시 |
+|------|--------------|
+| 정적 | `hair at rest, neat` |
+| 살짝 날림 | `hair gently flowing, light breeze` |
+| 크게 날림 | `hair flowing dramatically, wind-blown` |
+| 특정 방향 | `hair flowing to the right side` |
+
+### 카메라 스타일
+
+| 느낌 | 특징 | 프롬프트 |
+|------|------|----------|
+| 스마트폰/아이폰 | 살짝 흔들림, 캐주얼 스냅샷 | `iPhone photo`, `slight motion blur`, `casual snapshot` |
+| DSLR | 샤프, 프로페셔널 | `sharp focus`, `professional quality`, `editorial` |
+
+### VLM 분석 필수 항목
+
+레퍼런스 이미지를 VLM으로 분석할 때 반드시 다음 항목 추출:
+
+```python
+{
+  "expression": {
+    "mouth": "입 상태",
+    "eyes": "눈 상태",
+    "overall_vibe": "candid/posed/caught-mid-moment"
+  },
+  "hair": {
+    "movement": "정적/살짝 날림/크게 날림",
+    "direction": "날리는 방향"
+  },
+  "camera": {
+    "type": "DSLR/스마트폰/필름",
+    "feel": "professional/casual-snapshot/candid-moment"
+  }
+}
+```
+
+---
+
+## V4 프롬프트 템플릿
 
 ### 이미지 순서 규칙 (중요!)
 
@@ -699,8 +786,9 @@ for i, img in enumerate(results):
 │  IMAGE ORDER (AI가 혼동하지 않도록 명확히 구분)              │
 ├─────────────────────────────────────────────────────────────┤
 │  IMAGE 1: REFERENCE - 포즈/표정/머리카락/구도 복사 대상     │
-│  IMAGE 2-3: FACE - 이 얼굴만 사용                          │
-│  IMAGE 4+: OUTFIT - 이 착장만 사용 (레퍼런스 착장 무시)    │
+│  IMAGE 2: FACE - 이 얼굴만 사용                             │
+│  IMAGE 3: OUTFIT - 이 착장만 사용 (레퍼런스 착장 무시)      │
+│  IMAGE 4: BACKGROUND - 이 배경만 사용 (인물 무시!) ← V4!   │
 └─────────────────────────────────────────────────────────────┘
 ```
 
@@ -719,44 +807,60 @@ for i, img in enumerate(results):
 - BODY POSITION: {자세}
 ```
 
-### V3 프롬프트 템플릿
+### V4 프롬프트 템플릿 (순간포착/카메라 스타일 + 배경 직접 전달)
 
 ```python
-V3_PROMPT_TEMPLATE = """
+V4_PROMPT_TEMPLATE = """
 [CRITICAL - IMAGE ROLE ASSIGNMENT]
 
 You are receiving multiple images. Each has a SPECIFIC role:
 
-🎯 IMAGE 1 (FIRST IMAGE): REFERENCE
+IMAGE 1 (FIRST IMAGE): REFERENCE
 - This is your POSE/EXPRESSION/HAIR reference
 - COPY the pose EXACTLY
-- COPY the expression EXACTLY
-- COPY the hair movement EXACTLY
+- COPY the expression EXACTLY - MOST IMPORTANT!
+- COPY the hair movement EXACTLY (if flowing, keep flowing!)
 - COPY the head angle EXACTLY
 - COPY the body position EXACTLY
-- Do NOT use the face from this image
+- Do NOT use the face identity from this image
 - Do NOT use the outfit from this image
 
-👤 IMAGE 2-3: FACE REFERENCE
-- Use ONLY the face from these images
-- Apply this face to the person
+IMAGE 2: FACE REFERENCE
+- Use ONLY the face identity from this image
+- Apply this face to the reference pose/expression
 
-👕 IMAGE 4+: OUTFIT REFERENCE
-- Use ONLY these outfits
+IMAGE 3: OUTFIT REFERENCE
+- Use ONLY this outfit
 - IGNORE all clothing from IMAGE 1 (reference)
-- Do NOT mix with reference outfit
+
+IMAGE 4: BACKGROUND REFERENCE ← V4 추가!
+- Use this image's BACKGROUND ONLY
+- IGNORE any person in this image completely
+- Copy the scene, elements, signage, atmosphere
+- Place our subject (from IMAGE 1-3) INTO this background
 
 [FROM REFERENCE IMAGE 1 - COPY EXACTLY]
 - POSE: {pose_description}
 - EXPRESSION: {expression_description}
+- EXPRESSION VIBE: {expression_vibe} (candid/posed/caught-mid-moment)
 - HEAD ANGLE: {head_angle_description}
-- HAIR: {hair_description}
-- BACKGROUND: {background_description}
+- HAIR: {hair_description} (movement direction and intensity!)
+- MOUTH: {mouth_state} (if slightly open, KEEP IT slightly open!)
 
-[OUTFIT - USE ONLY FROM OUTFIT IMAGES]
-{outfit_descriptions}
-- DO NOT use any clothing from reference image
-- NO mixing with reference outfit
+[EXPRESSION DETAILS - VLM ANALYSIS]
+{expression_vlm_details}
+
+[CANDID vs POSED - CRITICAL!]
+{candid_section}
+
+[CAMERA STYLE]
+{camera_style_section}
+
+[OUTFIT]
+{outfit_section}
+
+[BACKGROUND]
+{background_description}
 
 [BODY PROPORTIONS]
 - Fashion model proportions (8-head ratio)
@@ -764,19 +868,63 @@ You are receiving multiple images. Each has a SPECIFIC role:
 - Height: 170-175cm
 
 [LIGHTING]
-- Match lighting from reference
+- Match lighting feel from reference
 - Cool color temperature (5500-6000K)
+- No golden/warm cast
 
 [OUTPUT]
-- Aspect ratio: 3:4 vertical
+{output_style}
+
+CRITICAL REMINDERS:
+1. Pose/expression/hair/CANDID-FEEL from IMAGE 1
+2. Face identity from IMAGE 2-3
+3. Preserve the EXACT vibe (candid moment vs posed photo)
+4. Hair movement must match reference
+"""
+
+# ============================================================
+# Candid Section Template (레퍼런스가 순간포착 느낌일 때)
+# ============================================================
+CANDID_SECTION_TEMPLATE = """
+- The reference is a CANDID moment, caught mid-action
+- Do NOT make it look like a posed, deliberate photo
+- Preserve: {candid_details}
+- Do NOT "fix" or "improve" the expression to look more photogenic
+- Keep the spontaneous, natural feel
+"""
+
+# ============================================================
+# Camera Style Template (스마트폰/아이폰 느낌일 때)
+# ============================================================
+SMARTPHONE_CAMERA_TEMPLATE = """
+- Shot on iPhone / smartphone camera feel
+- Slight motion blur is OK (adds authenticity)
+- NOT a professional DSLR sharp photo
+- Casual snapshot feel, not studio photoshoot
+- Natural slight grain/noise is acceptable
+- Less polished, more real/authentic
+"""
+
+DSLR_CAMERA_TEMPLATE = """
+- Professional DSLR quality
+- Sharp focus throughout
+- High-end fashion editorial feel
+"""
+
+# ============================================================
+# Output Style Template
+# ============================================================
+OUTPUT_CANDID_TEMPLATE = """
+- Natural, spontaneous photo feel
+- Slight softness/motion blur OK (NOT perfectly sharp)
+- Cool color temperature (no golden/warm cast)
+- Casual snapshot, NOT high-end editorial
+"""
+
+OUTPUT_EDITORIAL_TEMPLATE = """
 - High-end fashion editorial quality
 - Sharp focus, natural skin texture
-
-⚠️ CRITICAL REMINDERS:
-1. Pose/expression/hair from IMAGE 1 ONLY
-2. Face from IMAGE 2-3 ONLY
-3. Outfit from IMAGE 4+ ONLY
-4. Do NOT mix sources
+- Cool color temperature (no golden/warm cast)
 """
 ```
 
@@ -796,56 +944,65 @@ def load_outfit_images(outfit_folder):
 
 ---
 
-## V3 코드 패턴
+## V4 코드 패턴
 
 ```python
 from core.config import IMAGE_MODEL, VISION_MODEL
 
-def generate_reference_brandcut_v3(
+def generate_reference_brandcut_v4(
     reference_path,
     face_paths,
     outfit_paths,
-    outfit_descriptions,
-    background_description,
+    background_path,  # V4: 배경 이미지 직접 전달
+    aspect_ratio="4:5",
+    resolution="2K",
 ):
     """
-    V3: Direct reference approach
-    - Reference image passed directly (not converted to text)
-    - Preserves exact pose/expression/angle/composition
+    V4: All images passed directly in single API call
+    - Reference image: pose/expression/angle
+    - Face image: face swap
+    - Outfit image: outfit swap
+    - Background image: background reference (V4!)
     """
 
-    # Build prompt
-    prompt = V3_PROMPT_TEMPLATE.format(
-        outfit_descriptions=outfit_descriptions,
-        background_description=background_description
-    )
+    # Build prompt with IMAGE roles
+    prompt = V4_PROMPT_TEMPLATE  # IMAGE 1~4 역할 명시
 
     # Build parts in ORDER (important!)
     parts = [types.Part(text=prompt)]
 
     # 1. Reference image FIRST (pose reference)
     reference_img = Image.open(reference_path).convert("RGB")
-    parts.append(pil_to_part(reference_img))
+    parts.append(pil_to_part(reference_img))  # IMAGE 1
 
     # 2. Face images (for face swap)
     for face_path in face_paths:
         face_img = Image.open(face_path).convert("RGB")
-        parts.append(pil_to_part(face_img))
+        parts.append(pil_to_part(face_img))  # IMAGE 2
 
     # 3. Outfit images (for outfit swap)
     for outfit_path in outfit_paths:
         outfit_img = Image.open(outfit_path).convert("RGB")
-        parts.append(pil_to_part(outfit_img))
+        parts.append(pil_to_part(outfit_img))  # IMAGE 3
 
-    # Generate
+    # 4. Background image (V4 - direct pass!)
+    if background_path:
+        background_img = Image.open(background_path).convert("RGB")
+        parts.append(pil_to_part(background_img))  # IMAGE 4
+
+    # Generate - single API call with all 4 images
     client = genai.Client(api_key=get_next_api_key())
 
     response = client.models.generate_content(
         model=IMAGE_MODEL,  # gemini-3-pro-image-preview
         contents=[types.Content(role="user", parts=parts)],
         config=types.GenerateContentConfig(
-            temperature=0.2,  # Low for consistency
+            temperature=0.25,  # Low for consistency
             response_modalities=["IMAGE", "TEXT"],
+            image_config=types.ImageConfig(
+                aspect_ratio=aspect_ratio,
+                image_size=resolution
+            )
         )
     )
 
@@ -859,9 +1016,11 @@ def generate_reference_brandcut_v3(
 | 문제 | 원인 | 해결 |
 |------|------|------|
 | 스타일이 다름 | 레퍼런스 분석 부족 | VLM 프롬프트 구체화 |
-| 배경이 어색 | 배경 이미지 직접 전달 | 텍스트로만 전달 (이 스킬 방식) |
+| 배경이 완전히 다름 | 텍스트 변환 시 정보 손실 | **V4: 배경 이미지 직접 전달** |
+| 배경 합성 어색함 | 조명/원근 불일치 | 프롬프트에 조명/원근 맞춤 지시 |
 | 얼굴 안 닮음 | 얼굴 이미지 품질 | 정면 고해상도 사용 |
-| 포즈가 다름 | pose_detail 추출 부족 | 레퍼런스 분석 강화 |
+| 포즈가 다름 | pose_detail 추출 부족 | 프롬프트에 상세 포즈 텍스트 추가 |
+| 앵글/프레이밍 다름 | 레퍼런스 특징 미명시 | LOW ANGLE, 프레이밍 등 명시 |
 
 ---
 

@@ -268,13 +268,13 @@ result = generate_with_validation(
 
 ---
 
-## 브랜드별 프롬프트 라이브러리
+## 브랜드별 치트시트
 
-| 브랜드 | 경로 | 상태 |
-|--------|------|------|
-| MLB | `prompt-library/mlb/` | ✅ |
-| Discovery | `prompt-library/discovery/` | 🔜 |
-| Duvetica | `prompt-library/duvetica/` | 🔜 |
+| 브랜드 | 치트시트 | 상태 |
+|--------|---------|------|
+| MLB | `mlb-prompt-cheatsheet.md` | ✅ |
+| Discovery | (예정) | 🔜 |
+| Duvetica | (예정) | 🔜 |
 
 ---
 

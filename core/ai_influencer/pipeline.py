@@ -117,7 +117,7 @@ def send_image_request(
         img = Image.open(pose_image).convert("RGB")
         parts.append(
             types.Part(
-                text="[POSE REMINDER] *** CRITICAL: Copy this EXACT pose! If one leg is lifted, it MUST be lifted in the output! ***"
+                text="[POSE REMINDER] *** CRITICAL: Copy this EXACT pose! Pay attention to leg shape: if knee points SIDEWAYS (figure-4), do NOT lift it FORWARD. Match the exact direction! ***"
             )
         )
         parts.append(pil_to_part(img))
@@ -159,19 +159,22 @@ def generate_full_pipeline(
     resolution: str = "2K",
     temperature: float = 0.35,
     client=None,
+    max_retries: int = 2,
+    validate: bool = True,
 ) -> Dict[str, Any]:
     """
-    AI 인플루언서 풀 파이프라인 실행
+    AI 인플루언서 풀 파이프라인 실행 (검증+재생성 루프 포함)
 
-    8단계 파이프라인:
-    1. analyze_hair
-    2. analyze_expression (상세 버전)
-    3. analyze_pose
-    4. analyze_background
-    5. check_compatibility
-    6. OutfitAnalyzer.analyze
-    7. build_schema_prompt
-    8. send_image_request
+    파이프라인 흐름:
+    1. VLM 분석 (1회만 - 비용 절약)
+       - analyze_hair, analyze_expression, analyze_pose
+       - analyze_background, check_compatibility, OutfitAnalyzer
+    2. 검증+재생성 루프 (최대 max_retries+1회):
+       a. build_schema_prompt (재시도 시 enhancement 추가)
+       b. send_image_request
+       c. validator.validate (validate=True일 때)
+       d. 통과 -> break
+       e. 실패 -> enhancement_rules로 프롬프트 보강, temperature 낮춤
 
     Args:
         face_images: 얼굴 이미지 경로 목록
@@ -183,6 +186,8 @@ def generate_full_pipeline(
         resolution: 해상도 (기본 2K)
         temperature: 생성 온도 (기본 0.35)
         client: genai.Client (None이면 자동 생성)
+        max_retries: 검증 실패 시 최대 재시도 횟수 (기본 2)
+        validate: 검증 활성화 여부 (기본 True)
 
     Returns:
         dict: {
@@ -195,6 +200,13 @@ def generate_full_pipeline(
                 "background": BackgroundAnalysisResult,
                 "compatibility": CompatibilityResult,
                 "outfit": OutfitAnalysisResult,
+            },
+            "validation": {
+                "passed": bool,
+                "score": int,
+                "grade": str,
+                "attempts": int,
+                "history": list,
             }
         }
     """
@@ -213,48 +225,40 @@ def generate_full_pipeline(
         client = genai.Client(api_key=api_key)
 
     # =========================================================
-    # STEP 1: 헤어 분석
+    # VLM 분석 (1회만 실행 - 재시도 시 결과 재사용)
     # =========================================================
+
+    # STEP 1: 헤어 분석
     print("\n[1/8] Analyzing hair from face image...")
     hair_result = analyze_hair(face_images[0])
     print(f"  Hair: {hair_result.to_schema_format()}")
 
-    # =========================================================
-    # STEP 2: 표정 분석 (상세 버전 - ExpressionAnalysisResult)
-    # =========================================================
+    # STEP 2: 표정 분석 (상세 버전)
     print("\n[2/8] Analyzing expression (detailed)...")
     expr_analyzer = ExpressionAnalyzer()
     expression_result = expr_analyzer.analyze(expression_image)
     print(f"  Mood: {expression_result.mood_base}, {expression_result.mood_vibe}")
 
-    # =========================================================
     # STEP 3: 포즈 분석
-    # =========================================================
     print("\n[3/8] Analyzing pose...")
     pose_result = analyze_pose(pose_image)
     print(f"  Stance: {pose_result.stance}, Framing: {pose_result.framing}")
 
-    # =========================================================
     # STEP 4: 배경 분석
-    # =========================================================
     print("\n[4/8] Analyzing background...")
     background_result = analyze_background(background_image)
     print(
         f"  Scene: {background_result.scene_type}, Provides: {background_result.provides}"
     )
 
-    # =========================================================
     # STEP 5: 호환성 검사
-    # =========================================================
     print("\n[5/8] Checking compatibility...")
     compatibility_result = check_compatibility(pose_result, background_result)
     print(
         f"  Level: {compatibility_result.level.value}, Score: {compatibility_result.score}"
     )
 
-    # =========================================================
     # STEP 6: 착장 분석
-    # =========================================================
     print("\n[6/8] Analyzing outfit...")
     outfit_analyzer = OutfitAnalyzer(client)
     outfit_result = outfit_analyzer.analyze([str(p) for p in outfit_images])
@@ -262,51 +266,238 @@ def generate_full_pipeline(
     print(f"  Brand: {outfit_result.brand_detected}")
     print(f"  Items: {len(outfit_result.items)}")
 
-    # =========================================================
-    # STEP 7: 프롬프트 조립
-    # =========================================================
-    print("\n[7/8] Building schema prompt...")
-    prompt = build_schema_prompt(
-        hair_result=hair_result,
-        expression_result=expression_result,
-        pose_result=pose_result,
-        background_result=background_result,
-        outfit_result=outfit_result,
-        compatibility_result=compatibility_result,
-    )
-    print(f"  Prompt length: {len(prompt.splitlines())} lines")
+    # 분석 결과 딕셔너리
+    analysis = {
+        "hair": hair_result,
+        "expression": expression_result,
+        "pose": pose_result,
+        "background": background_result,
+        "compatibility": compatibility_result,
+        "outfit": outfit_result,
+    }
 
     # =========================================================
-    # STEP 8: 이미지 생성
+    # 검증기 로드 (validate=True일 때)
     # =========================================================
-    print("\n[8/8] Generating image (all references included)...")
-    image = send_image_request(
-        client=client,
-        prompt=prompt,
-        face_images=face_images,
-        outfit_images=outfit_images,
-        pose_image=pose_image,
-        expression_image=expression_image,
-        background_image=background_image,
-        aspect_ratio=aspect_ratio,
-        resolution=resolution,
-        temperature=temperature,
-    )
+    validator = None
+    if validate:
+        try:
+            from core.validators import ValidatorRegistry, WorkflowType
 
-    if image:
+            # 모듈 import로 등록 트리거
+            import core.ai_influencer.validator  # noqa: F401
+
+            validator = ValidatorRegistry.get(WorkflowType.AI_INFLUENCER, client)
+            print("\n[Validator] AI Influencer validator loaded")
+        except Exception as e:
+            print(f"\n[Validator] Could not load validator: {e}")
+            print("[Validator] Proceeding without validation")
+            validator = None
+
+    # =========================================================
+    # 생성+검증 루프
+    # =========================================================
+    best_image = None
+    best_score = 0
+    best_prompt = ""
+    history = []
+    current_temp = temperature
+    enhancement_text = ""  # 재시도 시 추가할 보강 텍스트
+
+    total_attempts = (max_retries + 1) if validator else 1
+
+    for attempt in range(total_attempts):
+        print(f"\n{'#' * 60}")
+        print(
+            f"# ATTEMPT {attempt + 1}/{total_attempts} | Temperature: {current_temp:.2f}"
+        )
+        print(f"{'#' * 60}")
+
+        # STEP 7: 프롬프트 조립
+        print("\n[7/8] Building schema prompt...")
+        prompt = build_schema_prompt(
+            hair_result=hair_result,
+            expression_result=expression_result,
+            pose_result=pose_result,
+            background_result=background_result,
+            outfit_result=outfit_result,
+            compatibility_result=compatibility_result,
+        )
+
+        # 재시도 시 enhancement 텍스트 추가
+        if enhancement_text:
+            prompt = prompt + enhancement_text
+            print(f"  [Enhancement] Added retry enhancement rules")
+
+        print(f"  Prompt length: {len(prompt.splitlines())} lines")
+        best_prompt = prompt
+
+        # STEP 8: 이미지 생성
+        print("\n[8/8] Generating image (all references included)...")
+        image = send_image_request(
+            client=client,
+            prompt=prompt,
+            face_images=face_images,
+            outfit_images=outfit_images,
+            pose_image=pose_image,
+            expression_image=expression_image,
+            background_image=background_image,
+            aspect_ratio=aspect_ratio,
+            resolution=resolution,
+            temperature=current_temp,
+        )
+
+        if image is None:
+            print("  [FAIL] Image generation failed")
+            history.append(
+                {
+                    "attempt": attempt + 1,
+                    "temperature": current_temp,
+                    "error": "Generation failed",
+                }
+            )
+            continue
+
         print("  [OK] Image generated successfully")
+
+        # 검증기 없으면 첫 성공 이미지 반환
+        if validator is None:
+            best_image = image
+            best_score = 100
+            history.append(
+                {
+                    "attempt": attempt + 1,
+                    "temperature": current_temp,
+                    "total_score": 100,
+                    "passed": True,
+                    "note": "No validator",
+                }
+            )
+            break
+
+        # STEP 9: 검증
+        print("\n[9] Validating generated image...")
+        try:
+            validation_result = validator.validate(
+                generated_img=image,
+                reference_images={
+                    "face": [str(p) for p in face_images],
+                    "outfit": [str(p) for p in outfit_images],
+                },
+            )
+
+            score = validation_result.total_score
+            passed = validation_result.passed
+            grade = validation_result.grade
+
+            # 검수 결과 출력
+            print(f"\n{'=' * 60}")
+            print(f"  Validation (attempt {attempt + 1})")
+            print(f"{'=' * 60}")
+            if (
+                hasattr(validation_result, "summary_kr")
+                and validation_result.summary_kr
+            ):
+                print(validation_result.summary_kr)
+            else:
+                print(
+                    f"  Score: {score}/100 | Grade: {grade} | {'PASS' if passed else 'FAIL'}"
+                )
+            print(f"{'=' * 60}\n")
+
+            history.append(
+                {
+                    "attempt": attempt + 1,
+                    "temperature": current_temp,
+                    "total_score": score,
+                    "grade": grade,
+                    "passed": passed,
+                }
+            )
+
+            # 베스트 트래킹
+            if score > best_score:
+                best_image = image
+                best_score = score
+
+            # 통과 시 종료
+            if passed:
+                print(f"[Validation] PASSED at attempt {attempt + 1}!")
+                best_image = image
+                break
+
+            # 재시도 여부 판단
+            if not validator.should_retry(validation_result):
+                print(f"[Validation] Auto-fail or not retryable, stopping")
+                break
+
+        except Exception as e:
+            print(f"[Validation] Error: {e}")
+            history.append(
+                {
+                    "attempt": attempt + 1,
+                    "temperature": current_temp,
+                    "error": f"Validation error: {e}",
+                }
+            )
+            if best_image is None:
+                best_image = image
+
+        # 재시도 준비: enhancement rules 추출 + temperature 낮춤
+        if attempt < max_retries:
+            # 실패한 기준 추출
+            failed_criteria = []
+            if hasattr(validation_result, "criteria_scores"):
+                for criterion, data in validation_result.criteria_scores.items():
+                    if isinstance(data, dict) and not data.get("passed", True):
+                        failed_criteria.append(criterion)
+
+            # enhancement rules 생성
+            if failed_criteria:
+                enhancement_text = validator.get_enhancement_rules(failed_criteria)
+                print(f"  [Retry] Failed criteria: {failed_criteria}")
+            else:
+                enhancement_text = ""
+
+            # temperature 낮춤 (일관성 향상)
+            current_temp = max(0.2, current_temp - 0.05)
+            print(f"  [Retry] Next temperature: {current_temp:.2f}")
+            time.sleep(2)
+
+    # =========================================================
+    # 최종 결과 반환
+    # =========================================================
+    if best_image is None:
+        print(f"\n[Pipeline] All attempts failed")
     else:
-        print("  [FAIL] Image generation failed")
+        print(f"\n[Pipeline] Best result: {best_score}/100")
+
+    # validation 결과 요약
+    validation_summary = {
+        "passed": best_score >= 75 and best_image is not None,
+        "score": best_score,
+        "grade": _score_to_grade(best_score),
+        "attempts": len(history),
+        "history": history,
+    }
 
     return {
-        "image": image,
-        "prompt": prompt,
-        "analysis": {
-            "hair": hair_result,
-            "expression": expression_result,
-            "pose": pose_result,
-            "background": background_result,
-            "compatibility": compatibility_result,
-            "outfit": outfit_result,
-        },
+        "image": best_image,
+        "prompt": best_prompt,
+        "analysis": analysis,
+        "validation": validation_summary,
     }
+
+
+def _score_to_grade(score: int) -> str:
+    """점수 -> 등급 변환"""
+    if score >= 90:
+        return "S"
+    elif score >= 80:
+        return "A"
+    elif score >= 70:
+        return "B"
+    elif score >= 60:
+        return "C"
+    else:
+        return "F"

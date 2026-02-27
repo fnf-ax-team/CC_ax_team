@@ -102,17 +102,30 @@ def build_influencer_prompt(
     if pose_preset:
         pose_data = load_preset("pose", pose_preset)
         if pose_data:
+            # vlm_analysis가 있으면 상세 방향 정보 사용
+            vlm = pose_data.get("vlm_analysis", {})
+
             prompt_schema["포즈"] = {
                 "preset_id": pose_preset,
-                "stance": pose_data.get("stance", "stand"),
-                "왼팔": pose_data.get("왼팔", ""),
-                "오른팔": pose_data.get("오른팔", ""),
-                "왼손": pose_data.get("왼손", ""),
-                "오른손": pose_data.get("오른손", ""),
-                "왼다리": pose_data.get("왼다리", ""),
-                "오른다리": pose_data.get("오른다리", ""),
-                "힙": pose_data.get("힙", ""),
+                "stance": vlm.get("stance") or pose_data.get("stance", "stand"),
+                # vlm_analysis의 상세 정보 우선 사용 (방향 정보 포함)
+                "왼팔": vlm.get("left_arm") or pose_data.get("왼팔", ""),
+                "오른팔": vlm.get("right_arm") or pose_data.get("오른팔", ""),
+                "왼다리": vlm.get("left_leg") or pose_data.get("왼다리", ""),
+                "오른다리": vlm.get("right_leg") or pose_data.get("오른다리", ""),
+                "힙": vlm.get("hip") or pose_data.get("힙", ""),
+                # 방향/기울기 정보 (vlm_analysis에서만 제공)
+                "어깨_라인": vlm.get("shoulder_line", ""),
+                "얼굴_방향": vlm.get("face_direction", ""),
             }
+
+            # 촬영 세팅도 vlm_analysis에서 추출
+            if vlm:
+                prompt_schema["촬영_세팅"] = {
+                    "프레이밍": vlm.get("framing", ""),
+                    "앵글": vlm.get("camera_angle", ""),
+                    "높이": vlm.get("camera_height", ""),
+                }
 
     # 5. 배경 프리셋
     if background_preset:
@@ -270,19 +283,52 @@ def schema_to_prompt_text(prompt_schema: Dict, character: Character = None) -> s
         if expr_desc:
             prompt_parts.append(" ".join(expr_desc) + " expression")
 
-    # 4. 포즈 (간결하게)
+    # 4. 포즈 (상세하게 - 방향 정보 포함)
     pose = prompt_schema.get("포즈", {})
     if pose:
-        pose_desc = []
+        pose_lines = []
+
+        # stance
         if pose.get("stance"):
-            pose_desc.append(pose["stance"])
-        # 주요 동작만 추출
-        for key in ["왼팔", "오른팔", "왼손", "오른손"]:
-            if pose.get(key):
-                pose_desc.append(pose[key])
-                break  # 하나만 추가
-        if pose_desc:
-            prompt_parts.append(", ".join(pose_desc))
+            pose_lines.append(f"stance: {pose['stance']}")
+
+        # 팔 (상세 정보 포함)
+        if pose.get("왼팔"):
+            pose_lines.append(f"왼팔: {pose['왼팔']}")
+        if pose.get("오른팔"):
+            pose_lines.append(f"오른팔: {pose['오른팔']}")
+
+        # 다리 (방향 정보 포함 - 핵심!)
+        if pose.get("왼다리"):
+            pose_lines.append(f"왼다리: {pose['왼다리']}")
+        if pose.get("오른다리"):
+            pose_lines.append(f"오른다리: {pose['오른다리']}")
+
+        # 힙
+        if pose.get("힙"):
+            pose_lines.append(f"힙: {pose['힙']}")
+
+        # 방향/기울기
+        if pose.get("어깨_라인"):
+            pose_lines.append(f"어깨_라인: {pose['어깨_라인']}")
+        if pose.get("얼굴_방향"):
+            pose_lines.append(f"얼굴_방향: {pose['얼굴_방향']}")
+
+        if pose_lines:
+            prompt_parts.append("\n[포즈]\n" + "\n".join(pose_lines))
+
+    # 4.5 촬영 세팅 (vlm_analysis에서 추출)
+    camera = prompt_schema.get("촬영_세팅", {})
+    if camera and any(camera.values()):
+        camera_lines = []
+        if camera.get("프레이밍"):
+            camera_lines.append(f"프레이밍: {camera['프레이밍']}")
+        if camera.get("앵글"):
+            camera_lines.append(f"앵글: {camera['앵글']}")
+        if camera.get("높이"):
+            camera_lines.append(f"높이: {camera['높이']}")
+        if camera_lines:
+            prompt_parts.append("\n[촬영]\n" + "\n".join(camera_lines))
 
     # 5. 착장 (아이템 나열)
     styling = prompt_schema.get("스타일링", {})

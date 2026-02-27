@@ -5,7 +5,7 @@ user-invocable: true
 trigger-keywords: ["AI인플루언서", "ai인플", "인플루언서", "AI인플", "가상인플", "버추얼인플"]
 ---
 
-# AI 인플루언서 이미지 생성 v2.0
+# AI 인플루언서 이미지 생성 v2.2
 
 > **이미지 레퍼런스 기반 생성 (텍스트 프롬프트 최소화)**
 >
@@ -371,15 +371,52 @@ db/ai_influencer/{캐릭터명}/
 
 ---
 
-## 모듈 인터페이스 (v2.0)
+## 모듈 인터페이스 (v2.2)
 
-### 1. VLM 포즈 분석 (CRITICAL)
+### 1. VLM 헤어 분석
+
+```python
+from core.ai_influencer import analyze_hair, HairAnalysisResult
+
+# 얼굴 이미지에서 헤어 정보 추출
+hair_result = analyze_hair(face_image_path)
+
+# 분석 결과 필드
+hair_result.style      # straight_loose, wavy, ponytail, bun, braids, short_bob
+hair_result.color      # black, dark_brown, brown, blonde, red, ash_gray
+hair_result.texture    # sleek, voluminous, textured, messy
+hair_result.confidence # 0.0~1.0
+
+hair_result.to_schema_format()  # {"스타일": ..., "컬러": ..., "질감": ...}
+hair_result.to_prompt_text()    # "[헤어]\n- 스타일: ...\n- 컬러: ...\n- 질감: ..."
+```
+
+### 2. VLM 표정 분석
+
+```python
+from core.ai_influencer import ExpressionAnalyzer, ExpressionAnalysisResult
+
+# 표정 이미지에서 상세 정보 추출
+expr_analyzer = ExpressionAnalyzer()
+expression_result = expr_analyzer.analyze(expression_image_path)
+
+# 분석 결과 필드
+expression_result.mood_base   # cool, natural, dreamy, fierce
+expression_result.mood_vibe   # mysterious, approachable, confident
+expression_result.gaze        # direct, slightly_averted, downward
+expression_result.mouth       # closed, slightly_parted, subtle_smile
+
+expression_result.to_schema_format()
+expression_result.to_prompt_text()
+```
+
+### 3. VLM 포즈 분석 (CRITICAL)
 
 ```python
 from core.ai_influencer import analyze_pose, PoseAnalysisResult
 
 # 포즈 이미지 분석
-pose_result = analyze_pose(client, pose_image_path)
+pose_result = analyze_pose(pose_image_path)
 
 # 분석 결과 필드
 pose_result.stance           # stand, sit, lean_wall, walk 등
@@ -404,7 +441,7 @@ pose_result.shoulder_line    # "왼쪽 어깨가 오른쪽보다 높음"
 | 바깥쪽으로 벌어짐 | 양 무릎이 서로 멀어짐 | O자 다리 |
 | 정면 | 무릎이 앞을 향함 | 일반 자세 |
 
-### 2. 캐릭터 관리
+### 4. 캐릭터 관리
 
 ```python
 from core.ai_influencer import load_character, list_characters, Character
@@ -414,7 +451,7 @@ character = load_character("luna")
 # character.name, character.face_images, character.profile
 ```
 
-### 2. 프리셋 로드
+### 5. 프리셋 로드
 
 ```python
 from core.ai_influencer import load_preset, list_presets, get_preset_categories
@@ -429,35 +466,55 @@ poses = list_presets("pose")  # ["전신_01", "전신_02", ...]
 pose_img = load_preset("pose", "전신_05")
 ```
 
-### 3. 이미지 생성 (Full Pipeline - CORRECT)
+### 6. 이미지 생성 (Full Pipeline - CORRECT)
 
 ```python
-# tests/influencer/test_reference_cases.py의 파이프라인 사용
-from tests.influencer.test_reference_cases import (
-    analyze_hair,
-    analyze_expression,
-    build_schema_prompt,
-    generate_image,
+from core.ai_influencer.pipeline import generate_full_pipeline
+
+# 한 줄로 전체 파이프라인 실행 (8단계 자동)
+result = generate_full_pipeline(
+    face_images=["path/to/face.png"],
+    outfit_images=["path/to/outfit1.png", "path/to/outfit2.png"],
+    pose_image="path/to/pose.png",
+    expression_image="path/to/expression.png",
+    background_image="path/to/background.png",
+    aspect_ratio="9:16",
+    resolution="2K",
+    temperature=0.35,
 )
-from core.ai_influencer import analyze_pose, analyze_background, check_compatibility
+
+image = result["image"]       # PIL.Image
+prompt = result["prompt"]     # 생성된 프롬프트
+analysis = result["analysis"] # 각 분석 결과
+```
+
+#### 개별 단계 호출 (필요시)
+
+```python
+from core.ai_influencer import (
+    analyze_hair, analyze_expression,
+    analyze_pose, analyze_background,
+    check_compatibility, build_schema_prompt,
+)
+from core.ai_influencer.pipeline import send_image_request
 from core.outfit_analyzer import OutfitAnalyzer
 
-# STEP 1: VLM 분석 (6단계)
-hair_info = analyze_hair(client, face_image)
-expression_info = analyze_expression(client, expression_image)
+# STEP 1-6: VLM 분석
+hair_result = analyze_hair(face_image)
+expression_result = analyze_expression(expression_image)
 pose_result = analyze_pose(pose_image)
 background_result = analyze_background(background_image)
 compatibility = check_compatibility(pose_result, background_result)
 outfit_result = OutfitAnalyzer(client).analyze(outfit_images)
 
-# STEP 2: 스키마 프롬프트 조립
+# STEP 7: 스키마 프롬프트 조립
 prompt = build_schema_prompt(
-    hair_info, expression_info, pose_result,
+    hair_result, expression_result, pose_result,
     background_result, outfit_result, compatibility,
 )
 
-# STEP 3: 생성 (모든 레퍼런스 이미지 포함)
-image = generate_image(
+# STEP 8: 생성 (모든 레퍼런스 이미지 포함)
+image = send_image_request(
     client=client,
     prompt=prompt,
     face_images=face_images,
@@ -469,7 +526,7 @@ image = generate_image(
 )
 ```
 
-### 4. generate_ai_influencer() - LOW-LEVEL (직접 호출 금지!)
+### 7. generate_ai_influencer() - LOW-LEVEL (직접 호출 금지!)
 
 ```python
 # WARNING: 이 함수는 VLM 분석을 건너뛰는 저수준 함수!
@@ -655,7 +712,7 @@ Claude가 캐릭터 확인 → 프리셋 선택 → 이미지 조합 → 생성 
 5. check_compatibility() -- 포즈-배경 호환성 검사 (앉기↔의자 등)
 6. OutfitAnalyzer.analyze() -- 착장 이미지에서 아이템/색상/로고/핏 상세 분석
 7. build_schema_prompt() -- 위 분석 결과를 한국어 스키마 프롬프트로 조립
-8. generate_image()      -- 프롬프트 + 모든 이미지 레퍼런스 → API 호출
+8. send_image_request()  -- 프롬프트 + 모든 이미지 레퍼런스 → API 호출
 ```
 
 ### WARNING: generate_ai_influencer()를 직접 호출하지 마라!
@@ -666,9 +723,10 @@ from core.ai_influencer import generate_ai_influencer
 image = generate_ai_influencer(character=..., pose_image=..., ...)
 # -> 포즈 프레이밍 무시, 전신/상반신 구분 불가, 배경 분위기 누락
 
-# CORRECT - 반드시 tests/influencer/test_reference_cases.py의 파이프라인 사용
+# CORRECT - 반드시 core/ai_influencer/pipeline.py의 파이프라인 사용
+from core.ai_influencer.pipeline import generate_full_pipeline, send_image_request
 # analyze_hair → analyze_expression → analyze_pose → analyze_background
-# → check_compatibility → OutfitAnalyzer → build_schema_prompt → generate_image
+# → check_compatibility → OutfitAnalyzer → build_schema_prompt → send_image_request
 ```
 
 `generate_ai_influencer()`는 내부적으로 `_build_simple_prompt()`를 호출하는데,
@@ -676,13 +734,18 @@ image = generate_ai_influencer(character=..., pose_image=..., ...)
 VLM 포즈 분석(프레이밍, 앵글, 관절 상세)이 전혀 포함되지 않아
 상반신 포즈를 전신으로 생성하는 등 프레이밍 오류가 발생한다.
 
-### 테스트 실행
+**반드시 `core/ai_influencer/pipeline.py`의 `generate_full_pipeline()` 또는 개별 단계를 사용할 것.**
+
+---
+
+## 테스트 실행
 
 ```bash
 python tests/influencer/test_reference_cases.py --test-dir tests/인플테스트3 --num-images 5
 ```
 
-모든 레퍼런스 이미지(포즈+표정+배경)를 항상 포함하여 생성한다.
+테스트 래퍼는 `core/ai_influencer/pipeline.py`의 `generate_full_pipeline()`을 호출하고
+결과를 표준 폴더 구조(`Fnf_studio_outputs/ai_influencer/`)로 저장한다.
 
 ---
 

@@ -27,6 +27,39 @@ trigger-keywords: ["브랜드컷", "화보", "에디토리얼", "룩북", "마�
 
 ---
 
+## 비주얼 무드 프리셋 (CRITICAL)
+
+**브랜드컷은 화보용 프리셋 사용**
+
+| 프리셋 ID | 용도 | 설명 |
+|-----------|------|------|
+| `STUDIO_EDITORIAL_001` | **화보** | 카리나 스타일, 하이엔드 패션 에디토리얼, 스튜디오 촬영 |
+
+```python
+# 비주얼 무드 설정
+visual_mood = {
+    "preset_id": "STUDIO_EDITORIAL_001",
+    "필름_텍스처": {
+        "질감": "clean digital, sharp, no grain",
+        "보정법": "high-end editorial retouch, K-beauty glow skin"
+    },
+    "컬러_그레이딩": {
+        "주요색조": "neutral cool, subtle blue-gray undertone",
+        "채도": "natural, balanced",
+        "노출": "balanced, clean highlights"
+    },
+    "조명": {
+        "광원": "large softbox, studio strobe",
+        "방향": "front-side 45 degree key light with fill",
+        "그림자": "soft, minimal, beauty lighting"
+    }
+}
+```
+
+**반드시 이 프리셋을 프롬프트에 포함시켜야 한다.**
+
+---
+
 ## 필수 리소스
 
 ```
@@ -47,19 +80,61 @@ core/brandcut/
 ├── prompt_builder.py     # 프롬프트 조립
 ├── generator.py          # 이미지 생성 (generate_brandcut)
 ├── retry_generator.py    # 검증+재시도 (generate_with_validation)
+├── edit_generator.py     # [NEW] 편집 모드 (edit_brandcut, edit_with_validation)
 ├── mlb_validator.py      # MLB 12개 기준 검증
 └── templates.py          # VLM 프롬프트 템플릿
 ```
 
 ---
 
+## 모드 선택: 생성 vs 편집
+
+**브랜드컷은 두 가지 모드가 있다. 소스 이미지 유무에 따라 자동 선택.**
+
+| 조건 | 모드 | 함수 | 특징 |
+|------|------|------|------|
+| 모델 A컷 이미지 있음 | **편집 모드** | `edit_brandcut()` | 얼굴/포즈 보존, 착장+배경만 변경 (표정은 자연스럽게 변할 수 있음) |
+| 모델 A컷 이미지 없음 | **생성 모드** | `generate_brandcut()` | 새 이미지 생성, 얼굴 참조만 사용 |
+
+### 편집 모드 권장 상황 (RECOMMENDED)
+
+- 기존 A컷 화보 이미지가 있고
+- 착장만 바꾸거나
+- 배경만 바꾸거나
+- 둘 다 바꾸고 싶을 때
+
+**장점:**
+- 얼굴 동일성 100% 보장 (다른 사람으로 안 바뀜)
+- 포즈 완벽 유지
+- 표정은 자연스럽게 (살짝 변해도 OK)
+- 생성 모드 대비 품질 안정적
+
+### 생성 모드 필요 상황
+
+- 기존 A컷 이미지가 없을 때
+- 완전히 새로운 포즈/구도가 필요할 때
+- 포즈 레퍼런스 기반 생성이 필요할 때
+
+---
+
 ## 실행 파이프라인
+
+### 생성 모드 파이프라인 (기존)
 
 ```
 1. 분석 (VLM)     → analyze_outfit(), analyze_pose_expression(), analyze_mood()
 2. 프롬프트 조립   → build_prompt()
 3. 배치 생성      → generate_brandcut(num_images=N)
 4. 검증+재시도    → generate_with_validation(max_retries=2)
+```
+
+### 편집 모드 파이프라인 (NEW)
+
+```
+1. 소스 이미지 선택  → 기존 A컷 중 베스트 선정
+2. 착장 설명 작성    → build_outfit_description() 또는 직접 문자열
+3. 배경 설명 작성    → 텍스트로 배경 지정
+4. 편집 실행        → edit_brandcut() 또는 edit_with_validation()
 ```
 
 ### 대화형 질문 ↔ VLM 분석 연결
@@ -309,6 +384,80 @@ for i, img in enumerate(images):
 # }
 ```
 
+### 6. 편집 모드 - 이미지 편집 (NEW)
+```python
+from core.brandcut import edit_brandcut, build_outfit_description
+
+# 착장 설명 빌더 (선택)
+outfit_desc = build_outfit_description(
+    outer="아이스블루 오버사이즈 퍼퍼 패딩 (NY 로고)",
+    top="블랙 립드 크롭탑",
+    bottom="블랙 와이드 조거팬츠",
+    headwear="크림색 퍼지 비니",
+    accessories=["실버 체인 목걸이", "페이즐리 반다나"]
+)
+
+# 또는 직접 문자열로
+outfit_desc = """
+- 아이스블루 오버사이즈 퍼퍼 패딩 (NY 로고, 지퍼 열림)
+- 블랙 립드 크롭탑 (V넥)
+- 블랙 와이드 조거팬츠 (NY 로고)
+"""
+
+background_desc = """
+검정 무광 험머 SUV가 뒤에 있는 깔끔한 차고.
+청록색 조명, 스튜디오 세트 느낌.
+"""
+
+# 편집 실행 (순수 편집, 검증 없음)
+edited_image = edit_brandcut(
+    source_image=source_pil_image,        # PIL.Image - 기존 A컷 이미지
+    outfit_description=outfit_desc,       # 변경할 착장 설명
+    background_description=background_desc,  # 변경할 배경 설명
+    api_key=get_next_api_key(),
+    style_notes="한국 패션 매거진 화보 느낌",  # 선택
+    strict_preservation=True,             # 얼굴/포즈 보존 (표정은 자연스럽게 변할 수 있음)
+    aspect_ratio="3:4",
+    resolution="2K",
+    temperature=0.5,                      # 편집은 낮게 권장
+)
+# 반환: PIL.Image 또는 None
+```
+
+### 7. 편집 모드 - 검증 + 재시도 (NEW)
+```python
+from core.brandcut import edit_with_validation
+
+result = edit_with_validation(
+    source_image=source_pil_image,        # 기존 A컷 이미지
+    outfit_description=outfit_desc,       # 착장 설명
+    background_description=background_desc,  # 배경 설명
+    api_key=get_next_api_key(),
+    outfit_images=outfit_ref_images,      # 착장 참조 이미지 (검증용, 선택)
+    style_notes="",
+    strict_preservation=True,             # 얼굴/포즈 보존 (표정은 자연스럽게)
+    aspect_ratio="3:4",
+    resolution="2K",
+    temperature=0.5,
+    max_retries=2,                        # 최대 재시도 횟수
+)
+
+# 반환:
+# {
+#     "image": PIL.Image,           # 편집된 이미지 (최고 점수)
+#     "passed": bool,               # 통과 여부
+#     "score": int,                 # 검증 점수
+#     "attempts": int,              # 시도 횟수
+#     "history": List[dict]         # 시도 이력
+# }
+
+if result["passed"]:
+    result["image"].save(output_path)
+    print(f"[OK] Score: {result['score']}")
+else:
+    print(f"[WARN] Best score: {result['score']}, 수동 검토 필요")
+```
+
 ---
 
 ## 검증 기준 (12개 기준, 5 카테고리)
@@ -445,8 +594,18 @@ Claude가 순차 질문 → 분석 → 프롬프트 조립 → 생성 → 검증
 
 ---
 
-**버전**: 3.1.0 (코드 동기화)
-**작성일**: 2026-02-11
+**버전**: 3.2.0 (편집 모드 추가)
+**작성일**: 2026-02-20
+
+**변경사항 (v3.2.0)**:
+- 편집 모드 추가 (edit_generator.py)
+  - `edit_brandcut()`: 기존 A컷 이미지 기반 착장/배경 변경
+  - `edit_with_validation()`: 편집 + 검증 + 재시도 루프
+  - `build_outfit_description()`: 착장 설명 헬퍼
+  - `build_edit_prompt()`: 편집 프롬프트 생성
+- "모드 선택: 생성 vs 편집" 섹션 추가
+- 편집 모드 파이프라인 문서화
+- 모듈 인터페이스 6, 7 추가 (편집 모드)
 
 **변경사항 (v3.1.0)**:
 - generate_with_validation 파라미터 추가: pose_reference, check_ai_artifacts, check_gate

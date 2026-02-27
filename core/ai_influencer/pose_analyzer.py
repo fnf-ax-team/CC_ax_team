@@ -55,6 +55,19 @@ class PoseAnalysisResult:
     right_foot_position: str = ""  # 오른발 위치
     shoulder_line: str = ""  # 어깨 라인 (예: "왼쪽 어깨가 살짝 높음", "수평")
     face_direction: str = ""  # 얼굴 방향 (예: "카메라 정면", "왼쪽으로 15도 돌림")
+    # 목/고개 (포즈 정확도 핵심)
+    neck_tilt: str = ""  # 목 기울기 (예: "오른쪽으로 15도 기울임", "살짝 왼쪽")
+    head_tilt: str = ""  # 고개 숙임/들기 (예: "살짝 숙임", "턱 들기", "수평")
+    # 팔꿈치 정밀 분석 (팔 서브필드)
+    left_elbow_angle: str = ""  # 왼쪽 팔꿈치 각도 (예: "약 90도", "펴짐(170도)")
+    right_elbow_angle: str = ""  # 오른쪽 팔꿈치 각도
+    left_elbow_direction: str = ""  # 왼쪽 팔꿈치 방향 (예: "바깥쪽", "아래쪽")
+    right_elbow_direction: str = ""  # 오른쪽 팔꿈치 방향
+
+    # ★★★ 다리 형태 (4자 vs L자) ★★★
+    bent_leg_shape: str = ""  # "4자", "L자", "직립" (양쪽 다 펴짐)
+    # 4자: 무릎이 옆(바깥)으로 벌어짐, 발이 지지다리 안쪽/뒤쪽
+    # L자: 무릎이 앞/위로 올라감, 발이 아래로 매달림
 
     # 추가 정보
     camera_angle: str = ""  # 촬영 앵글 (정면, 측면, 3/4측면 등)
@@ -91,6 +104,20 @@ class PoseAnalysisResult:
             "오른발위치": self.right_foot_position,
             "어깨라인": self.shoulder_line,
             "얼굴방향": self.face_direction,
+            # 목/고개
+            "목기울기": self.neck_tilt,
+            "고개각도": self.head_tilt,
+            # 팔꿈치 정밀 분석
+            "왼팔꿈치각도": self.left_elbow_angle,
+            "오른팔꿈치각도": self.right_elbow_angle,
+            "왼팔꿈치방향": self.left_elbow_direction,
+            "오른팔꿈치방향": self.right_elbow_direction,
+            # 다리 형태
+            "다리형태": self.bent_leg_shape,
+            # 촬영 세팅 (prompt.json 로깅용)
+            "프레이밍": self.framing,
+            "앵글": self.camera_angle,
+            "높이": self.camera_height,
         }
 
     def to_camera_format(self) -> Dict[str, str]:
@@ -112,6 +139,9 @@ class PoseAnalysisResult:
         lines.append(f"[왼다리]: {self.left_leg}")
         lines.append(f"[오른다리]: {self.right_leg}")
         lines.append(f"[무게중심]: {self.hip}")
+        # ★★★ 다리 형태 (핵심!) ★★★
+        if self.bent_leg_shape:
+            lines.append(f"[다리 형태]: {self.bent_leg_shape}")
         # 방향 및 기울기 (★ 중요: 정확한 방향 재현 필수 ★)
         if self.torso_tilt:
             lines.append(f"[상체 기울기]: {self.torso_tilt}")
@@ -140,6 +170,20 @@ class PoseAnalysisResult:
             lines.append(f"[어깨 라인]: {self.shoulder_line}")
         if self.face_direction:
             lines.append(f"[얼굴 방향]: {self.face_direction}")
+        # 목/고개
+        if self.neck_tilt:
+            lines.append(f"[목 기울기]: {self.neck_tilt}")
+        if self.head_tilt:
+            lines.append(f"[고개 각도]: {self.head_tilt}")
+        # 팔꿈치 정밀
+        if self.left_elbow_angle:
+            lines.append(f"[왼쪽 팔꿈치 각도]: {self.left_elbow_angle}")
+        if self.right_elbow_angle:
+            lines.append(f"[오른쪽 팔꿈치 각도]: {self.right_elbow_angle}")
+        if self.left_elbow_direction:
+            lines.append(f"[왼쪽 팔꿈치 방향]: {self.left_elbow_direction}")
+        if self.right_elbow_direction:
+            lines.append(f"[오른쪽 팔꿈치 방향]: {self.right_elbow_direction}")
         # 카메라 설정
         lines.append(f"[촬영 앵글]: {self.camera_angle}")
         lines.append(f"[촬영 높이]: {self.camera_height}")
@@ -227,10 +271,54 @@ POSE_ANALYSIS_PROMPT = """당신은 패션 화보 포즈 분석 전문가입니�
 - "다리 세움" → 높이 없음! "무릎이 가슴 높이까지 세움"으로 변경
 - 방향 없이 설명 → 반드시 안쪽/바깥쪽/정면 명시!
 
-### 3. 방향 및 기울기 (★★★ 매우 중요! ★★★)
+### 3. 구부린 다리 형태 판별 (★★★ 최우선 확인! ★★★)
+
+한쪽 다리가 구부러져 있으면, 아래 중 어떤 형태인지 반드시 판별하세요:
+
+**"4자" (figure-4 shape):**
+- 무릎이 **옆(바깥쪽)**으로 벌어짐
+- 발이 지지다리의 안쪽 종아리/허벅지에 대거나 뒤쪽으로 접힘
+- 위에서 보면 두 다리가 숫자 "4" 모양
+- 예: 플라밍고 자세, 벽에 기대고 한 발을 벽에 붙인 자세
+- 핵심: 허벅지가 **옆으로** 열림
+
+**"L자" (L-shape / forward lift):**
+- 무릎이 **앞/위**로 올라감
+- 발이 아래로 매달리거나 앞쪽에 위치
+- 옆에서 보면 다리가 "L" 모양
+- 예: 계단 오르기, 무릎을 가슴 쪽으로 당기기
+- 핵심: 허벅지가 **앞으로** 올라감
+
+**"직립":** 양쪽 다리 모두 거의 펴져 있음 (무릎 각도 150도 이상)
+
+bent_leg_shape 필드에 "4자", "L자", "직립" 중 하나를 적으세요.
+
+### 4. 방향 및 기울기 (★★★ 매우 중요! ★★★)
 
 - torso_tilt: 상체가 어느 방향으로 기울어졌는지
   예: "왼쪽으로 10도 기울임", "오른쪽으로 살짝 기울임", "수직 (기울지 않음)"
+
+★★★ 목/고개 (CRITICAL!) ★★★
+
+- neck_tilt: 목이 어느 방향으로 기울었는지 (갸우뚱)
+  예: "오른쪽으로 15도 기울임", "왼쪽으로 살짝 기울임", "수직 (기울지 않음)"
+
+- head_tilt: 고개를 숙이거나 들었는지 (상하)
+  예: "살짝 숙임 (턱 당김)", "턱 들기 (위를 봄)", "수평 (정면)", "살짝 숙여 아래를 내려다봄"
+
+★★★ 팔꿈치 상세 분석 (CRITICAL!) ★★★
+
+- left_elbow_angle: 왼쪽 팔꿈치 구부림 각도
+  예: "약 90도 (직각)", "약 150도 (살짝 구부림)", "펴짐 (약 170도)"
+
+- right_elbow_angle: 오른쪽 팔꿈치 구부림 각도
+  예: "약 90도", "약 120도", "펴짐"
+
+- left_elbow_direction: 왼쪽 팔꿈치가 향하는 방향
+  예: "바깥쪽", "아래쪽", "뒤쪽", "몸쪽"
+
+- right_elbow_direction: 오른쪽 팔꿈치가 향하는 방향
+  예: "바깥쪽", "위쪽", "뒤쪽"
 
 - left_foot_direction: 왼발 끝이 향하는 방향
   예: "바깥쪽 45도", "안쪽으로 향함", "정면"
@@ -278,12 +366,28 @@ POSE_ANALYSIS_PROMPT = """당신은 패션 화보 포즈 분석 전문가입니�
 
 - camera_angle: "정면", "약간측면", "3/4측면", "측면"
 - camera_height: "눈높이", "살짝로앵글", "로앵글", "하이앵글", "살짝하이앵글"
-- framing:
-  - "FS" (전신 - 머리부터 발끝)
-  - "MFS" (무릎위 - Medium Full Shot)
-  - "MS" (허리위 - Medium Shot)
-  - "MCU" (가슴위 - Medium Close-Up)
-  - "CU" (얼굴 - Close-Up)
+
+★★★ framing (프레이밍) - 매우 정확하게 판별! ★★★
+
+이미지의 **하단 경계선에서 잘리는 신체 부위**를 보고 판별하세요:
+
+[STEP 1] 이미지 하단에 무엇이 보이는지 확인:
+- 발/신발이 완전히 보임 → FS
+- 무릎~종아리 부근에서 잘림, 발 안 보임 → MFS
+- 허리/벨트 부근에서 잘림 → MS
+- 가슴/어깨 부근에서 잘림 → MCU
+- 얼굴/턱만 보임 → CU
+
+[STEP 2] 프레이밍 선택:
+- "CU": 얼굴+목만. 어깨 겨우 보임
+- "MCU": 머리~가슴. 가슴 중간에서 잘림
+- "MS": 머리~허리. 벨트 라인에서 잘림
+- "MFS": 머리~무릎. 무릎~허벅지 중간에서 잘림. ★발이 안 보임★
+- "FS": 머리~발끝. 발/신발이 바닥에 완전히 보임
+
+★ 핵심 구분: MFS vs FS ★
+- 발/신발이 보이면 → FS
+- 발/신발이 안 보이고 무릎 근처에서 잘리면 → MFS
 
 ### 5. confidence
 분석 신뢰도 (0-1). 이미지가 불명확하면 낮게 설정.
@@ -312,6 +416,13 @@ POSE_ANALYSIS_PROMPT = """당신은 패션 화보 포즈 분석 전문가입니�
     "right_knee_direction": "안쪽으로 기울어짐 (왼쪽 무릎 방향)",
     "shoulder_line": "왼쪽 어깨가 높음",
     "face_direction": "카메라 정면",
+    "neck_tilt": "오른쪽으로 약 10도 기울임",
+    "head_tilt": "살짝 숙임 (턱 당김)",
+    "left_elbow_angle": "약 90도 (직각으로 구부림)",
+    "right_elbow_angle": "약 150도 (살짝 구부림)",
+    "left_elbow_direction": "바깥쪽",
+    "right_elbow_direction": "아래쪽",
+    "bent_leg_shape": "4자",
     "camera_angle": "약간측면",
     "camera_height": "살짝로앵글",
     "framing": "FS",
@@ -428,6 +539,16 @@ class PoseAnalyzer:
             right_foot_position=result_json.get("right_foot_position", ""),
             shoulder_line=result_json.get("shoulder_line", ""),
             face_direction=result_json.get("face_direction", ""),
+            # 목/고개
+            neck_tilt=result_json.get("neck_tilt", ""),
+            head_tilt=result_json.get("head_tilt", ""),
+            # 팔꿈치 정밀 분석
+            left_elbow_angle=result_json.get("left_elbow_angle", ""),
+            right_elbow_angle=result_json.get("right_elbow_angle", ""),
+            left_elbow_direction=result_json.get("left_elbow_direction", ""),
+            right_elbow_direction=result_json.get("right_elbow_direction", ""),
+            # 다리 형태
+            bent_leg_shape=result_json.get("bent_leg_shape", "직립"),
             # 카메라 설정
             camera_angle=result_json.get("camera_angle", "정면"),
             camera_height=result_json.get("camera_height", "눈높이"),

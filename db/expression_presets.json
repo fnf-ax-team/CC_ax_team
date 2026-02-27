@@ -14,7 +14,32 @@
           "눈": "큰 눈, 살짝 치켜올린 눈매",
           "시선": "direct (카메라 직시, 로우앵글에서 올려다봄)",
           "입": "slightly parted (살짝 벌림)",
-          "note": "셀카 앵글, 자신감 있는 표정"
+          "note": "셀카 앵글, 자신감 있는 표정",
+          "image_path": "db\\인플테스트\\2. 표정\\1. 시크\\시크 (1).png",
+          "vlm_analysis": {
+            "eye_size": "자연스러운",
+            "left_eye_openness": "자연스럽게 뜬(80%)",
+            "left_eye_direction": "정면",
+            "right_eye_openness": "자연스럽게 뜬(80%)",
+            "right_eye_direction": "정면",
+            "eye_emotion": "도도함",
+            "mouth_state": "slightly_parted",
+            "lip_shape": "도톰하고 글로시한 입술, 살짝 벌린(5mm)",
+            "tongue_visible": false,
+            "lip_corner": "자연스러운",
+            "lip_pout": "살짝",
+            "face_angle": "3/4 오른쪽",
+            "chin_position": "들어올린",
+            "cheek_expression": "자연스러운",
+            "forehead_wrinkle": false,
+            "special_features": [
+              "글로시한 립 메이크업",
+              "광채 피부 하이라이팅"
+            ],
+            "confidence": 0.95
+          },
+          "vlm_analyzed_at": "2026-02-26T23:30:25.242419",
+          "is_wink": false
         },
         {
           "id": "시크_02",
@@ -23,7 +48,31 @@
           "눈": "큰 눈, 무심한 쿨 눈빛",
           "시선": "3/4 측면, 약간 내려깜",
           "입": "closed (자연스럽게 다문)",
-          "note": "에디토리얼 화보 스타일, MLB 브랜드컷 적합"
+          "note": "에디토리얼 화보 스타일, MLB 브랜드컷 적합",
+          "image_path": "db\\인플테스트\\2. 표정\\1. 시크\\시크 (2).jpeg",
+          "vlm_analysis": {
+            "eye_size": "자연스러운",
+            "left_eye_openness": "자연스럽게 뜬(80%)",
+            "left_eye_direction": "정면",
+            "right_eye_openness": "자연스럽게 뜬(80%)",
+            "right_eye_direction": "정면",
+            "eye_emotion": "도도함",
+            "mouth_state": "slightly_parted",
+            "lip_shape": "살짝 벌린(3mm), 글로시하고 도톰한 입술",
+            "tongue_visible": false,
+            "lip_corner": "자연스러운",
+            "lip_pout": "없음",
+            "face_angle": "3/4 왼쪽",
+            "chin_position": "자연스러운",
+            "cheek_expression": "자연스러운",
+            "forehead_wrinkle": false,
+            "special_features": [
+              "입술 왼쪽 아래 점"
+            ],
+            "confidence": 0.95
+          },
+          "vlm_analyzed_at": "2026-02-26T23:30:36.110046",
+          "is_wink": false
         },
         {
           "id": "시크_03",
@@ -32,7 +81,29 @@
           "눈": "자연스러운 눈, 게으른 듯한 눈빛",
           "시선": "direct (무심하게 응시)",
           "입": "closed",
-          "note": "릴렉스한 시크, 턱 살짝 든 자세"
+          "note": "릴렉스한 시크, 턱 살짝 든 자세",
+          "image_path": "db\\인플테스트\\2. 표정\\1. 시크\\시크 (3).png",
+          "vlm_analysis": {
+            "eye_size": "살짝 감은",
+            "left_eye_openness": "살짝 감은(50%)",
+            "left_eye_direction": "정면",
+            "right_eye_openness": "살짝 감은(50%)",
+            "right_eye_direction": "정면",
+            "eye_emotion": "나른함",
+            "mouth_state": "slightly_parted",
+            "lip_shape": "자연스럽게 살짝 벌린 상태, 아랫입술이 도톰함",
+            "tongue_visible": false,
+            "lip_corner": "자연스러운",
+            "lip_pout": "없음",
+            "face_angle": "3/4 오른쪽",
+            "chin_position": "들어올린",
+            "cheek_expression": "자연스러운",
+            "forehead_wrinkle": false,
+            "special_features": [],
+            "confidence": 0.95
+          },
+          "vlm_analyzed_at": "2026-02-26T23:30:48.745657",
+          "is_wink": false
         },
         {
           "id": "시크_04",
@@ -41,7 +112,30 @@
           "눈": "큰 눈, 살짝 내려깜",
           "시선": "downcast (약간 아래)",
           "입": "closed",
-          "note": "야경/밤 분위기, 손으로 머리 넘기는 포즈와 어울림"
+          "note": "야경/밤 분위기, 손으로 머리 넘기는 포즈와 어울림",
+          "image_path": "db\\인플테스트\\2. 표정\\1. 시크\\시크 (4).png",
+          "vlm_analysis": {
+            "eye_size": "자연스러운",
+            "left_eye_openness": "윙크(10%)",
+            "left_eye_direction": "정면",
+            "right_eye_openness": "자연스럽게 뜬(80%)",
+            "right_eye_direction": "정면",
+            "eye_emotion": "장난기",
+            "mouth_state": "slightly_parted",
+            "lip_shape": "살짝 벌린(3mm), 아랫입술이 도톰함",
+            "tongue_visible": false,
+            "lip_corner": "자연스러운",
+            "lip_pout": "살짝",
+            "face_angle": "정면",
+            "chin_position": "자연스러운",
+            "cheek_expression": "자연스러운",
+            "forehead_wrinkle": false,
+            "special_features": [],
+            "confidence": 0.95
+          },
+          "vlm_analyzed_at": "2026-02-26T23:31:05.202860",
+          "is_wink": true,
+          "wink_eye": "left"
         },
         {
           "id": "시크_05",
@@ -50,7 +144,33 @@
           "눈": "큰 눈, 날카로운 눈매, 한쪽 살짝 가려짐",
           "시선": "direct (강렬하게 직시)",
           "입": "closed",
-          "note": "셀카, 손을 얼굴 근처에 대는 포즈와 어울림"
+          "note": "셀카, 손을 얼굴 근처에 대는 포즈와 어울림",
+          "image_path": "db\\인플테스트\\2. 표정\\1. 시크\\시크 (5).jpeg",
+          "vlm_analysis": {
+            "eye_size": "자연스러운",
+            "left_eye_openness": "자연스럽게 뜬(80%)",
+            "left_eye_direction": "정면",
+            "right_eye_openness": "윙크(10%)",
+            "right_eye_direction": "정면",
+            "eye_emotion": "장난기",
+            "mouth_state": "slightly_parted",
+            "lip_shape": "살짝 벌린(2mm), 도톰한 입술 라인",
+            "tongue_visible": false,
+            "lip_corner": "자연스러운",
+            "lip_pout": "없음",
+            "face_angle": "정면",
+            "chin_position": "자연스러운",
+            "cheek_expression": "자연스러운",
+            "forehead_wrinkle": false,
+            "special_features": [
+              "윙크",
+              "고양이 눈매 화장"
+            ],
+            "confidence": 0.95
+          },
+          "vlm_analyzed_at": "2026-02-26T23:31:19.711258",
+          "is_wink": true,
+          "wink_eye": "right"
         }
       ]
     },
@@ -65,7 +185,32 @@
           "눈": "큰 눈, 부드러운 눈빛",
           "시선": "side gaze (측면 먼 곳 응시)",
           "입": "slightly parted (살짝 벌림)",
-          "note": "측면 프로필, 몽환적 분위기"
+          "note": "측면 프로필, 몽환적 분위기",
+          "image_path": "db\\인플테스트\\2. 표정\\2. 러블리\\러블리 (1).png",
+          "vlm_analysis": {
+            "eye_size": "자연스러운",
+            "left_eye_openness": "자연스럽게 뜬(80%)",
+            "left_eye_direction": "왼쪽",
+            "right_eye_openness": "자연스럽게 뜬(80%)",
+            "right_eye_direction": "왼쪽",
+            "eye_emotion": "순수함",
+            "mouth_state": "slightly_parted",
+            "lip_shape": "살짝 벌린(5mm), 자연스러운 입술 라인",
+            "tongue_visible": false,
+            "lip_corner": "자연스러운",
+            "lip_pout": "없음",
+            "face_angle": "3/4 왼쪽",
+            "chin_position": "자연스러운",
+            "cheek_expression": "자연스러운",
+            "forehead_wrinkle": false,
+            "special_features": [
+              "투명한 피부 표현",
+              "자연스러운 광채"
+            ],
+            "confidence": 0.95
+          },
+          "vlm_analyzed_at": "2026-02-26T23:31:31.051652",
+          "is_wink": false
         },
         {
           "id": "러블리_02",
@@ -74,7 +219,33 @@
           "눈": "한쪽 살짝 감음, 나른한 눈빛",
           "시선": "direct (부드럽게 응시)",
           "입": "closed",
-          "note": "누워서 찍은 셀카, 편안한 분위기"
+          "note": "누워서 찍은 셀카, 편안한 분위기",
+          "image_path": "db\\인플테스트\\2. 표정\\2. 러블리\\러블리 (2).png",
+          "vlm_analysis": {
+            "eye_size": "자연스러운",
+            "left_eye_openness": "자연스럽게 뜬(80%)",
+            "left_eye_direction": "정면",
+            "right_eye_openness": "윙크(10%)",
+            "right_eye_direction": "정면",
+            "eye_emotion": "몽환적",
+            "mouth_state": "slightly_parted",
+            "lip_shape": "자연스럽게 살짝 벌린(3mm) 상태",
+            "tongue_visible": false,
+            "lip_corner": "자연스러운",
+            "lip_pout": "살짝",
+            "face_angle": "3/4 오른쪽",
+            "chin_position": "내린",
+            "cheek_expression": "자연스러운",
+            "forehead_wrinkle": false,
+            "special_features": [
+              "오른쪽 뺨에 점 있음",
+              "나른한 분위기"
+            ],
+            "confidence": 0.95
+          },
+          "vlm_analyzed_at": "2026-02-26T23:31:41.986570",
+          "is_wink": true,
+          "wink_eye": "right"
         },
         {
           "id": "러블리_03",
@@ -83,7 +254,31 @@
           "눈": "큰 눈, 반짝이는 눈빛",
           "시선": "direct",
           "입": "soft smile (살짝 미소)",
-          "note": "야외 자연광, 밝고 상쾌한 분위기"
+          "note": "야외 자연광, 밝고 상쾌한 분위기",
+          "image_path": "db\\인플테스트\\2. 표정\\2. 러블리\\러블리 (3).png",
+          "vlm_analysis": {
+            "eye_size": "자연스러운",
+            "left_eye_openness": "자연스럽게 뜬(80%)",
+            "left_eye_direction": "정면",
+            "right_eye_openness": "자연스럽게 뜬(80%)",
+            "right_eye_direction": "정면",
+            "eye_emotion": "나른함",
+            "mouth_state": "slightly_parted",
+            "lip_shape": "살짝 벌린(5mm), 자연스러운 굴곡",
+            "tongue_visible": false,
+            "lip_corner": "자연스러운",
+            "lip_pout": "없음",
+            "face_angle": "3/4 오른쪽",
+            "chin_position": "들어올린",
+            "cheek_expression": "자연스러운",
+            "forehead_wrinkle": false,
+            "special_features": [
+              "은은한 볼터치"
+            ],
+            "confidence": 0.95
+          },
+          "vlm_analyzed_at": "2026-02-26T23:31:55.782967",
+          "is_wink": false
         },
         {
           "id": "러블리_04",
@@ -92,7 +287,30 @@
           "눈": "한쪽 윙크, 장난스러운 눈빛",
           "시선": "direct",
           "입": "slight pout (살짝 삐죽)",
-          "note": "윙크 포즈, 귀여운 소품과 어울림"
+          "note": "윙크 포즈, 귀여운 소품과 어울림",
+          "image_path": "db\\인플테스트\\2. 표정\\2. 러블리\\러블리 (4).png",
+          "vlm_analysis": {
+            "eye_size": "자연스러운",
+            "left_eye_openness": "윙크(10%)",
+            "left_eye_direction": "정면",
+            "right_eye_openness": "자연스럽게 뜬(80%)",
+            "right_eye_direction": "정면",
+            "eye_emotion": "장난기",
+            "mouth_state": "closed",
+            "lip_shape": "도톰하고 자연스럽게 다문 형태, 글로시한 질감",
+            "tongue_visible": false,
+            "lip_corner": "자연스러운",
+            "lip_pout": "살짝",
+            "face_angle": "정면",
+            "chin_position": "자연스러운",
+            "cheek_expression": "자연스러운",
+            "forehead_wrinkle": false,
+            "special_features": [],
+            "confidence": 0.95
+          },
+          "vlm_analyzed_at": "2026-02-26T23:32:08.626294",
+          "is_wink": true,
+          "wink_eye": "left"
         },
         {
           "id": "러블리_05",
@@ -101,7 +319,31 @@
           "눈": "큰 눈, 순수한 눈빛",
           "시선": "direct (살짝 올려다봄)",
           "입": "slight pout (살짝 삐죽)",
-          "note": "하이앵글 셀카, 어린 느낌"
+          "note": "하이앵글 셀카, 어린 느낌",
+          "image_path": "db\\인플테스트\\2. 표정\\2. 러블리\\러블리 (5).png",
+          "vlm_analysis": {
+            "eye_size": "자연스러운",
+            "left_eye_openness": "자연스럽게 뜬(80%)",
+            "left_eye_direction": "정면",
+            "right_eye_openness": "자연스럽게 뜬(80%)",
+            "right_eye_direction": "정면",
+            "eye_emotion": "나른함",
+            "mouth_state": "slightly_parted",
+            "lip_shape": "살짝 벌린(5mm), 도톰한 아랫입술",
+            "tongue_visible": false,
+            "lip_corner": "자연스러운",
+            "lip_pout": "살짝",
+            "face_angle": "3/4 오른쪽",
+            "chin_position": "자연스러운",
+            "cheek_expression": "자연스러운",
+            "forehead_wrinkle": false,
+            "special_features": [
+              "치크 메이크업 강조"
+            ],
+            "confidence": 0.95
+          },
+          "vlm_analyzed_at": "2026-02-26T23:32:18.583384",
+          "is_wink": false
         }
       ]
     }

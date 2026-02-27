@@ -9,6 +9,7 @@ AI 인플루언서 이미지 생성 모듈 v2.0
 """
 
 import time
+import warnings
 from io import BytesIO
 from pathlib import Path
 from typing import Optional, List, Union, Dict, Any
@@ -414,6 +415,11 @@ def generate_with_validation(
     """
     생성 + 검증 + 재생성 루프
 
+    .. deprecated::
+        이 함수는 VLM 분석 없이 단순 라벨만 사용합니다.
+        대신 ``core.ai_influencer.pipeline.generate_full_pipeline()``을 사용하세요.
+        generate_full_pipeline()은 8단계 VLM 분석 + 검증+재생성 루프를 모두 포함합니다.
+
     Returns:
         dict: {
             "image": PIL.Image,
@@ -423,6 +429,12 @@ def generate_with_validation(
             "history": List[dict]
         }
     """
+    warnings.warn(
+        "generate_with_validation()은 VLM 분석 없이 단순 라벨만 사용합니다. "
+        "대신 core.ai_influencer.pipeline.generate_full_pipeline()을 사용하세요.",
+        DeprecationWarning,
+        stacklevel=2,
+    )
     if api_key is None:
         from core.api import _get_next_api_key
 

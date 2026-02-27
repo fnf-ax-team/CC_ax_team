@@ -11,7 +11,7 @@ Note: 재시도 로직은 retry_generator.py에서 처리
 """
 
 from dataclasses import dataclass, field
-from typing import Optional, List, Union, Tuple
+from typing import Optional, List, Union, Tuple, TYPE_CHECKING
 from enum import Enum
 from pathlib import Path
 import json
@@ -22,6 +22,9 @@ from google import genai
 from google.genai import types
 
 from core.config import VISION_MODEL, IMAGE_MODEL
+
+if TYPE_CHECKING:
+    from core.outfit_analyzer import OutfitAnalysis
 
 
 # ============================================================
@@ -200,6 +203,10 @@ class ValidationResult:
     gate_failed_reasons: List[str] = field(default_factory=list)
     gate_checked: bool = False  # 게이트 체크 수행 여부
 
+    # 착장 구조적 검증 결과 (NEW: outfit_spec 기반)
+    outfit_missing_items: List[str] = field(default_factory=list)
+    outfit_mismatched_attributes: dict = field(default_factory=dict)
+
     def to_dict(self) -> dict:
         """Convert to JSON-serializable dict"""
         return {
@@ -241,6 +248,9 @@ class ValidationResult:
             "gate_passed": self.gate_passed,
             "gate_failed_reasons": self.gate_failed_reasons,
             "gate_checked": self.gate_checked,
+            # 착장 구조적 검증 결과
+            "outfit_missing_items": self.outfit_missing_items,
+            "outfit_mismatched_attributes": self.outfit_mismatched_attributes,
         }
 
     def format_korean(self) -> str:
@@ -868,7 +878,14 @@ REF와 GEN을 1:1로 비교하여 누락 아이템 카운트:
   "face_identity": {{"score": <0-100>, "reason": "<한국어 사유>"}},
   "expression": {{"score": <0-100>, "reason": "<한국어 사유>"}},
   "body_type": {{"score": <0-100>, "reason": "<한국어 사유>"}},
-  "outfit_accuracy": {{"score": <0-100>, "reason": "<한국어 사유>"}},
+  "outfit_accuracy": {{
+    "score": <0-100>,
+    "reason": "<한국어 사유>",
+    "missing_items": ["<누락 아이템1>", "<누락 아이템2>"],
+    "mismatched_attributes": {{
+      "<아이템명>": ["<불일치1: 색상 RED→BLUE>", "<불일치2: 로고 누락>"]
+    }}
+  }},
   "brand_compliance": {{"score": <0-100>, "reason": "<한국어 사유>"}},
   "environmental_integration": {{"score": <0-100>, "reason": "<한국어 사유>"}},
   "lighting_mood": {{"score": <0-100>, "reason": "<한국어 사유>"}},
@@ -879,6 +896,12 @@ REF와 GEN을 1:1로 비교하여 누락 아이템 카운트:
   "summary_kr": "<한국어 1-2문장 요약>"
 }}
 ```
+
+**⚠️ outfit_accuracy 필수 필드:**
+- `missing_items`: 누락된 아이템 목록 (비어있으면 [] 반환)
+- `mismatched_attributes`: 아이템별 불일치 속성 (비어있으면 {{}} 반환)
+- **missing_items가 1개 이상이면 → score는 반드시 0점!**
+- **mismatched_attributes에 "로고", "색상" 불일치가 있으면 → score 50점 이하!**
 
 **reason 예시:**
 - "피부 질감과 조명이 실제 사진과 구분 불가"
@@ -914,6 +937,7 @@ REF와 GEN을 1:1로 비교하여 누락 아이템 카운트:
         style_images: List[Union[str, Path, Image.Image]] = None,
         pose_reference: Optional[Union[str, Path, Image.Image]] = None,
         mood_reference: Optional[Union[str, Path, Image.Image]] = None,
+        outfit_spec: Optional["OutfitAnalysis"] = None,  # NEW: 정답 스펙 기반 검증
         shot_preset: dict = None,
         check_ai_artifacts: bool = False,
         check_gate: bool = False,  # 게이트 체크 (기본 비활성화)
@@ -928,6 +952,7 @@ REF와 GEN을 1:1로 비교하여 누락 아이템 카운트:
             style_images: Reference style images (paths or PIL Images)
             pose_reference: Reference pose image for pose comparison (path or PIL Image)
             mood_reference: Reference mood image for lighting/mood comparison (path or PIL Image)
+            outfit_spec: OutfitAnalysis from analyze_outfit() - 정답 스펙 기반 검증 (권장)
             shot_preset: Optional shot preset dict
             check_ai_artifacts: If True, run AI artifact detection (default: False)
             check_gate: If True, run synthesis gate check first (default: True)
@@ -988,6 +1013,11 @@ REF와 GEN을 1:1로 비교하여 누락 아이템 카운트:
             )
             for outfit in outfits[:5]:
                 content_parts.append(self._pil_to_part(outfit))
+
+        # NEW: 정답 스펙 기반 검증 (outfit_spec이 있으면 추가)
+        if outfit_spec is not None:
+            spec_text = self._build_outfit_spec_section(outfit_spec)
+            content_parts.append(types.Part(text=spec_text))
 
         if styles:
             content_parts.append(
@@ -1072,10 +1102,10 @@ REF와 GEN을 1:1로 비교하여 누락 아이템 카운트:
 
     def _normalize_result_dict(self, result_dict: dict) -> tuple:
         """
-        VLM 응답을 정규화하여 점수 dict와 사유 dict로 분리
+        VLM 응답을 정규화하여 점수 dict, 사유 dict, 착장 구조적 결과로 분리
 
         Returns:
-            (scores: dict, reasons: dict)
+            (scores: dict, reasons: dict, outfit_structural: dict)
         """
         score_keys = [
             "photorealism",
@@ -1094,6 +1124,10 @@ REF와 GEN을 1:1로 비교하여 누락 아이템 카운트:
 
         scores = {}
         reasons = {}
+        outfit_structural = {
+            "missing_items": [],
+            "mismatched_attributes": {},
+        }
 
         for key in score_keys:
             value = result_dict.get(key, 0)
@@ -1101,7 +1135,14 @@ REF와 GEN을 1:1로 비교하여 누락 아이템 카운트:
             scores[key] = score
             reasons[key] = reason
 
-        return scores, reasons
+            # outfit_accuracy의 구조적 필드 추출
+            if key == "outfit_accuracy" and isinstance(value, dict):
+                outfit_structural["missing_items"] = value.get("missing_items", [])
+                outfit_structural["mismatched_attributes"] = value.get(
+                    "mismatched_attributes", {}
+                )
+
+        return scores, reasons, outfit_structural
 
     def _process_result(
         self,
@@ -1115,8 +1156,33 @@ REF와 GEN을 1:1로 비교하여 누락 아이템 카운트:
         gate_failed_reasons: List[str] = None,
     ) -> ValidationResult:
         """Process raw VLM result into ValidationResult"""
-        # 새 형식(점수+사유) 파싱
-        scores, reasons = self._normalize_result_dict(result_dict)
+        # 새 형식(점수+사유+착장구조) 파싱
+        scores, reasons, outfit_structural = self._normalize_result_dict(result_dict)
+
+        # NEW: 착장 구조적 검증 - missing_items가 있으면 outfit_accuracy 자동 0점
+        missing_items = outfit_structural.get("missing_items", [])
+        mismatched_attrs = outfit_structural.get("mismatched_attributes", {})
+
+        if missing_items:
+            scores["outfit_accuracy"] = 0
+            reasons["outfit_accuracy"] = f"누락 아이템: {', '.join(missing_items)}"
+
+        # NEW: 심각한 불일치(로고/색상)가 있으면 50점 이하로 제한
+        if mismatched_attrs:
+            critical_mismatch = False
+            for item_name, mismatches in mismatched_attrs.items():
+                for mismatch in mismatches:
+                    if (
+                        "로고" in mismatch
+                        or "색상" in mismatch
+                        or "logo" in mismatch.lower()
+                        or "color" in mismatch.lower()
+                    ):
+                        critical_mismatch = True
+                        break
+            if critical_mismatch and scores["outfit_accuracy"] > 50:
+                scores["outfit_accuracy"] = 50
+                reasons["outfit_accuracy"] = f"심각한 불일치: {mismatched_attrs}"
 
         # Calculate total score
         total_score = self._calculate_total_score(scores)
@@ -1210,6 +1276,9 @@ REF와 GEN을 1:1로 비교하여 누락 아이템 카운트:
             gate_passed=True,
             gate_failed_reasons=[],
             gate_checked=check_gate,
+            # 착장 구조적 검증 결과 (NEW)
+            outfit_missing_items=missing_items,
+            outfit_mismatched_attributes=mismatched_attrs,
         )
 
         # Step 6: Gate 결과 반영 [NEW - gate 실패해도 12개 기준 점수 유지]
@@ -1247,6 +1316,56 @@ REF와 GEN을 1:1로 비교하여 누락 아이템 카운트:
         return types.Part(
             inline_data=types.Blob(mime_type="image/png", data=buffer.getvalue())
         )
+
+    def _build_outfit_spec_section(self, outfit_spec: "OutfitAnalysis") -> str:
+        """
+        OutfitAnalysis를 VLM 프롬프트용 정답 스펙 텍스트로 변환
+
+        Args:
+            outfit_spec: analyze_outfit()에서 반환된 OutfitAnalysis
+
+        Returns:
+            VLM 프롬프트에 추가할 정답 스펙 섹션
+        """
+        lines = [
+            "\n\n[OUTFIT SPEC (Ground Truth) - 정답 스펙 기반 검증]",
+            "⚠️⚠️⚠️ 이 스펙이 정답입니다! GENERATED IMAGE와 1:1 비교하세요! ⚠️⚠️⚠️",
+            "",
+            f"총 아이템 개수: {len(outfit_spec.items)}개",
+            "",
+            "**필수 아이템 목록:**",
+        ]
+
+        for i, item in enumerate(outfit_spec.items, 1):
+            # 기본 정보
+            item_line = f"{i}. [{item.category.upper()}] {item.name}"
+            item_line += f" | 색상: {item.color} | 핏: {item.fit}"
+
+            # 로고 정보
+            if item.logos:
+                for logo in item.logos:
+                    item_line += (
+                        f"\n   - LOGO: {logo.brand} @ {logo.position} ({logo.type})"
+                    )
+
+            # 핵심 디테일 (blind_spot)
+            if item.details:
+                item_line += f"\n   - CRITICAL: {', '.join(item.details)}"
+
+            lines.append(item_line)
+
+        lines.extend(
+            [
+                "",
+                "**검증 지침:**",
+                "1. 위 아이템이 GENERATED IMAGE에 모두 있는지 확인",
+                "2. 누락된 아이템이 있으면 missing_items에 기록",
+                "3. 색상/로고/핏이 다르면 mismatched_attributes에 기록",
+                "4. missing_items 또는 mismatched_attributes가 있으면 → outfit_accuracy 자동 0점",
+            ]
+        )
+
+        return "\n".join(lines)
 
     def _check_synthesis_gate(self, image: Image.Image) -> dict:
         """합성티 게이트 체크

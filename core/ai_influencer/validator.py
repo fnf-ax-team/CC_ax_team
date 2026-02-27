@@ -18,6 +18,14 @@ from google.genai import types
 
 from core.config import VISION_MODEL
 from .character import Character
+from core.validators.base import (
+    WorkflowType,
+    QualityTier,
+    ValidationConfig,
+    CommonValidationResult,
+    WorkflowValidator,
+)
+from core.validators.registry import ValidatorRegistry
 
 
 @dataclass
@@ -354,3 +362,241 @@ def validate_ai_influencer(
     """
     validator = AIInfluencerValidator(api_key=api_key)
     return validator.validate(generated_img, character, outfit_images)
+
+
+@ValidatorRegistry.register(WorkflowType.AI_INFLUENCER)
+class AIInfluencerWorkflowValidator(WorkflowValidator):
+    """AI 인플루언서 통합 검증기 (WorkflowValidator 인터페이스)
+
+    기존 AIInfluencerValidator를 래핑하여 ValidatorRegistry와 통합.
+    """
+
+    workflow_type = WorkflowType.AI_INFLUENCER
+    config = ValidationConfig(
+        pass_total=75,
+        weights={
+            "face_identity": 0.40,
+            "realism": 0.25,
+            "outfit_fit": 0.15,
+            "pose_natural": 0.10,
+            "brand_tone": 0.10,
+        },
+        auto_fail_thresholds={
+            "face_identity": 70,
+        },
+        priority_order=[
+            "face_identity",
+            "realism",
+            "outfit_fit",
+            "pose_natural",
+            "brand_tone",
+        ],
+    )
+
+    # 프롬프트 보강 규칙 매핑
+    ENHANCEMENT_RULES = {
+        "face_identity": (
+            "\n\n*** CRITICAL RETRY: Face identity mismatch detected! ***\n"
+            "You MUST use EXACTLY the same person from [FACE] reference images.\n"
+            "Pay close attention to: face shape, eye shape, nose, lips, skin tone.\n"
+            "The generated face MUST be recognizable as the SAME person.\n"
+        ),
+        "realism": (
+            "\n\n*** RETRY: Improve realism ***\n"
+            "Avoid AI-looking plastic skin. Use natural skin texture with pores.\n"
+            "Ensure natural lighting and shadows. Body proportions must be realistic.\n"
+        ),
+        "outfit_fit": (
+            "\n\n*** RETRY: Outfit accuracy ***\n"
+            "Match outfit colors, logos, and details EXACTLY from [OUTFIT] reference.\n"
+            "Ensure natural fabric wrinkles and proper fit.\n"
+        ),
+        "pose_natural": (
+            "\n\n*** RETRY: Pose naturalness ***\n"
+            "Check: all fingers correct (5 per hand), natural joint angles,\n"
+            "proper ground contact, weight distribution makes physical sense.\n"
+        ),
+        "brand_tone": (
+            "\n\n*** RETRY: Brand tone ***\n"
+            "AVOID: golden hour, warm amber tones, excessive filters.\n"
+            "USE: neutral cool tones, clean digital quality.\n"
+        ),
+    }
+
+    def __init__(self, client):
+        """초기화 - client에서 API 키 추출하여 기존 검증기 생성"""
+        super().__init__(client)
+        # 기존 AIInfluencerValidator는 api_key로 초기화
+        # client에서 api_key를 가져올 수 없으므로 직접 client를 사용
+        self._inner_client = client
+
+    def validate(
+        self,
+        generated_img,
+        reference_images=None,
+        **kwargs,
+    ):
+        """이미지 검증 수행
+
+        Args:
+            generated_img: 생성된 이미지 (PIL.Image)
+            reference_images: {"face": [...], "outfit": [...]} 형태
+            **kwargs: character (Character 객체) 전달 가능
+
+        Returns:
+            CommonValidationResult
+        """
+        # kwargs에서 character 추출 (pipeline에서 직접 전달)
+        character = kwargs.get("character")
+
+        # reference_images에서 추출
+        face_images = []
+        outfit_images = []
+        if reference_images:
+            face_images = reference_images.get("face", [])
+            outfit_images = reference_images.get("outfit", [])
+
+        # 기존 AIInfluencerValidator 로직 재사용
+        inner_validator = AIInfluencerValidator.__new__(AIInfluencerValidator)
+        inner_validator.client = self._inner_client
+
+        # 기존 validate 시그니처: (generated_img, character, outfit_images)
+        # character가 있으면 기존 방식 사용
+        if character is not None:
+            inner_result = inner_validator.validate(
+                generated_img=self._load_image(generated_img)
+                if not isinstance(generated_img, Image.Image)
+                else generated_img,
+                character=character,
+                outfit_images=outfit_images or None,
+            )
+        else:
+            # character 없이 직접 VLM 호출 (face_images 사용)
+            inner_result = self._validate_without_character(
+                generated_img=self._load_image(generated_img)
+                if not isinstance(generated_img, Image.Image)
+                else generated_img,
+                face_images=face_images,
+                outfit_images=outfit_images,
+            )
+
+        # ValidationResult -> CommonValidationResult 변환
+        return self._convert_result(inner_result)
+
+    def _validate_without_character(
+        self,
+        generated_img,
+        face_images,
+        outfit_images,
+    ):
+        """Character 객체 없이 face_images 직접 사용하여 검증"""
+        parts = [types.Part(text=VALIDATION_PROMPT)]
+
+        # 얼굴 참조 이미지
+        for i, face_input in enumerate(face_images[:3]):
+            img = self._load_image(face_input)
+            parts.append(types.Part(text=f"[FACE REFERENCE {i+1}]:"))
+            parts.append(self._pil_to_part_static(img))
+
+        # 착장 참조 이미지
+        if outfit_images:
+            for i, outfit_input in enumerate(outfit_images[:2]):
+                img = self._load_image(outfit_input)
+                parts.append(types.Part(text=f"[OUTFIT REFERENCE {i+1}]:"))
+                parts.append(self._pil_to_part_static(img))
+
+        # 생성된 이미지
+        parts.append(types.Part(text="[GENERATED IMAGE]:"))
+        parts.append(self._pil_to_part_static(generated_img))
+
+        try:
+            response = self._inner_client.models.generate_content(
+                model=VISION_MODEL,
+                contents=[types.Content(role="user", parts=parts)],
+                config=types.GenerateContentConfig(
+                    temperature=0.1,
+                    response_mime_type="application/json",
+                ),
+            )
+            result_text = response.text.strip()
+            if result_text.startswith("```"):
+                result_text = result_text.split("```")[1]
+                if result_text.startswith("json"):
+                    result_text = result_text[4:]
+
+            result_json = json.loads(result_text)
+        except Exception as e:
+            print(f"[Validator] API call failed: {e}")
+            return ValidationResult(
+                total_score=0,
+                passed=False,
+                criteria={
+                    k: {"score": 0, "threshold": v, "passed": False}
+                    for k, v in AIInfluencerValidator.THRESHOLDS.items()
+                },
+                issues=[f"Validation API call failed: {e}"],
+                grade="F",
+            )
+
+        # 기존 _process_result 로직 재사용
+        processor = AIInfluencerValidator.__new__(AIInfluencerValidator)
+        return processor._process_result(result_json)
+
+    @staticmethod
+    def _pil_to_part_static(img, max_size=1024):
+        """PIL Image를 Gemini Part로 변환 (static)"""
+        if max(img.size) > max_size:
+            img = img.copy()
+            img.thumbnail((max_size, max_size), Image.LANCZOS)
+        buffer = BytesIO()
+        img.save(buffer, format="PNG")
+        return types.Part(
+            inline_data=types.Blob(mime_type="image/png", data=buffer.getvalue())
+        )
+
+    def _convert_result(self, inner_result):
+        """ValidationResult -> CommonValidationResult 변환"""
+        # 등급 -> QualityTier 매핑
+        if inner_result.grade in ("S", "A"):
+            tier = QualityTier.RELEASE_READY
+        elif inner_result.grade == "B":
+            tier = QualityTier.NEEDS_MINOR_EDIT
+        else:
+            tier = QualityTier.REGENERATE
+
+        # auto_fail 여부
+        auto_fail = inner_result.total_score == 0 and not inner_result.passed
+        auto_fail_reasons = []
+        if auto_fail:
+            auto_fail_reasons = [
+                issue for issue in inner_result.issues if issue.startswith("Auto-Fail")
+            ]
+
+        return CommonValidationResult(
+            workflow_type=WorkflowType.AI_INFLUENCER,
+            total_score=inner_result.total_score,
+            tier=tier,
+            grade=inner_result.grade,
+            passed=inner_result.passed,
+            auto_fail=auto_fail,
+            auto_fail_reasons=auto_fail_reasons,
+            issues=inner_result.issues,
+            criteria_scores=inner_result.criteria,
+            summary_kr=inner_result.format_korean(),
+        )
+
+    def get_enhancement_rules(self, failed_criteria):
+        """실패 기준에 따른 프롬프트 강화 규칙 반환"""
+        rules = []
+        for criterion in failed_criteria:
+            if criterion in self.ENHANCEMENT_RULES:
+                rules.append(self.ENHANCEMENT_RULES[criterion])
+        return "\n".join(rules) if rules else ""
+
+    def should_retry(self, result):
+        """재시도 여부 판단 - auto_fail이면 재시도 안함"""
+        if result.passed:
+            return False
+        if result.auto_fail:
+            return False
+        return result.total_score < self.config.pass_total

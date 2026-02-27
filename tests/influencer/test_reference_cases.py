@@ -1,10 +1,21 @@
 """
-AI Influencer Reference Test - A-H Cases
+AI Influencer Image Generation - Full Pipeline
 
-핵심 원칙:
-1. 모든 케이스에 동일한 스키마 프롬프트 사용
-2. 이미지 참조만 케이스별로 다름
+=== 필수 파이프라인 (절대 생략 금지!) ===
+1. analyze_hair()        -- 얼굴 이미지에서 헤어 정보 추출
+2. analyze_expression()  -- 표정 이미지에서 표정 정보 추출
+3. analyze_pose()        -- 포즈 이미지에서 포즈/프레이밍/앵글 추출
+4. analyze_background()  -- 배경 이미지에서 장소/조명/분위기 추출
+5. check_compatibility() -- 포즈-배경 호환성 검사
+6. OutfitAnalyzer.analyze() -- 착장 이미지 상세 분석
+7. build_schema_prompt() -- 분석 결과를 스키마 프롬프트로 조립
+8. generate_image()      -- 프롬프트 + 모든 이미지 레퍼런스 → API 호출
 
+WARNING: generate_ai_influencer()를 직접 호출하면 안됨!
+   -> 그 함수는 VLM 분석을 건너뛰고 generic label만 사용함.
+   -> 반드시 위 파이프라인을 거쳐야 포즈/프레이밍/배경 정확도 보장.
+
+모든 이미지 레퍼런스(포즈+표정+배경)를 항상 포함.
 스키마: db/influencer_prompt_schema.json
 """
 
@@ -43,67 +54,16 @@ from core.outfit_analyzer import OutfitAnalyzer
 
 
 # ============================================================
-# TEST CONFIGURATIONS
+# OPTIONS (change these values)
 # ============================================================
-
-TEST_FOLDERS = {
-    "test1": project_root / "tests" / "인플테스트용",
-    "test2": project_root / "tests" / "인플테스트2",
-    "test3": project_root / "tests" / "인플테스트3",
-}
-
-# 테스트 케이스: 이미지 참조만 다름, 프롬프트는 동일
-TEST_CASES = {
-    "A": {
-        "pose_img": False,
-        "expr_img": False,
-        "bg_img": False,
-        "desc": "베이스라인 (텍스트만)",
-    },
-    "B": {"pose_img": True, "expr_img": False, "bg_img": False, "desc": "포즈 이미지"},
-    "C": {"pose_img": False, "expr_img": True, "bg_img": False, "desc": "표정 이미지"},
-    "D": {"pose_img": False, "expr_img": False, "bg_img": True, "desc": "배경 이미지"},
-    "E": {
-        "pose_img": True,
-        "expr_img": True,
-        "bg_img": False,
-        "desc": "포즈+표정 이미지",
-    },
-    "F": {
-        "pose_img": True,
-        "expr_img": False,
-        "bg_img": True,
-        "desc": "포즈+배경 이미지",
-    },
-    "G": {
-        "pose_img": False,
-        "expr_img": True,
-        "bg_img": True,
-        "desc": "표정+배경 이미지",
-    },
-    "H": {
-        "pose_img": True,
-        "expr_img": True,
-        "bg_img": True,
-        "desc": "All Ref (모든 이미지)",
-    },
-}
-
+# aspect_ratio: "1:1", "2:3", "3:2", "3:4", "4:3", "4:5", "5:4", "9:16", "16:9", "21:9"
+# resolution: "1K", "2K", "4K"
+# num_images: 1, 3, 5, 10
+# cost: 1K~2K = 190won/image, 4K = 380won/image
+# ============================================================
 NUM_IMAGES = 3
 ASPECT_RATIO = "9:16"
 RESOLUTION = "2K"
-
-
-# ============================================================
-# SCHEMA LOADER
-# ============================================================
-
-
-def load_schema():
-    """influencer_prompt_schema.json 로드"""
-    schema_path = project_root / "db" / "influencer_prompt_schema.json"
-    with open(schema_path, "r", encoding="utf-8") as f:
-        return json.load(f)
 
 
 # ============================================================
@@ -239,7 +199,7 @@ def build_schema_prompt(
     """
     스키마 기반 프롬프트 생성
 
-    모든 분석 결과를 텍스트로 포함 (이미지 전송 여부와 무관)
+    모든 분석 결과를 텍스트로 포함
     """
 
     lines = []
@@ -283,9 +243,9 @@ def build_schema_prompt(
     lines.append("")
 
     # =====================================================
-    # 포즈
+    # 포즈 (강화된 지시)
     # =====================================================
-    lines.append("## [포즈] - Follow EXACTLY")
+    lines.append("## [포즈] ★★★ MUST FOLLOW EXACTLY - DO NOT SIMPLIFY ★★★")
     lines.append(f"- stance: {pose_result.stance}")
     lines.append(f"- 왼팔: {pose_result.left_arm}")
     lines.append(f"- 오른팔: {pose_result.right_arm}")
@@ -296,16 +256,68 @@ def build_schema_prompt(
     lines.append(f"- 힙: {pose_result.hip}")
     lines.append("")
 
+    # 특이 포즈 감지 및 강조 (한 다리 들기, 앉기 등)
+    unusual_pose_warning = []
+    left_leg_lifted = any(
+        kw in pose_result.left_leg.lower()
+        for kw in ["들어올", "구부", "90도", "배꼽 높이"]
+    )
+    right_leg_lifted = any(
+        kw in pose_result.right_leg.lower()
+        for kw in ["들어올", "구부", "90도", "배꼽 높이"]
+    )
+
+    if left_leg_lifted:
+        unusual_pose_warning.append(
+            f"★ LEFT LEG LIFTED: {pose_result.left_leg} - DO NOT put this foot on ground!"
+        )
+    if right_leg_lifted:
+        unusual_pose_warning.append(
+            f"★ RIGHT LEG LIFTED: {pose_result.right_leg} - DO NOT put this foot on ground!"
+        )
+
+    if unusual_pose_warning:
+        lines.append("### ★★★ CRITICAL POSE WARNING ★★★")
+        for warning in unusual_pose_warning:
+            lines.append(warning)
+        lines.append("")
+        lines.append("This is an UNUSUAL pose. DO NOT default to normal standing pose!")
+        lines.append("The model MUST have ONE LEG LIFTED as specified above.")
+        lines.append("")
+
     # =====================================================
     # 방향/기울기 (★★★ 매우 중요 - 정확히 재현 ★★★)
     # =====================================================
     lines.append("### [방향/기울기] ★★★ CRITICAL - EXACT DIRECTION ★★★")
     if pose_result.torso_tilt:
         lines.append(f"- 상체_기울기: {pose_result.torso_tilt}")
+
+    # ★★★ 무릎 방향 (가장 중요!) ★★★
+    if pose_result.left_knee_direction:
+        lines.append(f"- 왼무릎_방향: {pose_result.left_knee_direction}")
+    if pose_result.right_knee_direction:
+        lines.append(f"- 오른무릎_방향: {pose_result.right_knee_direction}")
+
+    # 발 방향
     if pose_result.left_foot_direction:
         lines.append(f"- 왼발_방향: {pose_result.left_foot_direction}")
     if pose_result.right_foot_direction:
         lines.append(f"- 오른발_방향: {pose_result.right_foot_direction}")
+
+    # 무릎 상세 (각도, 높이, 발 위치)
+    if pose_result.left_knee_angle:
+        lines.append(f"- 왼무릎_각도: {pose_result.left_knee_angle}")
+    if pose_result.right_knee_angle:
+        lines.append(f"- 오른무릎_각도: {pose_result.right_knee_angle}")
+    if pose_result.left_knee_height:
+        lines.append(f"- 왼무릎_높이: {pose_result.left_knee_height}")
+    if pose_result.right_knee_height:
+        lines.append(f"- 오른무릎_높이: {pose_result.right_knee_height}")
+    if pose_result.left_foot_position:
+        lines.append(f"- 왼발_위치: {pose_result.left_foot_position}")
+    if pose_result.right_foot_position:
+        lines.append(f"- 오른발_위치: {pose_result.right_foot_position}")
+
     if pose_result.shoulder_line:
         lines.append(f"- 어깨_라인: {pose_result.shoulder_line}")
     if pose_result.face_direction:
@@ -378,16 +390,29 @@ def build_schema_prompt(
     lines.extend(visual_mood_lines)
 
     # =====================================================
-    # 네거티브
+    # 네거티브 (동적 추가)
     # =====================================================
     lines.append("## [네거티브]")
-    lines.append(
-        "other people, crowd, bystanders, passersby, multiple people, random chair, random box, invented furniture, objects not in background reference, bright smile, teeth showing, golden hour, warm amber, plastic skin, deformed fingers, AI look, overprocessed"
-    )
+    base_negative = "other people, crowd, bystanders, passersby, multiple people, random chair, random box, invented furniture, objects not in background reference, bright smile, teeth showing, golden hour, warm amber, plastic skin, deformed fingers, AI look, overprocessed"
+
+    # 특이 포즈일 때 네거티브 추가
+    extra_negative = []
+    if left_leg_lifted or right_leg_lifted:
+        extra_negative.append("both feet on ground")
+        extra_negative.append("standing with both legs")
+        extra_negative.append("flat-footed stance")
+        extra_negative.append("symmetrical leg position")
+
+    if extra_negative:
+        full_negative = base_negative + ", " + ", ".join(extra_negative)
+    else:
+        full_negative = base_negative
+
+    lines.append(full_negative)
     lines.append("")
 
     # =====================================================
-    # 이미지 역할 안내
+    # 이미지 역할 안내 (항상 모든 레퍼런스 포함)
     # =====================================================
     lines.append("=" * 50)
     lines.append("## [IMAGE REFERENCE ROLES]")
@@ -398,15 +423,15 @@ def build_schema_prompt(
     lines.append("[OUTFIT] images: Match outfit EXACTLY")
     lines.append("  - Copy all colors, logos, patterns, details")
     lines.append("")
-    lines.append("[POSE REFERENCE] (if provided): Copy pose from this image")
+    lines.append("[POSE REFERENCE]: Copy pose from this image")
     lines.append("  - Match body position EXACTLY")
     lines.append("  - Ignore face/outfit/background from this image")
     lines.append("")
-    lines.append("[EXPRESSION REFERENCE] (if provided): Copy expression only")
+    lines.append("[EXPRESSION REFERENCE]: Copy expression only")
     lines.append("  - Copy eyes, mouth, facial expression")
     lines.append("  - DO NOT copy hair from this image!")
     lines.append("")
-    lines.append("[BACKGROUND REFERENCE] (if provided): Use this background")
+    lines.append("[BACKGROUND REFERENCE]: Use this background")
     lines.append("  - Ignore any person in background image")
     lines.append("  - Match lighting/mood of background")
     lines.append("")
@@ -415,7 +440,7 @@ def build_schema_prompt(
 
 
 # ============================================================
-# IMAGE GENERATOR
+# IMAGE GENERATOR (항상 모든 레퍼런스 포함)
 # ============================================================
 
 
@@ -424,40 +449,44 @@ def generate_image(
     prompt: str,
     face_images: list,
     outfit_images: list,
-    pose_image: Path = None,
-    expression_image: Path = None,
-    background_image: Path = None,
-    include_pose_img: bool = False,
-    include_expr_img: bool = False,
-    include_bg_img: bool = False,
+    pose_image: Path,
+    expression_image: Path,
+    background_image: Path,
     temperature: float = 0.35,
 ) -> Image.Image:
     """
-    이미지 생성
+    이미지 생성 - 모든 레퍼런스 이미지 포함
 
-    프롬프트는 동일, 이미지 참조만 케이스별로 다름
+    전송 순서:
+    1. 프롬프트 (텍스트)
+    2. [POSE REFERENCE] 포즈 이미지
+    3. [EXPRESSION REFERENCE] 표정 이미지
+    4. [FACE] 얼굴 이미지
+    5. [OUTFIT 1~N] 착장 이미지
+    6. [BACKGROUND REFERENCE] 배경 이미지
+    7. [POSE REMINDER] 포즈 재강조
     """
 
     parts = []
 
-    # 1. 프롬프트 (모든 케이스 동일)
+    # 1. 프롬프트
     parts.append(types.Part(text=prompt))
 
-    # 2. 포즈 레퍼런스 (케이스별 선택)
-    if include_pose_img and pose_image and pose_image.exists():
+    # 2. 포즈 레퍼런스
+    if pose_image and pose_image.exists():
         img = Image.open(pose_image).convert("RGB")
         parts.append(types.Part(text="[POSE REFERENCE]"))
         parts.append(pil_to_part(img))
 
-    # 3. 표정 레퍼런스 (케이스별 선택)
-    if include_expr_img and expression_image and expression_image.exists():
+    # 3. 표정 레퍼런스
+    if expression_image and expression_image.exists():
         img = Image.open(expression_image).convert("RGB")
         parts.append(
             types.Part(text="[EXPRESSION REFERENCE] - Copy expression only, NOT hair")
         )
         parts.append(pil_to_part(img))
 
-    # 4. 얼굴 이미지 (항상 전송)
+    # 4. 얼굴 이미지
     for i, face_path in enumerate(face_images):
         if face_path.exists():
             img = Image.open(face_path).convert("RGB")
@@ -466,18 +495,28 @@ def generate_image(
             )
             parts.append(pil_to_part(img))
 
-    # 5. 착장 이미지 (항상 전송)
+    # 5. 착장 이미지
     for i, outfit_path in enumerate(outfit_images):
         if outfit_path.exists():
             img = Image.open(outfit_path).convert("RGB")
             parts.append(types.Part(text=f"[OUTFIT {i+1}]"))
             parts.append(pil_to_part(img))
 
-    # 6. 배경 이미지 (케이스별 선택)
-    if include_bg_img and background_image and background_image.exists():
+    # 6. 배경 이미지
+    if background_image and background_image.exists():
         img = Image.open(background_image).convert("RGB")
         parts.append(
             types.Part(text="[BACKGROUND REFERENCE] - Ignore person in this image")
+        )
+        parts.append(pil_to_part(img))
+
+    # 7. 포즈 재강조 (마지막에 다시 전송)
+    if pose_image and pose_image.exists():
+        img = Image.open(pose_image).convert("RGB")
+        parts.append(
+            types.Part(
+                text="[POSE REMINDER] ★★★ CRITICAL: Copy this EXACT pose! If one leg is lifted, it MUST be lifted in the output! ★★★"
+            )
         )
         parts.append(pil_to_part(img))
 
@@ -513,104 +552,19 @@ def generate_image(
 # ============================================================
 
 
-def run_test_case(
-    client,
-    case_id: str,
-    case_config: dict,
-    prompt: str,
-    face_images: list,
-    outfit_images: list,
-    pose_image: Path,
-    expression_image: Path,
-    background_image: Path,
-    output_dir: Path,
-) -> dict:
-    """단일 테스트 케이스 실행"""
+def run_test(test_name: str, test_folder: Path):
+    """
+    AI 인플루언서 이미지 생성 테스트
 
-    print(f"\n{'=' * 60}")
-    print(f"Case {case_id}: {case_config['desc']}")
-    print(f"  - Pose image: {'Yes' if case_config['pose_img'] else 'No'}")
-    print(f"  - Expression image: {'Yes' if case_config['expr_img'] else 'No'}")
-    print(f"  - Background image: {'Yes' if case_config['bg_img'] else 'No'}")
-    print(f"{'=' * 60}")
-
-    # 케이스 출력 디렉토리
-    case_dir = output_dir / f"case_{case_id}"
-    images_dir = case_dir / "images"
-    images_dir.mkdir(parents=True, exist_ok=True)
-
-    # 인풋 이미지 복사
-    for face_path in face_images:
-        if face_path.exists():
-            shutil.copy(face_path, images_dir / f"input_face.png")
-    for i, outfit_path in enumerate(outfit_images):
-        shutil.copy(outfit_path, images_dir / f"input_outfit_{i+1:02d}.png")
-
-    if case_config["pose_img"] and pose_image and pose_image.exists():
-        shutil.copy(pose_image, images_dir / "input_pose.png")
-    if case_config["expr_img"] and expression_image and expression_image.exists():
-        shutil.copy(
-            expression_image, images_dir / f"input_expression{expression_image.suffix}"
-        )
-    if case_config["bg_img"] and background_image and background_image.exists():
-        shutil.copy(
-            background_image, images_dir / f"input_background{background_image.suffix}"
-        )
-
-    # 프롬프트 저장 (모든 케이스 동일한 프롬프트)
-    with open(case_dir / "prompt.txt", "w", encoding="utf-8") as f:
-        f.write(prompt)
-
-    # 이미지 생성
-    results = []
-    for i in range(NUM_IMAGES):
-        print(f"[Generating] Image {i+1}/{NUM_IMAGES}...")
-
-        image = generate_image(
-            client=client,
-            prompt=prompt,
-            face_images=face_images,
-            outfit_images=outfit_images,
-            pose_image=pose_image,
-            expression_image=expression_image,
-            background_image=background_image,
-            include_pose_img=case_config["pose_img"],
-            include_expr_img=case_config["expr_img"],
-            include_bg_img=case_config["bg_img"],
-            temperature=0.35,
-        )
-
-        if image:
-            image.save(images_dir / f"output_{i+1:03d}.jpg", quality=95)
-            results.append({"index": i + 1, "status": "success"})
-            print(f"  [OK] Saved output_{i+1:03d}.jpg")
-        else:
-            results.append({"index": i + 1, "status": "failed"})
-            print(f"  [FAIL] Generation failed")
-
-        time.sleep(2)  # Rate limit
-
-    # 결과 저장
-    success_count = sum(1 for r in results if r["status"] == "success")
-    case_result = {
-        "case_id": case_id,
-        "description": case_config["desc"],
-        "config": case_config,
-        "generation_results": results,
-        "success_rate": success_count / len(results) * 100 if results else 0,
-    }
-
-    with open(case_dir / "result.json", "w", encoding="utf-8") as f:
-        json.dump(case_result, f, ensure_ascii=False, indent=2)
-
-    return case_result
-
-
-def run_test(test_name: str, test_folder: Path, cases: list = None):
-    """전체 테스트 실행"""
+    파이프라인:
+    STEP 1: VLM 분석 (헤어/표정/포즈/배경/호환성/착장)
+    STEP 2: 스키마 프롬프트 생성
+    STEP 3: 이미지 생성 (모든 레퍼런스 포함)
+    STEP 4: 결과 저장
+    """
 
     print(f"\n{'#' * 60}")
-    print(f"# AI INFLUENCER REFERENCE TEST: {test_name}")
+    print(f"# AI INFLUENCER - FULL PIPELINE TEST: {test_name}")
     print(f"# Folder: {test_folder}")
     print(f"{'#' * 60}")
 
@@ -627,19 +581,15 @@ def run_test(test_name: str, test_folder: Path, cases: list = None):
     output_dir = (
         project_root
         / "Fnf_studio_outputs"
-        / "influencer_reference_test"
+        / "ai_influencer"
         / f"{test_name}_{timestamp}"
     )
-    output_dir.mkdir(parents=True, exist_ok=True)
+    images_dir = output_dir / "images"
+    images_dir.mkdir(parents=True, exist_ok=True)
 
     # =========================================================
-    # STEP 1: 모든 레퍼런스 분석 (한 번만)
+    # 이미지 경로 탐색
     # =========================================================
-    print("\n" + "=" * 60)
-    print("STEP 1: Analyzing ALL references (once)")
-    print("=" * 60)
-
-    # 이미지 경로
     face_images = [test_folder / "얼굴.png"]
     outfit_images = sorted(list(test_folder.glob("착장*.png")))
     pose_image = test_folder / "포즈.png"
@@ -658,6 +608,44 @@ def run_test(test_name: str, test_folder: Path, cases: list = None):
             background_image = bg_path
             break
 
+    # 필수 이미지 확인
+    missing = []
+    if not face_images[0].exists():
+        missing.append("얼굴.png")
+    if not pose_image.exists():
+        missing.append("포즈.png")
+    if not expression_image:
+        missing.append("표정.png/jpeg/jpg")
+    if not background_image:
+        missing.append("배경.png/jpeg/jpg")
+    if not outfit_images:
+        missing.append("착장*.png")
+
+    if missing:
+        print(f"[ERROR] Missing required images: {', '.join(missing)}")
+        return
+
+    # 인풋 이미지 복사
+    for face_path in face_images:
+        shutil.copy(face_path, images_dir / f"input_face.png")
+    for i, outfit_path in enumerate(outfit_images):
+        shutil.copy(outfit_path, images_dir / f"input_outfit_{i+1:02d}.png")
+    shutil.copy(pose_image, images_dir / "input_pose.png")
+    shutil.copy(
+        expression_image, images_dir / f"input_expression{expression_image.suffix}"
+    )
+    shutil.copy(
+        background_image, images_dir / f"input_background{background_image.suffix}"
+    )
+    print(f"[OK] {3 + len(outfit_images) + len(face_images)} input images copied")
+
+    # =========================================================
+    # STEP 1: VLM 분석 (모든 레퍼런스)
+    # =========================================================
+    print("\n" + "=" * 60)
+    print("STEP 1: VLM Analysis (all references)")
+    print("=" * 60)
+
     # 1-1. 헤어 분석
     print("\n[1-1] Analyzing hair from face image...")
     hair_info = analyze_hair(client, face_images[0])
@@ -665,45 +653,27 @@ def run_test(test_name: str, test_folder: Path, cases: list = None):
 
     # 1-2. 표정 분석
     print("\n[1-2] Analyzing expression...")
-    if expression_image and expression_image.exists():
-        expression_info = analyze_expression(client, expression_image)
-    else:
-        expression_info = {
-            "베이스": "cool",
-            "바이브": "effortless",
-            "시선": "direct",
-            "입": "closed",
-        }
+    expression_info = analyze_expression(client, expression_image)
     print(f"  Expression: {expression_info}")
 
     # 1-3. 포즈 분석
     print("\n[1-3] Analyzing pose...")
-    if pose_image.exists():
-        pose_result = analyze_pose(pose_image)
-        print(f"  Stance: {pose_result.stance}, Framing: {pose_result.framing}")
-    else:
-        print(f"  [WARN] Pose image not found, using defaults")
-        pose_result = None
+    pose_result = analyze_pose(pose_image)
+    print(f"  Stance: {pose_result.stance}, Framing: {pose_result.framing}")
 
     # 1-4. 배경 분석
     print("\n[1-4] Analyzing background...")
-    if background_image and background_image.exists():
-        background_result = analyze_background(background_image)
-        print(
-            f"  Scene: {background_result.scene_type}, Provides: {background_result.provides}"
-        )
-    else:
-        print(f"  [WARN] Background image not found, using defaults")
-        background_result = None
+    background_result = analyze_background(background_image)
+    print(
+        f"  Scene: {background_result.scene_type}, Provides: {background_result.provides}"
+    )
 
     # 1-5. 호환성 검사
-    compatibility_result = None
-    if pose_result and background_result:
-        print("\n[1-5] Checking compatibility...")
-        compatibility_result = check_compatibility(pose_result, background_result)
-        print(
-            f"  Level: {compatibility_result.level.value}, Score: {compatibility_result.score}"
-        )
+    print("\n[1-5] Checking compatibility...")
+    compatibility_result = check_compatibility(pose_result, background_result)
+    print(
+        f"  Level: {compatibility_result.level.value}, Score: {compatibility_result.score}"
+    )
 
     # 1-6. 착장 분석
     print("\n[1-6] Analyzing outfit...")
@@ -712,31 +682,6 @@ def run_test(test_name: str, test_folder: Path, cases: list = None):
     print(f"  Style: {outfit_result.overall_style}")
     print(f"  Brand: {outfit_result.brand_detected}")
     print(f"  Items: {len(outfit_result.items)}")
-
-    # =========================================================
-    # STEP 2: 단일 프롬프트 생성 (모든 케이스 공통)
-    # =========================================================
-    print("\n" + "=" * 60)
-    print("STEP 2: Building SINGLE prompt for ALL cases")
-    print("=" * 60)
-
-    if not pose_result or not background_result:
-        print("[ERROR] Missing pose or background analysis, cannot continue")
-        return
-
-    prompt = build_schema_prompt(
-        hair_info=hair_info,
-        expression_info=expression_info,
-        pose_result=pose_result,
-        background_result=background_result,
-        outfit_result=outfit_result,
-        compatibility_result=compatibility_result,
-    )
-
-    # 프롬프트 저장
-    with open(output_dir / "shared_prompt.txt", "w", encoding="utf-8") as f:
-        f.write(prompt)
-    print(f"  Saved: {output_dir / 'shared_prompt.txt'}")
 
     # 분석 결과 저장
     analysis_dir = output_dir / "analysis"
@@ -750,73 +695,149 @@ def run_test(test_name: str, test_folder: Path, cases: list = None):
         json.dump(pose_result.to_schema_format(), f, ensure_ascii=False, indent=2)
     with open(analysis_dir / "background_analysis.json", "w", encoding="utf-8") as f:
         json.dump(background_result.to_schema_format(), f, ensure_ascii=False, indent=2)
-    if compatibility_result:
-        with open(analysis_dir / "compatibility.json", "w", encoding="utf-8") as f:
-            json.dump(
-                {
-                    "level": compatibility_result.level.value,
-                    "score": compatibility_result.score,
-                    "issues": [
-                        {"type": i.issue_type, "description": i.description}
-                        for i in compatibility_result.issues
-                    ],
-                },
-                f,
-                ensure_ascii=False,
-                indent=2,
-            )
+    with open(analysis_dir / "compatibility.json", "w", encoding="utf-8") as f:
+        json.dump(
+            {
+                "level": compatibility_result.level.value,
+                "score": compatibility_result.score,
+                "issues": [
+                    {"type": i.issue_type, "description": i.description}
+                    for i in compatibility_result.issues
+                ],
+            },
+            f,
+            ensure_ascii=False,
+            indent=2,
+        )
 
     # =========================================================
-    # STEP 3: 테스트 케이스 실행
+    # STEP 2: 프롬프트 생성
     # =========================================================
     print("\n" + "=" * 60)
-    print("STEP 3: Running test cases (same prompt, different images)")
+    print("STEP 2: Building schema prompt")
     print("=" * 60)
 
-    if cases is None:
-        cases = list(TEST_CASES.keys())
+    prompt = build_schema_prompt(
+        hair_info=hair_info,
+        expression_info=expression_info,
+        pose_result=pose_result,
+        background_result=background_result,
+        outfit_result=outfit_result,
+        compatibility_result=compatibility_result,
+    )
 
-    all_results = []
+    # 프롬프트 저장
+    with open(output_dir / "prompt.txt", "w", encoding="utf-8") as f:
+        f.write(prompt)
+    print(f"  Saved: prompt.txt")
 
-    for case_id in cases:
-        if case_id not in TEST_CASES:
-            print(f"[SKIP] Unknown case: {case_id}")
-            continue
+    # prompt.json 저장
+    prompt_json = {
+        "module": "tests.influencer.test_reference_cases",
+        "pipeline": [
+            "analyze_hair",
+            "analyze_expression",
+            "analyze_pose",
+            "analyze_background",
+            "check_compatibility",
+            "OutfitAnalyzer.analyze",
+            "build_schema_prompt",
+            "generate_image",
+        ],
+        "analysis": {
+            "hair": hair_info,
+            "expression": expression_info,
+            "pose": pose_result.to_schema_format(),
+            "background": background_result.to_schema_format(),
+        },
+        "references": {
+            "pose_image": str(pose_image),
+            "expression_image": str(expression_image),
+            "background_image": str(background_image),
+            "face_images": [str(p) for p in face_images],
+            "outfit_images": [str(p) for p in outfit_images],
+        },
+    }
+    with open(output_dir / "prompt.json", "w", encoding="utf-8") as f:
+        json.dump(prompt_json, f, ensure_ascii=False, indent=2)
 
-        case_result = run_test_case(
+    # =========================================================
+    # STEP 3: 이미지 생성 (모든 레퍼런스 포함)
+    # =========================================================
+    print("\n" + "=" * 60)
+    print(f"STEP 3: Generating {NUM_IMAGES} images (all references included)")
+    print("=" * 60)
+
+    results = []
+    for i in range(NUM_IMAGES):
+        print(f"\n[Generating] Image {i+1}/{NUM_IMAGES}...")
+
+        image = generate_image(
             client=client,
-            case_id=case_id,
-            case_config=TEST_CASES[case_id],
-            prompt=prompt,  # 동일한 프롬프트
+            prompt=prompt,
             face_images=face_images,
             outfit_images=outfit_images,
             pose_image=pose_image,
             expression_image=expression_image,
             background_image=background_image,
-            output_dir=output_dir,
+            temperature=0.35,
         )
-        all_results.append(case_result)
+
+        if image:
+            image.save(images_dir / f"output_{i+1:03d}.jpg", quality=95)
+            results.append({"index": i + 1, "status": "success"})
+            print(f"  [OK] Saved output_{i+1:03d}.jpg")
+        else:
+            results.append({"index": i + 1, "status": "failed"})
+            print(f"  [FAIL] Generation failed")
+
+        if i < NUM_IMAGES - 1:
+            time.sleep(2)  # Rate limit
 
     # =========================================================
-    # STEP 4: 전체 결과 저장
+    # STEP 4: 결과 저장
     # =========================================================
-    summary = {
-        "test_name": test_name,
-        "test_folder": str(test_folder),
-        "timestamp": timestamp,
-        "total_cases": len(all_results),
+    success_count = sum(1 for r in results if r["status"] == "success")
+
+    # config.json
+    config = {
+        "workflow": "ai_influencer",
+        "module": "tests.influencer.test_reference_cases",
+        "description": test_name,
+        "timestamp": datetime.now().isoformat(),
+        "model": IMAGE_MODEL,
+        "aspect_ratio": ASPECT_RATIO,
+        "resolution": RESOLUTION,
+        "temperature": 0.35,
+        "num_images": NUM_IMAGES,
+        "cost_per_image": 190,
+        "total_cost": NUM_IMAGES * 190,
+        "input_summary": {
+            "face": len(face_images),
+            "outfits": len(outfit_images),
+            "pose_reference": True,
+            "expression_reference": True,
+            "background_reference": True,
+        },
+    }
+    with open(output_dir / "config.json", "w", encoding="utf-8") as f:
+        json.dump(config, f, ensure_ascii=False, indent=2)
+
+    # validation.json
+    validation = {
+        "workflow": "ai_influencer",
+        "results": results,
+        "total_generated": success_count,
+        "total_failed": NUM_IMAGES - success_count,
+        "success_rate": success_count / NUM_IMAGES * 100 if NUM_IMAGES > 0 else 0,
         "analysis": {
             "hair": hair_info,
             "expression": expression_info,
-            "pose": pose_result.to_schema_format() if pose_result else None,
-            "background": background_result.to_schema_format()
-            if background_result
-            else None,
+            "pose": pose_result.to_schema_format(),
+            "background": background_result.to_schema_format(),
             "compatibility": {
-                "level": compatibility_result.level.value
-                if compatibility_result
-                else None,
-                "score": compatibility_result.score if compatibility_result else None,
+                "level": compatibility_result.level.value,
+                "score": compatibility_result.score,
             },
             "outfit": {
                 "style": outfit_result.overall_style,
@@ -824,22 +845,19 @@ def run_test(test_name: str, test_folder: Path, cases: list = None):
                 "item_count": len(outfit_result.items),
             },
         },
-        "cases": all_results,
     }
-
-    with open(output_dir / "summary.json", "w", encoding="utf-8") as f:
-        json.dump(summary, f, ensure_ascii=False, indent=2)
+    with open(output_dir / "validation.json", "w", encoding="utf-8") as f:
+        json.dump(validation, f, ensure_ascii=False, indent=2)
 
     # 결과 출력
     print(f"\n{'=' * 60}")
     print(f"TEST COMPLETE: {test_name}")
     print(f"{'=' * 60}")
     print(f"Output: {output_dir}")
-    print(f"\nResults:")
-    for result in all_results:
-        print(f"  Case {result['case_id']}: {result['success_rate']:.0f}% success")
+    print(f"Results: {success_count}/{NUM_IMAGES} success")
+    print(f"Cost: {NUM_IMAGES * 190} won ({NUM_IMAGES} x 190)")
 
-    return summary
+    return validation
 
 
 # ============================================================
@@ -849,35 +867,29 @@ def run_test(test_name: str, test_folder: Path, cases: list = None):
 if __name__ == "__main__":
     import argparse
 
-    parser = argparse.ArgumentParser(description="AI Influencer Reference Test")
+    parser = argparse.ArgumentParser(description="AI Influencer Full Pipeline Test")
     parser.add_argument(
-        "--test",
+        "--test-dir",
         type=str,
-        default="test1",
-        choices=["test1", "test2", "test3", "all"],
-        help="Test folder to use",
+        required=True,
+        help="Test folder path (e.g., tests/인플테스트3)",
     )
     parser.add_argument(
-        "--cases",
-        type=str,
-        default=None,
-        help="Comma-separated case IDs (e.g., 'A,B,H')",
+        "--num-images",
+        type=int,
+        default=3,
+        help="Number of images (default: 3)",
     )
 
     args = parser.parse_args()
 
-    # 테스트 케이스 파싱
-    cases = None
-    if args.cases:
-        cases = [c.strip().upper() for c in args.cases.split(",")]
+    # Override NUM_IMAGES
+    NUM_IMAGES = args.num_images
 
-    # 테스트 실행
-    if args.test == "all":
-        for test_name, test_folder in TEST_FOLDERS.items():
-            run_test(test_name, test_folder, cases)
-    else:
-        test_folder = TEST_FOLDERS.get(args.test)
-        if test_folder:
-            run_test(args.test, test_folder, cases)
-        else:
-            print(f"Unknown test: {args.test}")
+    # Resolve test folder
+    test_folder = Path(args.test_dir)
+    if not test_folder.is_absolute():
+        test_folder = project_root / args.test_dir
+
+    test_name = test_folder.name
+    run_test(test_name, test_folder)

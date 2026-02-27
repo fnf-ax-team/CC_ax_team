@@ -23,7 +23,7 @@ trigger-keywords: ["AI인플루언서", "ai인플", "인플루언서", "AI인플
 | 착장 지정 | 텍스트 + 이미지 | **이미지만** |
 | 프롬프트 방식 | JSON 스키마 조립 | **역할 설명만** |
 
-**원칙: 이미지가 말한다. 텍스트는 역할만 설명한다.**
+**원칙: 이미지 레퍼런스 + VLM 분석 텍스트 병행. 이미지만으로는 프레이밍/앵글 정확도 부족.**
 
 ---
 
@@ -429,50 +429,53 @@ poses = list_presets("pose")  # ["전신_01", "전신_02", ...]
 pose_img = load_preset("pose", "전신_05")
 ```
 
-### 3. 이미지 생성 (v2.0 API)
+### 3. 이미지 생성 (Full Pipeline - CORRECT)
 
 ```python
-from core.ai_influencer import generate_ai_influencer
+# tests/influencer/test_reference_cases.py의 파이프라인 사용
+from tests.influencer.test_reference_cases import (
+    analyze_hair,
+    analyze_expression,
+    build_schema_prompt,
+    generate_image,
+)
+from core.ai_influencer import analyze_pose, analyze_background, check_compatibility
+from core.outfit_analyzer import OutfitAnalyzer
 
-result = generate_ai_influencer(
-    character=character,              # Character 객체
+# STEP 1: VLM 분석 (6단계)
+hair_info = analyze_hair(client, face_image)
+expression_info = analyze_expression(client, expression_image)
+pose_result = analyze_pose(pose_image)
+background_result = analyze_background(background_image)
+compatibility = check_compatibility(pose_result, background_result)
+outfit_result = OutfitAnalyzer(client).analyze(outfit_images)
 
-    # 포즈 (둘 중 하나)
-    pose_preset="전신_05",            # 프리셋 ID
-    # pose_image=Path("custom.jpg"), # 또는 커스텀 이미지
+# STEP 2: 스키마 프롬프트 조립
+prompt = build_schema_prompt(
+    hair_info, expression_info, pose_result,
+    background_result, outfit_result, compatibility,
+)
 
-    # 표정 (둘 중 하나)
-    expression_preset="시크_02",      # 프리셋 ID
-    # expression_image=Path("..."),  # 또는 커스텀 이미지
-
-    # 착장
-    outfit_images=[img1, img2],       # 착장 이미지 리스트
-
-    # 배경 (둘 중 하나)
-    background_preset="핫플카페_08",  # 프리셋 ID
-    # background_image=Path("..."),  # 또는 커스텀 이미지
-
-    # 출력 설정
-    aspect_ratio="9:16",
-    resolution="2K",
-    temperature=0.5,
+# STEP 3: 생성 (모든 레퍼런스 이미지 포함)
+image = generate_image(
+    client=client,
+    prompt=prompt,
+    face_images=face_images,
+    outfit_images=outfit_images,
+    pose_image=pose_image,
+    expression_image=expression_image,
+    background_image=background_image,
+    temperature=0.35,
 )
 ```
 
-### 4. 검증 + 재생성
+### 4. generate_ai_influencer() - LOW-LEVEL (직접 호출 금지!)
 
 ```python
-from core.ai_influencer import generate_with_validation
-
-result = generate_with_validation(
-    character=character,
-    pose_preset="전신_05",
-    expression_preset="시크_02",
-    outfit_images=[...],
-    background_preset="핫플카페_08",
-    max_retries=2,  # 필수
-)
-# result = {"image": PIL.Image, "passed": bool, "score": int, ...}
+# WARNING: 이 함수는 VLM 분석을 건너뛰는 저수준 함수!
+# 포즈 프레이밍/앵글/관절 상세가 누락되어 품질 저하 발생
+# 반드시 위 Full Pipeline을 사용할 것!
+from core.ai_influencer import generate_ai_influencer  # DO NOT USE DIRECTLY
 ```
 
 ---
@@ -640,23 +643,46 @@ Claude가 캐릭터 확인 → 프리셋 선택 → 이미지 조합 → 생성 
 
 ---
 
-## 테스트 케이스 (A-H)
+## 필수 파이프라인 (CRITICAL)
 
-| 케이스 | 포즈 이미지 | 표정 이미지 | 배경 이미지 | 설명 |
-|--------|------------|------------|------------|------|
-| A | X | X | X | 베이스라인 (텍스트만) |
-| B | O | X | X | 포즈 레퍼런스만 |
-| C | X | O | X | 표정 레퍼런스만 |
-| D | X | X | O | 배경 레퍼런스만 |
-| E | O | O | X | 포즈+표정 |
-| F | O | X | O | 포즈+배경 |
-| G | X | O | O | 표정+배경 |
-| H | O | O | O | 모든 레퍼런스 |
+**이미지 생성 시 반드시 아래 8단계를 모두 거쳐야 한다. 하나라도 빠뜨리면 품질 저하!**
 
-**테스트 실행:**
-```bash
-python tests/influencer/test_reference_cases.py --test test1 --cases H
 ```
+1. analyze_hair()        -- 얼굴 이미지에서 헤어 스타일/컬러/질감 추출
+2. analyze_expression()  -- 표정 이미지에서 베이스/바이브/시선/입 추출
+3. analyze_pose()        -- 포즈 이미지에서 stance/framing/앵글/각 관절 추출
+4. analyze_background()  -- 배경 이미지에서 장소/조명/시간대/분위기 추출
+5. check_compatibility() -- 포즈-배경 호환성 검사 (앉기↔의자 등)
+6. OutfitAnalyzer.analyze() -- 착장 이미지에서 아이템/색상/로고/핏 상세 분석
+7. build_schema_prompt() -- 위 분석 결과를 한국어 스키마 프롬프트로 조립
+8. generate_image()      -- 프롬프트 + 모든 이미지 레퍼런스 → API 호출
+```
+
+### WARNING: generate_ai_influencer()를 직접 호출하지 마라!
+
+```python
+# FORBIDDEN - VLM 분석을 건너뛰고 generic label만 사용
+from core.ai_influencer import generate_ai_influencer
+image = generate_ai_influencer(character=..., pose_image=..., ...)
+# -> 포즈 프레이밍 무시, 전신/상반신 구분 불가, 배경 분위기 누락
+
+# CORRECT - 반드시 tests/influencer/test_reference_cases.py의 파이프라인 사용
+# analyze_hair → analyze_expression → analyze_pose → analyze_background
+# → check_compatibility → OutfitAnalyzer → build_schema_prompt → generate_image
+```
+
+`generate_ai_influencer()`는 내부적으로 `_build_simple_prompt()`를 호출하는데,
+이 함수는 "[POSE REFERENCE] Copy EXACT pose" 같은 단순 라벨만 생성한다.
+VLM 포즈 분석(프레이밍, 앵글, 관절 상세)이 전혀 포함되지 않아
+상반신 포즈를 전신으로 생성하는 등 프레이밍 오류가 발생한다.
+
+### 테스트 실행
+
+```bash
+python tests/influencer/test_reference_cases.py --test-dir tests/인플테스트3 --num-images 5
+```
+
+모든 레퍼런스 이미지(포즈+표정+배경)를 항상 포함하여 생성한다.
 
 ---
 

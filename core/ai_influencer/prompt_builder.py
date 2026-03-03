@@ -4,8 +4,29 @@ AI 인플루언서 프롬프트 빌더
 스키마 + 프리셋 기반 프롬프트 조립
 db/influencer_prompt_schema.json 구조를 따름
 
-build_schema_prompt(): 풀 파이프라인용 (VLM 분석 결과 기반)
-build_influencer_prompt(): 프리셋 기반 (레거시)
+주요 함수:
+    build_schema_prompt(): 풀 파이프라인용 (VLM 분석 결과 기반)
+    build_influencer_prompt(): 프리셋 기반 (레거시)
+
+프레이밍 기반 자동 생략 시스템 (v2.6):
+    프레이밍 코드(CU~WS)에 따라 프롬프트에서 보이지 않는 신체 부위/착장을
+    자동으로 제거한다. Gemini는 "~를 표현하라"는 지시(~40줄)와 "~를 보여주지
+    마라"는 네거티브(~7줄) 중 분량이 많은 쪽을 우선 따르는 경향이 있어,
+    모순되는 묘사를 원천적으로 제거해야 프레이밍이 정확히 지켜진다.
+
+    자동 생략 대상:
+    - 포즈 섹션: 하체(다리/무릎/발) 묘사 제거 (MFS 이하)
+    - 착장 섹션: shoes, socks 등 보이지 않는 아이템 필터링
+    - 착장 디테일: bottom 아이템의 하단 위치 디테일 필터링 (종아리 그래픽 등)
+    - 프롬프트 첫줄: 프레이밍을 BOLD로 강조 (MFS 이하)
+    - 네거티브: 프레이밍별 금지 요소 자동 추가
+
+    관련 함수:
+    - _should_describe_below_thigh(framing): 무릎 이하 묘사 여부 결정
+    - _filter_bottom_details_for_framing(details, show_legs): bottom 하단 디테일 필터
+    - _get_framing_short(framing): 프롬프트 첫줄용 한줄 설명
+    - _FRAMING_NEGATIVES: 프레이밍별 자동 네거티브 사전
+    - _LOWER_LEG_KEYWORDS: 하단 위치 키워드 목록
 """
 
 import json
@@ -404,6 +425,142 @@ def _build_styling_method_section(items) -> list:
     return lines
 
 
+# 이미지만으로 재현하기 어려운 "hard detail" 패턴
+# VLM이 착장을 분석하더라도 이미지 생성 모델이 놓치기 쉬운 구조적 특이사항
+_HARD_DETAIL_PATTERNS = [
+    # 구조적 특이사항
+    "no brim",
+    "no fold",
+    "asymmetric",
+    "deconstructed",
+    "double",
+    "reversed",
+    "backwards",
+    "inside out",
+    "skull cap",
+    # 특이 네크라인/착용 방식
+    "off-shoulder",
+    "off_shoulder",
+    "one-shoulder",
+    "crop",
+    "cutout",
+    "slit",
+    # 소재/질감 (이미지에서 미묘한 차이)
+    "sheer",
+    "mesh",
+    "fuzzy",
+    "mohair",
+    "patent",
+    "latex",
+    "vinyl",
+    "transparent",
+    "translucent",
+    "velvet",
+    "corduroy",
+    # 착용 상태
+    "draped",
+    "tied",
+    "knotted",
+    "layered",
+    # 텍스트/그래픽 (VLM 오독 방지 — 이미지가 주역)
+    "cursive",
+    "필기체",
+    "script",
+    "handwritten",
+]
+
+
+def _is_hard_detail(text: str) -> bool:
+    """이 디테일이 이미지만으로 재현하기 어려운지 판단"""
+    text_lower = text.lower()
+    return any(p in text_lower for p in _HARD_DETAIL_PATTERNS)
+
+
+def _build_outfit_section_image_first(outfit_result, show_legs: bool) -> list:
+    """
+    v3 착장 섹션: 이미지가 주역, 텍스트는 보조
+
+    착장 이미지가 직접 전송되므로, 텍스트에는 "놓치기 쉬운" hard detail만 포함.
+    - 비표준 로고 위치
+    - blind_spot(details)의 hard 패턴
+    - normal이 아닌 착용 상태
+    - 비대칭/특수 구조 아이템명
+    - 텍스트/그래픽 (VLM 오독 방지: 텍스트가 아닌 이미지에 맡기기 위해 핵심 키워드만)
+
+    Returns:
+        list: 프롬프트 라인 목록
+    """
+    lines = []
+    lines.append("## [스타일링] -- Match [OUTFIT] images EXACTLY")
+
+    hard_details = []
+    for item in outfit_result.items:
+        # shoes/socks는 프레이밍에 따라 스킵
+        if item.category in ("shoes", "socks", "footwear") and not show_legs:
+            continue
+
+        # 1. 로고 위치가 비표준이면 hard detail
+        if item.logos:
+            for logo in item.logos:
+                standard_positions = (
+                    "front_center",
+                    "front_left",
+                    "left_chest",
+                    "center",
+                )
+                if logo.position and logo.position.lower() not in standard_positions:
+                    hard_details.append(
+                        f'- {item.category} 로고: "{logo.brand}" at {logo.position} ({logo.type})'
+                    )
+
+        # 2. blind_spot(details)에서 hard 패턴 필터
+        if item.details:
+            # bottom 아이템: 프레이밍 밖 하단 디테일 필터링
+            details = item.details
+            if item.category == "bottom":
+                details = _filter_bottom_details_for_framing(details, show_legs)
+            for detail in details:
+                if _is_hard_detail(detail):
+                    hard_details.append(f"- {item.category}: {detail}")
+
+        # 3. 착용 상태가 normal이 아니면
+        state = getattr(item, "state", "normal") or "normal"
+        if state.lower() != "normal":
+            korean = _STATE_TO_KOREAN.get(state.lower(), state)
+            hard_details.append(f"- {item.category}: {korean} 착용")
+
+        # 4. 비대칭/특수 구조 아이템명
+        name_lower = (item.name or "").lower()
+        if any(
+            kw in name_lower
+            for kw in [
+                "asymmetric",
+                "deconstructed",
+                "crop",
+                "off-shoulder",
+                "off_shoulder",
+                "cutout",
+                "double",
+                "skull cap",
+            ]
+        ):
+            hard_details.append(f"- {item.category}: {item.name}")
+
+    if hard_details:
+        lines.append("주의 디테일 (이미지만으로 놓치기 쉬운 것들):")
+        # 중복 제거
+        seen = set()
+        for detail in hard_details:
+            if detail not in seen:
+                lines.append(detail)
+                seen.add(detail)
+    else:
+        lines.append("(착장은 [OUTFIT] 이미지를 그대로 복제하세요)")
+
+    lines.append("")
+    return lines
+
+
 def _select_visual_mood(background_result, pose_result) -> str:
     """
     배경/포즈 분석 결과 기반 비주얼 무드 프리셋 자동 선택
@@ -537,13 +694,16 @@ def _build_unusual_pose_warning(pose_result, left_leg_lifted, right_leg_lifted) 
     return lines
 
 
-def _build_pose_section_a(pose_result, background_result) -> tuple:
+def _build_pose_section_a(pose_result, background_result, framing: str = "FS") -> tuple:
     """
     Variant A: Baseline (현재 그대로)
 
     문장형 팔 설명 + 문장형 다리 설명 + 별도 방향/기울기 서브섹션.
+    framing에 따라 보이지 않는 신체 부위 설명을 제거한다 (모순 방지).
     Returns: (lines, left_leg_lifted, right_leg_lifted)
     """
+    show_legs = _should_describe_below_thigh(framing)
+
     lines = []
     lines.append("## [포즈] *** MUST FOLLOW EXACTLY - DO NOT SIMPLIFY ***")
     lines.append(f"- stance: {pose_result.stance}")
@@ -551,45 +711,54 @@ def _build_pose_section_a(pose_result, background_result) -> tuple:
     lines.append(f"- 오른팔: {pose_result.right_arm}")
     lines.append(f"- 왼손: {pose_result.left_hand}")
     lines.append(f"- 오른손: {pose_result.right_hand}")
-    lines.append(f"- 왼다리: {pose_result.left_leg}")
-    lines.append(f"- 오른다리: {pose_result.right_leg}")
+
+    # 프레이밍별 하체 설명 필터링 (MFS 이하: 무릎/발 설명 제거로 모순 방지)
+    if show_legs:
+        lines.append(f"- 왼다리: {pose_result.left_leg}")
+        lines.append(f"- 오른다리: {pose_result.right_leg}")
+    else:
+        lines.append(
+            "- 하체: visible only to mid-thigh (below mid-thigh is outside frame)"
+        )
     lines.append(f"- 힙: {pose_result.hip}")
     lines.append("")
 
-    # 특이 포즈 감지
+    # 특이 포즈 감지 (전신일 때만 상세 경고 포함)
     left_leg_lifted, right_leg_lifted = _detect_leg_lifted(pose_result)
-    lines.extend(
-        _build_unusual_pose_warning(pose_result, left_leg_lifted, right_leg_lifted)
-    )
+    if show_legs:
+        lines.extend(
+            _build_unusual_pose_warning(pose_result, left_leg_lifted, right_leg_lifted)
+        )
 
     # 방향/기울기
     lines.append("### [방향/기울기] *** CRITICAL - EXACT DIRECTION ***")
     if pose_result.torso_tilt:
         lines.append(f"- 상체_기울기: {pose_result.torso_tilt}")
 
-    if pose_result.left_knee_direction:
-        lines.append(f"- 왼무릎_방향: {pose_result.left_knee_direction}")
-    if pose_result.right_knee_direction:
-        lines.append(f"- 오른무릎_방향: {pose_result.right_knee_direction}")
+    # 무릎/발 방향은 전신일 때만 포함
+    if show_legs:
+        if pose_result.left_knee_direction:
+            lines.append(f"- 왼무릎_방향: {pose_result.left_knee_direction}")
+        if pose_result.right_knee_direction:
+            lines.append(f"- 오른무릎_방향: {pose_result.right_knee_direction}")
+        if pose_result.left_foot_direction:
+            lines.append(f"- 왼발_방향: {pose_result.left_foot_direction}")
+        if pose_result.right_foot_direction:
+            lines.append(f"- 오른발_방향: {pose_result.right_foot_direction}")
+        if pose_result.left_knee_angle:
+            lines.append(f"- 왼무릎_각도: {pose_result.left_knee_angle}")
+        if pose_result.right_knee_angle:
+            lines.append(f"- 오른무릎_각도: {pose_result.right_knee_angle}")
+        if pose_result.left_knee_height:
+            lines.append(f"- 왼무릎_높이: {pose_result.left_knee_height}")
+        if pose_result.right_knee_height:
+            lines.append(f"- 오른무릎_높이: {pose_result.right_knee_height}")
+        if pose_result.left_foot_position:
+            lines.append(f"- 왼발_위치: {pose_result.left_foot_position}")
+        if pose_result.right_foot_position:
+            lines.append(f"- 오른발_위치: {pose_result.right_foot_position}")
 
-    if pose_result.left_foot_direction:
-        lines.append(f"- 왼발_방향: {pose_result.left_foot_direction}")
-    if pose_result.right_foot_direction:
-        lines.append(f"- 오른발_방향: {pose_result.right_foot_direction}")
-
-    if pose_result.left_knee_angle:
-        lines.append(f"- 왼무릎_각도: {pose_result.left_knee_angle}")
-    if pose_result.right_knee_angle:
-        lines.append(f"- 오른무릎_각도: {pose_result.right_knee_angle}")
-    if pose_result.left_knee_height:
-        lines.append(f"- 왼무릎_높이: {pose_result.left_knee_height}")
-    if pose_result.right_knee_height:
-        lines.append(f"- 오른무릎_높이: {pose_result.right_knee_height}")
-    if pose_result.left_foot_position:
-        lines.append(f"- 왼발_위치: {pose_result.left_foot_position}")
-    if pose_result.right_foot_position:
-        lines.append(f"- 오른발_위치: {pose_result.right_foot_position}")
-
+    # 상체 방향 (항상 포함)
     if pose_result.shoulder_line:
         lines.append(f"- 어깨_라인: {pose_result.shoulder_line}")
     if pose_result.face_direction:
@@ -621,13 +790,16 @@ def _build_pose_section_a(pose_result, background_result) -> tuple:
     return lines, left_leg_lifted, right_leg_lifted
 
 
-def _build_pose_section_b(pose_result) -> tuple:
+def _build_pose_section_b(pose_result, framing: str = "FS") -> tuple:
     """
     Variant B: Structured (서브필드 분리)
 
     문장형 제거. 모든 정보를 키-값 서브필드로 분리. 다리 중복 제거.
+    framing에 따라 보이지 않는 신체 부위 설명을 제거한다 (모순 방지).
     Returns: (lines, left_leg_lifted, right_leg_lifted)
     """
+    show_legs = _should_describe_below_thigh(framing)
+
     lines = []
     lines.append("## [포즈] *** MUST FOLLOW EXACTLY - DO NOT SIMPLIFY ***")
     lines.append(f"- stance: {pose_result.stance}")
@@ -665,33 +837,38 @@ def _build_pose_section_b(pose_result) -> tuple:
         lines.append(f"  - 동작: {pose_result.right_hand}")
     lines.append("")
 
-    # 왼다리 (서브필드만, 문장형 제거)
-    lines.append("### 왼다리:")
-    if pose_result.left_knee_angle:
-        lines.append(f"  - 무릎_각도: {pose_result.left_knee_angle}")
-    if pose_result.left_knee_direction:
-        lines.append(f"  - 무릎_방향: {pose_result.left_knee_direction}")
-    if pose_result.left_knee_height:
-        lines.append(f"  - 무릎_높이: {pose_result.left_knee_height}")
-    if pose_result.left_foot_direction:
-        lines.append(f"  - 발_방향: {pose_result.left_foot_direction}")
-    if pose_result.left_foot_position:
-        lines.append(f"  - 발_위치: {pose_result.left_foot_position}")
-    lines.append("")
+    # 다리 (프레이밍에 따라 포함/제거)
+    if show_legs:
+        # 왼다리 (서브필드만, 문장형 제거)
+        lines.append("### 왼다리:")
+        if pose_result.left_knee_angle:
+            lines.append(f"  - 무릎_각도: {pose_result.left_knee_angle}")
+        if pose_result.left_knee_direction:
+            lines.append(f"  - 무릎_방향: {pose_result.left_knee_direction}")
+        if pose_result.left_knee_height:
+            lines.append(f"  - 무릎_높이: {pose_result.left_knee_height}")
+        if pose_result.left_foot_direction:
+            lines.append(f"  - 발_방향: {pose_result.left_foot_direction}")
+        if pose_result.left_foot_position:
+            lines.append(f"  - 발_위치: {pose_result.left_foot_position}")
+        lines.append("")
 
-    # 오른다리 (서브필드만, 문장형 제거)
-    lines.append("### 오른다리:")
-    if pose_result.right_knee_angle:
-        lines.append(f"  - 무릎_각도: {pose_result.right_knee_angle}")
-    if pose_result.right_knee_direction:
-        lines.append(f"  - 무릎_방향: {pose_result.right_knee_direction}")
-    if pose_result.right_knee_height:
-        lines.append(f"  - 무릎_높이: {pose_result.right_knee_height}")
-    if pose_result.right_foot_direction:
-        lines.append(f"  - 발_방향: {pose_result.right_foot_direction}")
-    if pose_result.right_foot_position:
-        lines.append(f"  - 발_위치: {pose_result.right_foot_position}")
-    lines.append("")
+        # 오른다리 (서브필드만, 문장형 제거)
+        lines.append("### 오른다리:")
+        if pose_result.right_knee_angle:
+            lines.append(f"  - 무릎_각도: {pose_result.right_knee_angle}")
+        if pose_result.right_knee_direction:
+            lines.append(f"  - 무릎_방향: {pose_result.right_knee_direction}")
+        if pose_result.right_knee_height:
+            lines.append(f"  - 무릎_높이: {pose_result.right_knee_height}")
+        if pose_result.right_foot_direction:
+            lines.append(f"  - 발_방향: {pose_result.right_foot_direction}")
+        if pose_result.right_foot_position:
+            lines.append(f"  - 발_위치: {pose_result.right_foot_position}")
+        lines.append("")
+    else:
+        lines.append("### 하체: visible only to mid-thigh (below is outside frame)")
+        lines.append("")
 
     # 체중/방향
     lines.append("### 체중/방향:")
@@ -709,22 +886,26 @@ def _build_pose_section_b(pose_result) -> tuple:
         lines.append(f"  - 고개_각도: {pose_result.head_tilt}")
     lines.append("")
 
-    # 특이 포즈 감지
+    # 특이 포즈 감지 (전신일 때만 상세 경고)
     left_leg_lifted, right_leg_lifted = _detect_leg_lifted(pose_result)
-    lines.extend(
-        _build_unusual_pose_warning(pose_result, left_leg_lifted, right_leg_lifted)
-    )
+    if show_legs:
+        lines.extend(
+            _build_unusual_pose_warning(pose_result, left_leg_lifted, right_leg_lifted)
+        )
 
     return lines, left_leg_lifted, right_leg_lifted
 
 
-def _build_pose_section_c(pose_result) -> tuple:
+def _build_pose_section_c(pose_result, framing: str = "FS") -> tuple:
     """
     Variant C: Flat key-value (플랫 하이브리드)
 
     계층 없이 플랫하게. 한 줄에 하나의 정보만.
+    framing에 따라 보이지 않는 신체 부위 설명을 제거한다 (모순 방지).
     Returns: (lines, left_leg_lifted, right_leg_lifted)
     """
+    show_legs = _should_describe_below_thigh(framing)
+
     lines = []
     lines.append("## [포즈] *** MUST FOLLOW EXACTLY - DO NOT SIMPLIFY ***")
     lines.append(f"- stance: {pose_result.stance}")
@@ -747,29 +928,33 @@ def _build_pose_section_c(pose_result) -> tuple:
     if pose_result.right_hand:
         lines.append(f"- 오른손: {pose_result.right_hand}")
 
-    # 왼다리 (플랫 키-값, 문장형 제거)
-    if pose_result.left_knee_angle:
-        lines.append(f"- 왼다리_무릎각도: {pose_result.left_knee_angle}")
-    if pose_result.left_knee_direction:
-        lines.append(f"- 왼다리_무릎방향: {pose_result.left_knee_direction}")
-    if pose_result.left_knee_height:
-        lines.append(f"- 왼다리_무릎높이: {pose_result.left_knee_height}")
-    if pose_result.left_foot_direction:
-        lines.append(f"- 왼다리_발방향: {pose_result.left_foot_direction}")
-    if pose_result.left_foot_position:
-        lines.append(f"- 왼다리_발위치: {pose_result.left_foot_position}")
+    # 다리 (프레이밍에 따라 포함/제거)
+    if show_legs:
+        # 왼다리 (플랫 키-값, 문장형 제거)
+        if pose_result.left_knee_angle:
+            lines.append(f"- 왼다리_무릎각도: {pose_result.left_knee_angle}")
+        if pose_result.left_knee_direction:
+            lines.append(f"- 왼다리_무릎방향: {pose_result.left_knee_direction}")
+        if pose_result.left_knee_height:
+            lines.append(f"- 왼다리_무릎높이: {pose_result.left_knee_height}")
+        if pose_result.left_foot_direction:
+            lines.append(f"- 왼다리_발방향: {pose_result.left_foot_direction}")
+        if pose_result.left_foot_position:
+            lines.append(f"- 왼다리_발위치: {pose_result.left_foot_position}")
 
-    # 오른다리 (플랫 키-값, 문장형 제거)
-    if pose_result.right_knee_angle:
-        lines.append(f"- 오른다리_무릎각도: {pose_result.right_knee_angle}")
-    if pose_result.right_knee_direction:
-        lines.append(f"- 오른다리_무릎방향: {pose_result.right_knee_direction}")
-    if pose_result.right_knee_height:
-        lines.append(f"- 오른다리_무릎높이: {pose_result.right_knee_height}")
-    if pose_result.right_foot_direction:
-        lines.append(f"- 오른다리_발방향: {pose_result.right_foot_direction}")
-    if pose_result.right_foot_position:
-        lines.append(f"- 오른다리_발위치: {pose_result.right_foot_position}")
+        # 오른다리 (플랫 키-값, 문장형 제거)
+        if pose_result.right_knee_angle:
+            lines.append(f"- 오른다리_무릎각도: {pose_result.right_knee_angle}")
+        if pose_result.right_knee_direction:
+            lines.append(f"- 오른다리_무릎방향: {pose_result.right_knee_direction}")
+        if pose_result.right_knee_height:
+            lines.append(f"- 오른다리_무릎높이: {pose_result.right_knee_height}")
+        if pose_result.right_foot_direction:
+            lines.append(f"- 오른다리_발방향: {pose_result.right_foot_direction}")
+        if pose_result.right_foot_position:
+            lines.append(f"- 오른다리_발위치: {pose_result.right_foot_position}")
+    else:
+        lines.append("- 하체: visible only to mid-thigh (below is outside frame)")
 
     # 체중/방향 (플랫)
     if pose_result.hip:
@@ -786,36 +971,249 @@ def _build_pose_section_c(pose_result) -> tuple:
         lines.append(f"- 고개각도: {pose_result.head_tilt}")
     lines.append("")
 
-    # 특이 포즈 감지
+    # 특이 포즈 감지 (전신일 때만 상세 경고)
     left_leg_lifted, right_leg_lifted = _detect_leg_lifted(pose_result)
-    lines.extend(
-        _build_unusual_pose_warning(pose_result, left_leg_lifted, right_leg_lifted)
-    )
+    if show_legs:
+        lines.extend(
+            _build_unusual_pose_warning(pose_result, left_leg_lifted, right_leg_lifted)
+        )
 
     return lines, left_leg_lifted, right_leg_lifted
 
 
-# 프레이밍 코드 → 설명 매핑
+def _build_pose_section_h(pose_result, background_result, framing: str = "FS") -> tuple:
+    """
+    Variant H: Hierarchical (계층적 포즈 포맷 — v3)
+
+    이미지가 주역, 텍스트는 보조 원칙:
+    - 팔꿈치가 왼팔 설명 안에 인라인 (괄호로)
+    - 왼손은 왼팔 하위에 들여쓰기
+    - 무릎이 왼다리 설명 안에 인라인
+    - 왼발은 왼다리 하위에 들여쓰기
+    - 별도 "방향/기울기" 섹션 제거 — 각 부위에 통합
+    - CRITICAL POSE WARNING 제거 — 정보가 leg 설명에 포함
+    - 목표: ~15줄 이내 (기존 A 포맷 ~40줄 → 대폭 축소)
+
+    Returns: (lines, left_leg_lifted, right_leg_lifted)
+    """
+    show_legs = _should_describe_below_thigh(framing)
+
+    lines = []
+    lines.append("## [포즈] -- Copy [POSE REFERENCE] image EXACTLY")
+    lines.append(f"- stance: {pose_result.stance}")
+
+    # 상체 (기울기 + 어깨 통합)
+    torso_parts = []
+    if pose_result.torso_tilt:
+        torso_parts.append(pose_result.torso_tilt)
+    if pose_result.shoulder_line:
+        torso_parts.append(f"어깨 {pose_result.shoulder_line}")
+    if torso_parts:
+        lines.append(f"- 상체: {', '.join(torso_parts)}")
+
+    # 왼팔 (팔꿈치 인라인)
+    arm_desc = pose_result.left_arm or ""
+    elbow_parts = []
+    if pose_result.left_elbow_angle:
+        elbow_parts.append(pose_result.left_elbow_angle)
+    if pose_result.left_elbow_direction:
+        elbow_parts.append(pose_result.left_elbow_direction)
+    if elbow_parts:
+        arm_desc += f" (팔꿈치: {', '.join(elbow_parts)})"
+    if arm_desc:
+        lines.append(f"- 왼팔: {arm_desc}")
+    # 왼손 (왼팔 하위)
+    if pose_result.left_hand:
+        lines.append(f"  - 왼손: {pose_result.left_hand}")
+
+    # 오른팔 (팔꿈치 인라인)
+    arm_desc = pose_result.right_arm or ""
+    elbow_parts = []
+    if pose_result.right_elbow_angle:
+        elbow_parts.append(pose_result.right_elbow_angle)
+    if pose_result.right_elbow_direction:
+        elbow_parts.append(pose_result.right_elbow_direction)
+    if elbow_parts:
+        arm_desc += f" (팔꿈치: {', '.join(elbow_parts)})"
+    if arm_desc:
+        lines.append(f"- 오른팔: {arm_desc}")
+    # 오른손 (오른팔 하위)
+    if pose_result.right_hand:
+        lines.append(f"  - 오른손: {pose_result.right_hand}")
+
+    # 다리 (프레이밍에 따라)
+    left_leg_lifted, right_leg_lifted = _detect_leg_lifted(pose_result)
+
+    if show_legs:
+        # 왼다리 (무릎 인라인)
+        knee_parts = []
+        if pose_result.left_knee_angle:
+            knee_parts.append(pose_result.left_knee_angle)
+        if pose_result.left_knee_height:
+            knee_parts.append(pose_result.left_knee_height)
+        if pose_result.left_knee_direction:
+            knee_parts.append(pose_result.left_knee_direction)
+        knee_str = f"무릎 {', '.join(knee_parts)}" if knee_parts else ""
+        if knee_str:
+            lines.append(f"- 왼다리: {knee_str}")
+        elif pose_result.left_leg:
+            lines.append(f"- 왼다리: {pose_result.left_leg}")
+        # 왼발 (왼다리 하위)
+        foot_parts = []
+        if pose_result.left_foot_position:
+            foot_parts.append(pose_result.left_foot_position)
+        if pose_result.left_foot_direction:
+            foot_parts.append(pose_result.left_foot_direction)
+        if foot_parts:
+            lines.append(f"  - 왼발: {', '.join(foot_parts)}")
+
+        # 오른다리 (무릎 인라인)
+        knee_parts = []
+        if pose_result.right_knee_angle:
+            knee_parts.append(pose_result.right_knee_angle)
+        if pose_result.right_knee_height:
+            knee_parts.append(pose_result.right_knee_height)
+        if pose_result.right_knee_direction:
+            knee_parts.append(pose_result.right_knee_direction)
+        knee_str = f"무릎 {', '.join(knee_parts)}" if knee_parts else ""
+        if knee_str:
+            lines.append(f"- 오른다리: {knee_str}")
+        elif pose_result.right_leg:
+            lines.append(f"- 오른다리: {pose_result.right_leg}")
+        # 오른발 (오른다리 하위)
+        foot_parts = []
+        if pose_result.right_foot_position:
+            foot_parts.append(pose_result.right_foot_position)
+        if pose_result.right_foot_direction:
+            foot_parts.append(pose_result.right_foot_direction)
+        if foot_parts:
+            lines.append(f"  - 오른발: {', '.join(foot_parts)}")
+    else:
+        lines.append("- 하체: mid-thigh까지만 보임 (무릎 이하 프레임 밖)")
+
+    # 힙
+    if pose_result.hip:
+        lines.append(f"- 힙: {pose_result.hip}")
+
+    # 얼굴/목 (통합)
+    face_parts = []
+    if pose_result.face_direction:
+        face_parts.append(f"얼굴 {pose_result.face_direction}")
+    if pose_result.neck_tilt:
+        face_parts.append(f"목 {pose_result.neck_tilt}")
+    if pose_result.head_tilt:
+        face_parts.append(f"고개 {pose_result.head_tilt}")
+    if face_parts:
+        lines.append(f"- 얼굴: {', '.join(face_parts)}")
+
+    # sit 포즈일 때 앉는 위치 명시
+    if pose_result.stance == "sit" and background_result.sit_on:
+        lines.append(f"- 앉는_위치: {background_result.sit_on}")
+
+    lines.append("")
+
+    return lines, left_leg_lifted, right_leg_lifted
+
+
+# 프레이밍 코드 → Gemini API용 영어 설명 매핑
+# 키: VLM 분석 결과 코드 / 값: 이미지 생성 모델에 전달하는 영어 지시
+# -------------------------------------------------------
+# CU  = 어깨/턱에서 끊김 (얼굴+목만)
+# MCU = 가슴 중간에서 끊김 (머리~가슴)
+# MS  = 허리/벨트에서 끊김 (머리~허리)
+# MFS = 허벅지 중간에서 끊김 (머리~허벅지, 무릎 이하 안 보임)
+# FS  = 바닥까지 다 보임 (머리~발끝 전체)
+# WS  = 전신+주변까지 넓게
+# -------------------------------------------------------
 _FRAMING_DESCRIPTIONS = {
-    "ECU": "Extreme Close-Up: eyes/lips only",
-    "CU": "Close-Up: face and neck only, shoulders barely visible",
-    "MCU": "Medium Close-Up: head to chest, cut at mid-chest",
-    "MS": "Medium Shot: head to waist, cut at waist/belt line",
-    "MFS": "Medium Full Shot: head to knees, cut at knee to mid-thigh. Feet NOT visible",
-    "FS": "Full Shot: entire body from head to toe, feet fully visible on ground",
-    "WS": "Wide Shot: full body plus surrounding environment",
+    "ECU": "Extreme close-up: only face fills the frame",
+    "CU": "Close-up: face and neck, shoulders barely visible",
+    "MCU": "Medium close-up: head to mid-chest",
+    "MS": "Medium shot: head to waist, frame ends at belt line",
+    "MFS": "Cowboy shot: head to mid-thigh. Frame edge cuts through upper legs. Knees, calves, and feet are NOT in the image",
+    "FS": "Full shot: entire body from head to toe, feet on ground",
+    "WS": "Wide shot: full body plus surrounding environment",
 }
 
-# 프레이밍별 네거티브 프롬프트 (다른 프레이밍 금지)
+
+def _should_describe_below_thigh(framing: str) -> bool:
+    """프레이밍에서 무릎 이하가 보이는지 여부. FS/WS만 True."""
+    return (framing or "FS").upper() in ("FS", "WS")
+
+
+# 하체 하단(종아리/발목/신발 근처) 위치를 나타내는 키워드
+# bottom 아이템의 디테일에서 이 키워드가 포함되면 MFS 이하 프레이밍에서 필터링
+_LOWER_LEG_KEYWORDS = [
+    "on the left leg",
+    "on the right leg",
+    "on the leg",
+    "on left leg",
+    "on right leg",
+    "lower leg",
+    "calf",
+    "ankle",
+    "hem",
+    "covering shoes",
+    "covering feet",
+    "extra-long length",
+    "extra long length",
+    "종아리",
+    "발목",
+    "밑단",
+]
+
+
+def _filter_bottom_details_for_framing(details: list, show_legs: bool) -> list:
+    """프레이밍에 따라 bottom 아이템의 하단 디테일 필터링.
+
+    MFS 등 하체가 안 보이는 프레이밍에서는 종아리/발목 위치의 디테일을 제거.
+    Gemini가 보이지 않는 디테일을 보이는 영역으로 재배치하는 문제 방지.
+    """
+    if show_legs or not details:
+        return details
+    filtered = []
+    for detail in details:
+        detail_lower = detail.lower()
+        if any(kw in detail_lower for kw in _LOWER_LEG_KEYWORDS):
+            continue
+        filtered.append(detail)
+    return filtered
+
+
+def _get_framing_short(framing: str) -> str:
+    """프레이밍 한줄 설명 (프롬프트 첫줄용)"""
+    _MAP = {
+        "ECU": "extreme close-up, face only",
+        "CU": "close-up, face and neck",
+        "MCU": "medium close-up, head to chest",
+        "MS": "medium shot, head to waist",
+        "MFS": "cowboy shot, head to mid-thigh, NO knees/feet/shoes visible",
+        "FS": "full shot, head to toe",
+        "WS": "wide shot, full body + environment",
+    }
+    return _MAP.get((framing or "FS").upper(), framing)
+
+
+# 프레이밍별 자동 네거티브 (해당 프레이밍에서 보이면 안 되는 것들)
+# -------------------------------------------------------
+# 허벅지에서 끊김(MFS) → 무릎/종아리/발 보이면 안됨
+# 발끝까지 보임(FS)    → 허리/무릎에서 잘리면 안됨
+# 허리에서 끊김(MS)    → 전신/다리 보이면 안됨
+# -------------------------------------------------------
 _FRAMING_NEGATIVES = {
     "CU": ["full body visible", "legs visible", "waist visible"],
     "MCU": ["full body visible", "legs visible", "below waist visible"],
     "MS": ["full body visible", "feet visible", "legs below knee visible"],
-    "MFS": [
+    "MFS": [  # 허벅지에서 끊김 → 무릎 이하 전부 금지
         "feet visible",
-        "shoes fully visible on ground",
-        "full body head to toe",
+        "shoes visible",
         "ankles visible",
+        "calves visible",
+        "shins visible",
+        "knees visible",
+        "full body head to toe",
+        "legs below knee",
+        "lower legs showing",
     ],
     "FS": ["cropped at waist", "cropped at knee", "legs cut off"],
     "WS": ["tight crop", "cropped body"],
@@ -835,13 +1233,23 @@ def build_schema_prompt(
     outfit_result,
     compatibility_result=None,
     model_info: Dict = None,
-    pose_format: str = "A",
+    pose_format: str = "H",
 ) -> str:
     """
-    풀 파이프라인용 스키마 기반 프롬프트 생성
+    풀 파이프라인용 스키마 기반 프롬프트 생성 (v3: 이미지 우선)
 
-    모든 VLM 분석 결과를 텍스트로 포함하여
-    이미지 레퍼런스와 함께 API에 전송할 프롬프트를 조립한다.
+    v3 설계 원칙:
+    1. 이미지가 주역, 텍스트는 보조 — 착장/포즈/배경 이미지를 직접 전송하므로,
+       텍스트는 이미지만으로 부족한 것만 포함
+    2. 포즈는 계층적 — 왼팔 → 팔꿈치 → 왼손이 한 블록
+    3. 착장은 hard detail만 — VLM 분석으로 "놓치기 쉬운" 디테일만 텍스트로 보조
+    4. 프롬프트 50줄 이내 목표
+
+    프레이밍 기반 자동 생략:
+        pose_result.framing 값에 따라 프롬프트가 자동 조정된다.
+        - MFS 이하: 포즈의 하체 묘사 제거, 착장 아이템 필터링,
+          프롬프트 첫줄에 프레이밍 BOLD 강조, 네거티브에 금지 요소 추가
+        - FS/WS: 전신이 보이므로 생략 없이 전체 묘사
 
     Args:
         hair_result: HairAnalysisResult 또는 dict (헤어 분석 결과)
@@ -851,11 +1259,15 @@ def build_schema_prompt(
         outfit_result: OutfitAnalysisResult (착장 분석 결과)
         compatibility_result: CompatibilityResult (호환성 검사 결과, 선택)
         model_info: 모델 정보 dict (선택). 예: {"국적": "한국인", "성별": "여성", "나이": "20대 초반"}
-        pose_format: 포즈 프롬프트 포맷 ("A"=baseline, "B"=structured, "C"=flat)
+        pose_format: 포즈 프롬프트 포맷 ("H"=hierarchical v3, "A"=baseline, "B"=structured, "C"=flat)
 
     Returns:
         str: 스키마 프롬프트 텍스트
     """
+    # 프레이밍 결정 (프롬프트 조립 전에 — 포즈/착장/촬영 섹션에서 사용)
+    framing = pose_result.framing or "MFS"
+    show_legs = _should_describe_below_thigh(framing)
+
     # hair_result가 dict인 경우 호환 (레거시)
     if isinstance(hair_result, dict):
         hair_dict = hair_result
@@ -873,29 +1285,31 @@ def build_schema_prompt(
     # 기본 설정
     lines.append("# AI Influencer Image Generation")
     lines.append("")
+    # 프레이밍을 첫줄에 명시 (가장 높은 우선순위)
+    if not show_legs:
+        lines.append(f"**FRAMING: {_get_framing_short(framing)}**")
+        lines.append("")
     lines.append("Generate a fashion editorial photo following this schema EXACTLY.")
     lines.append("")
 
     # =====================================================
-    # 모델 정보
+    # 모델 정보 (간결 — 1줄)
     # =====================================================
     _model = model_info or {}
+    _nationality = _model.get("국적", "한국인")
+    _gender = _model.get("성별", "여성")
+    _age = _model.get("나이", "20대 초반")
     lines.append("## [모델]")
-    lines.append(f"- 국적: {_model.get('국적', '한국인')}")
-    lines.append(f"- 성별: {_model.get('성별', '여성')}")
-    lines.append(f"- 나이: {_model.get('나이', '20대 초반')}")
+    lines.append(f"- {_nationality} {_gender}, {_age}")
     lines.append("")
 
     # =====================================================
     # 헤어 (CRITICAL - 변경 금지)
     # =====================================================
-    lines.append("## [헤어] *** CRITICAL - DO NOT CHANGE ***")
-    lines.append(f"- 스타일: {hair_dict.get('스타일', 'straight_loose')}")
-    lines.append(f"- 컬러: {hair_dict.get('컬러', 'dark_brown')}")
-    lines.append(f"- 질감: {hair_dict.get('질감', 'sleek')}")
-    lines.append("")
-    lines.append("IMPORTANT: 헤어 컬러와 스타일은 위에 명시된 대로 유지!")
-    lines.append("다른 레퍼런스 이미지의 헤어를 복사하지 마세요!")
+    lines.append("## [헤어] *** DO NOT CHANGE ***")
+    lines.append(
+        f"- 스타일: {hair_dict.get('스타일', 'straight_loose')}, 컬러: {hair_dict.get('컬러', 'dark_brown')}, 질감: {hair_dict.get('질감', 'sleek')}"
+    )
     lines.append("")
 
     # =====================================================
@@ -917,47 +1331,44 @@ def build_schema_prompt(
     lines.append("")
 
     # =====================================================
-    # 포즈 (pose_format에 따라 A/B/C 분기)
+    # 포즈 (pose_format에 따라 H/A/B/C 분기)
     # =====================================================
-    if pose_format == "B":
+    if pose_format == "H":
+        pose_lines, left_leg_lifted, right_leg_lifted = _build_pose_section_h(
+            pose_result, background_result, framing=framing
+        )
+    elif pose_format == "B":
         pose_lines, left_leg_lifted, right_leg_lifted = _build_pose_section_b(
-            pose_result
+            pose_result, framing=framing
         )
     elif pose_format == "C":
         pose_lines, left_leg_lifted, right_leg_lifted = _build_pose_section_c(
-            pose_result
+            pose_result, framing=framing
         )
     else:
         pose_lines, left_leg_lifted, right_leg_lifted = _build_pose_section_a(
-            pose_result, background_result
+            pose_result, background_result, framing=framing
         )
     lines.extend(pose_lines)
 
     # =====================================================
-    # 촬영 세팅 (프레이밍 강제)
+    # 촬영 세팅 (프레이밍 간결하게)
     # =====================================================
-    framing = pose_result.framing or "MFS"
-    framing_desc = _get_framing_description(framing)
-    lines.append("## [촬영_세팅] *** FRAMING IS CRITICAL ***")
-    lines.append(f"- 프레이밍: {framing} ({framing_desc})")
-    lines.append(f"  *** YOU MUST crop the image at {framing} level! ***")
-    lines.append("- 렌즈: 50mm")
+    lines.append("## [촬영_세팅]")
+    lines.append(f"- 프레이밍: {framing} — {_get_framing_short(framing)}")
     lines.append(f"- 앵글: {pose_result.camera_angle}")
     lines.append(f"- 높이: {pose_result.camera_height}")
     lines.append("- 구도: 중앙")
-    lines.append("- 조리개: f/2.8")
     lines.append("")
 
     # =====================================================
-    # 배경
+    # 배경 (이미지 주도 — 텍스트는 보조 키워드만)
     # =====================================================
-    lines.append("## [배경]")
-    lines.append(f"- 지역: {background_result.region}")
-    lines.append(f"- 시간대: {background_result.time_of_day}")
-    lines.append(f"- 색감: {background_result.color_tone}")
-    lines.append(f"- 장소: {background_result.scene_type}")
-    lines.append(f"- 분위기: {background_result.mood}")
-    lines.append("- 인물제외: 배경에 다른 사람 없음. 주인공 한 명만 등장.")
+    lines.append("## [배경] -- Match [BACKGROUND REFERENCE] image")
+    lines.append(
+        f"- {background_result.scene_type}, {background_result.time_of_day}, {background_result.color_tone} 톤"
+    )
+    lines.append("- 인물 제외: 배경에 다른 사람 없음")
     lines.append("")
 
     # 호환성 경고
@@ -968,29 +1379,9 @@ def build_schema_prompt(
         lines.append("")
 
     # =====================================================
-    # 스타일링 (착장)
+    # 스타일링 (v3: 이미지 주도 — hard detail만 텍스트)
     # =====================================================
-    lines.append("## [스타일링] - Match EXACTLY")
-    lines.append(f"- overall_vibe: {outfit_result.overall_style}")
-    lines.append("")
-    lines.append("### 아이템:")
-    for item in outfit_result.items:
-        lines.append(f"- {item.category}: {item.name}")
-        lines.append(f"  - 색상: {item.color}")
-        lines.append(f"  - 핏: {item.fit}")
-        if item.logos:
-            for logo in item.logos:
-                lines.append(f"  - 로고: {logo.brand} ({logo.type}) at {logo.position}")
-        if item.details:
-            lines.append(f"  - 디테일: {', '.join(item.details)}")
-    lines.append("")
-
-    # 코디방법 (state → 한국어 착용법)
-    styling_lines = _build_styling_method_section(outfit_result.items)
-    if styling_lines:
-        lines.append("### 코디방법:")
-        lines.extend(styling_lines)
-        lines.append("")
+    lines.extend(_build_outfit_section_image_first(outfit_result, show_legs))
 
     # =====================================================
     # 비주얼 무드 (배경 분석 기반 자동 선택)
@@ -1051,29 +1442,16 @@ def build_schema_prompt(
     lines.append("")
 
     # =====================================================
-    # 이미지 역할 안내 (항상 모든 레퍼런스 포함)
+    # 이미지 역할 안내 (간결화)
     # =====================================================
-    lines.append("=" * 50)
     lines.append("## [IMAGE REFERENCE ROLES]")
-    lines.append("")
-    lines.append("[FACE] images: Use this person's face identity")
-    lines.append("  - KEEP hair color/style as specified in [헤어] section!")
-    lines.append("")
-    lines.append("[OUTFIT] images: Match outfit EXACTLY")
-    lines.append("  - Copy all colors, logos, patterns, details")
-    lines.append("")
-    lines.append("[POSE REFERENCE]: Copy pose AND framing from this image")
-    lines.append("  - Match body position EXACTLY")
-    lines.append(f"  - Match framing EXACTLY: {framing} ({framing_desc})")
-    lines.append("  - Ignore face/outfit/background from this image")
-    lines.append("")
-    lines.append("[EXPRESSION REFERENCE]: Copy expression only")
-    lines.append("  - Copy eyes, mouth, facial expression")
-    lines.append("  - DO NOT copy hair from this image!")
-    lines.append("")
-    lines.append("[BACKGROUND REFERENCE]: Use this background")
-    lines.append("  - Ignore any person in background image")
-    lines.append("  - Match lighting/mood of background")
+    lines.append("[FACE]: face identity (hair는 [헤어] 섹션 따라 유지)")
+    lines.append("[OUTFIT]: 착장 그대로 복제 (색상/로고/패턴/디테일)")
+    lines.append(
+        f"[POSE REFERENCE]: 포즈 EXACTLY 복사, FRAMING: {_get_framing_short(framing)}"
+    )
+    lines.append("[EXPRESSION REFERENCE]: 표정만 복사 (헤어 복사 금지)")
+    lines.append("[BACKGROUND REFERENCE]: 배경 사용 (인물 무시)")
     lines.append("")
 
     return "\n".join(lines)

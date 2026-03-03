@@ -493,11 +493,11 @@ def _build_outfit_section_image_first(outfit_result, show_legs: bool) -> list:
     lines = []
     lines.append("## [스타일링] -- Match [OUTFIT] images EXACTLY")
 
-    # 아이템별 1줄 요약 (종류 + 색상 + 핏)
-    item_summaries = []
+    # 아이템별 요약 (종류 + 색상 + 핏 + 이름 + 디테일)
     for item in outfit_result.items:
         if item.category in ("shoes", "socks", "footwear") and not show_legs:
             continue
+        # 1줄 요약: 색상 + 핏 + 이름 + 착용상태
         parts = []
         if item.color:
             parts.append(item.color)
@@ -510,74 +510,33 @@ def _build_outfit_section_image_first(outfit_result, show_legs: bool) -> list:
             korean = _STATE_TO_KOREAN.get(state.lower(), state)
             parts.append(f"({korean})")
         if parts:
-            item_summaries.append(f"- {item.category}: {' '.join(parts)}")
-    if item_summaries:
-        lines.extend(item_summaries)
-    lines.append("")
-
-    hard_details = []
-    for item in outfit_result.items:
-        # shoes/socks는 프레이밍에 따라 스킵
-        if item.category in ("shoes", "socks", "footwear") and not show_legs:
-            continue
-
-        # 1. 로고 위치가 비표준이면 hard detail
+            lines.append(f"- {item.category}: {' '.join(parts)}")
+        # 디테일 (bottom은 프레이밍 필터 적용)
+        details = item.details or []
+        if item.category == "bottom":
+            details = _filter_bottom_details_for_framing(details, show_legs)
+        for detail in details:
+            lines.append(f"  - {detail}")
+        # 로고
         if item.logos:
             for logo in item.logos:
-                standard_positions = (
-                    "front_center",
-                    "front_left",
-                    "left_chest",
-                    "center",
-                )
-                if logo.position and logo.position.lower() not in standard_positions:
-                    hard_details.append(
-                        f'- {item.category} 로고: "{logo.brand}" at {logo.position} ({logo.type})'
+                if logo.brand and logo.brand.lower() not in ("unknown", "none", ""):
+                    lines.append(
+                        f"  - logo: {logo.brand} ({logo.type}) at {logo.position}"
                     )
 
-        # 2. blind_spot(details)에서 hard 패턴 필터
-        if item.details:
-            # bottom 아이템: 프레이밍 밖 하단 디테일 필터링
-            details = item.details
-            if item.category == "bottom":
-                details = _filter_bottom_details_for_framing(details, show_legs)
-            for detail in details:
-                if _is_hard_detail(detail):
-                    hard_details.append(f"- {item.category}: {detail}")
-
-        # 3. 착용 상태가 normal이 아니면
+    # 특수 착용 상태 강조 (위 아이템 요약에서 이미 details/logo 출력됨)
+    special_notes = []
+    for item in outfit_result.items:
+        if item.category in ("shoes", "socks", "footwear") and not show_legs:
+            continue
         state = getattr(item, "state", "normal") or "normal"
         if state.lower() != "normal":
             korean = _STATE_TO_KOREAN.get(state.lower(), state)
-            hard_details.append(f"- {item.category}: {korean} 착용")
-
-        # 4. 비대칭/특수 구조 아이템명
-        name_lower = (item.name or "").lower()
-        if any(
-            kw in name_lower
-            for kw in [
-                "asymmetric",
-                "deconstructed",
-                "crop",
-                "off-shoulder",
-                "off_shoulder",
-                "cutout",
-                "double",
-                "skull cap",
-            ]
-        ):
-            hard_details.append(f"- {item.category}: {item.name}")
-
-    if hard_details:
-        lines.append("주의 디테일 (이미지만으로 놓치기 쉬운 것들):")
-        # 중복 제거
-        seen = set()
-        for detail in hard_details:
-            if detail not in seen:
-                lines.append(detail)
-                seen.add(detail)
-    else:
-        lines.append("(착장은 [OUTFIT] 이미지를 그대로 복제하세요)")
+            special_notes.append(f"- {item.category}: {korean} 착용")
+    if special_notes:
+        lines.append("주의:")
+        lines.extend(special_notes)
 
     lines.append("")
     return lines
@@ -1465,7 +1424,12 @@ def build_schema_prompt(
     # 이미지 역할 안내 (간결화)
     # =====================================================
     lines.append("## [IMAGE REFERENCE ROLES]")
-    lines.append("[FACE]: face identity (hair는 [헤어] 섹션 따라 유지)")
+    lines.append(
+        "[FACE] ★ MOST IMPORTANT ★: "
+        "이 사람의 얼굴을 EXACTLY 복제. "
+        "얼굴형, 이목구비 비율, 피부톤, 턱선, 광대뼈, 눈 크기/간격 모두 동일하게. "
+        "다른 사람 얼굴 생성 금지. hair는 [헤어] 섹션 따라 유지"
+    )
     lines.append("[OUTFIT]: 착장 그대로 복제 (색상/로고/패턴/디테일)")
     lines.append(
         f"[POSE REFERENCE]: 포즈 EXACTLY 복사, FRAMING: {_get_framing_short(framing)}"

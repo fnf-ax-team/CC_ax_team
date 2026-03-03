@@ -1,19 +1,23 @@
 """
-AI Influencer Image Generation - Full Pipeline Test
+AI Influencer Batch Runner - 5 Test Sets Sequential Execution
 
-테스트 래퍼: 입력 준비 + core 파이프라인 호출 + 결과 저장만 담당.
+5개 테스트 세트를 순차적으로 실행하고 결과를 표준 폴더 구조로 저장한다.
 
-모든 비즈니스 로직은 core/ai_influencer/ 모듈에 위치:
-- core/ai_influencer/hair_analyzer.py    -- 헤어 분석
-- core/ai_influencer/expression_analyzer.py -- 표정 분석 (상세)
-- core/ai_influencer/pose_analyzer.py    -- 포즈 분석
-- core/ai_influencer/background_analyzer.py -- 배경 분석
-- core/ai_influencer/compatibility.py    -- 포즈-배경 호환성
-- core/ai_influencer/prompt_builder.py   -- 스키마 프롬프트 조립
-- core/ai_influencer/pipeline.py         -- 풀 파이프라인 오케스트레이터
+Usage:
+  python tests/influencer/run_batch_5sets.py
 
-사용법:
-  python tests/influencer/test_reference_cases.py --test-dir tests/인플테스트3 --num-images 5
+Test Sets:
+  - tests/인플테스트1
+  - tests/인플테스트2
+  - tests/인플테스트3
+  - tests/인플테스트4
+  - tests/인플테스트5
+
+Settings:
+  - aspect_ratio: 4:5
+  - resolution: 2K
+  - num_images: 3
+  - temperature: 0.5
 """
 
 import sys
@@ -27,12 +31,11 @@ import shutil
 project_root = Path(__file__).parent.parent.parent
 sys.path.insert(0, str(project_root))
 
-# .env 로드
+# .env 로드 - core 모듈 import 전에 반드시 실행
 from dotenv import load_dotenv
 
 load_dotenv(project_root / ".env")
 
-from PIL import Image
 from google import genai
 
 from core.config import IMAGE_MODEL
@@ -51,19 +54,32 @@ from core.ai_influencer.pipeline import generate_full_pipeline, send_image_reque
 NUM_IMAGES = 3
 ASPECT_RATIO = "4:5"
 RESOLUTION = "2K"
+TEMPERATURE = 0.5
+
+# 5개 테스트 세트 목록
+TEST_SETS = [
+    "인플테스트1",
+    "인플테스트2",
+    "인플테스트3",
+    "인플테스트4",
+    "인플테스트5",
+]
 
 
 # ============================================================
-# TEST RUNNER
+# SINGLE TEST RUNNER
 # ============================================================
 
 
 def run_test(test_name: str, test_folder: Path):
     """
-    AI 인플루언서 이미지 생성 테스트
+    AI 인플루언서 이미지 생성 - 단일 테스트 세트 실행
 
     core/ai_influencer/pipeline.py의 generate_full_pipeline()을 호출하고
     결과를 표준 폴더 구조로 저장한다.
+
+    Returns:
+        dict: validation 결과 (성공 시), None (실패 시)
     """
 
     print(f"\n{'#' * 60}")
@@ -73,9 +89,9 @@ def run_test(test_name: str, test_folder: Path):
 
     if not test_folder.exists():
         print(f"[ERROR] Test folder not found: {test_folder}")
-        return
+        return None
 
-    # API 클라이언트
+    # API 클라이언트 (세트마다 로테이션)
     api_key = _get_next_api_key()
     client = genai.Client(api_key=api_key)
 
@@ -126,11 +142,11 @@ def run_test(test_name: str, test_folder: Path):
 
     if missing:
         print(f"[ERROR] Missing required images: {', '.join(missing)}")
-        return
+        return None
 
-    # 인풋 이미지 복사
+    # 인풋 이미지 복사 (input_ 접두사로 구분)
     for face_path in face_images:
-        shutil.copy(face_path, images_dir / f"input_face.png")
+        shutil.copy(face_path, images_dir / "input_face.png")
     for i, outfit_path in enumerate(outfit_images):
         shutil.copy(outfit_path, images_dir / f"input_outfit_{i+1:02d}.png")
     shutil.copy(pose_image, images_dir / "input_pose.png")
@@ -140,10 +156,12 @@ def run_test(test_name: str, test_folder: Path):
     shutil.copy(
         background_image, images_dir / f"input_background{background_image.suffix}"
     )
-    print(f"[OK] {3 + len(outfit_images) + len(face_images)} input images copied")
+
+    input_count = 3 + len(outfit_images) + len(face_images)
+    print(f"[OK] {input_count} input images copied")
 
     # =========================================================
-    # STEP 1-7: core 파이프라인 호출 (분석 + 프롬프트 조립)
+    # STEP 1-7: core 파이프라인 호출 (분석 + 프롬프트 조립 + 첫 이미지 생성)
     # =========================================================
     print("\n" + "=" * 60)
     print("STEP 1-7: Running core pipeline (analysis + prompt)")
@@ -157,7 +175,7 @@ def run_test(test_name: str, test_folder: Path):
         background_image=background_image,
         aspect_ratio=ASPECT_RATIO,
         resolution=RESOLUTION,
-        temperature=1.0,
+        temperature=TEMPERATURE,
         client=client,
     )
 
@@ -170,6 +188,7 @@ def run_test(test_name: str, test_folder: Path):
 
     with open(analysis_dir / "hair_analysis.json", "w", encoding="utf-8") as f:
         json.dump(analysis["hair"].to_schema_format(), f, ensure_ascii=False, indent=2)
+
     with open(analysis_dir / "expression_analysis.json", "w", encoding="utf-8") as f:
         expr = analysis["expression"]
         if hasattr(expr, "to_schema_format"):
@@ -179,18 +198,22 @@ def run_test(test_name: str, test_folder: Path):
         else:
             expr_data = {"raw": str(expr)}
         json.dump(expr_data, f, ensure_ascii=False, indent=2)
+
     # 얼굴 특징 분석 저장
     if "face" in analysis and analysis["face"] is not None:
         with open(analysis_dir / "face_analysis.json", "w", encoding="utf-8") as f:
             json.dump(
                 analysis["face"].to_schema_format(), f, ensure_ascii=False, indent=2
             )
+
     with open(analysis_dir / "pose_analysis.json", "w", encoding="utf-8") as f:
         json.dump(analysis["pose"].to_preset_format(), f, ensure_ascii=False, indent=2)
+
     with open(analysis_dir / "background_analysis.json", "w", encoding="utf-8") as f:
         json.dump(
             analysis["background"].to_preset_format(), f, ensure_ascii=False, indent=2
         )
+
     with open(analysis_dir / "compatibility.json", "w", encoding="utf-8") as f:
         compat = analysis["compatibility"]
         json.dump(
@@ -207,12 +230,12 @@ def run_test(test_name: str, test_folder: Path):
             indent=2,
         )
 
-    # 프롬프트 저장
+    # 프롬프트 저장 (텍스트, 가독용)
     with open(output_dir / "prompt.txt", "w", encoding="utf-8") as f:
         f.write(prompt)
     print(f"  Saved: prompt.txt")
 
-    # prompt.json 저장
+    # prompt.json 저장 (구조화된 원본)
     prompt_json = {
         "module": "core.ai_influencer.pipeline",
         "pipeline": [
@@ -264,7 +287,9 @@ def run_test(test_name: str, test_folder: Path):
         json.dump(prompt_json, f, ensure_ascii=False, indent=2)
 
     # =========================================================
-    # STEP 8: 이미지 생성 (첫 번째는 pipeline에서 이미 생성됨)
+    # STEP 8: 이미지 생성
+    # 첫 번째는 generate_full_pipeline()에서 이미 생성됨
+    # 나머지는 send_image_request()로 추가 생성
     # =========================================================
     print("\n" + "=" * 60)
     print(f"STEP 8: Generating {NUM_IMAGES} images (all references included)")
@@ -282,9 +307,10 @@ def run_test(test_name: str, test_folder: Path):
         results.append({"index": 1, "status": "failed"})
         print(f"  [FAIL] Pipeline generation failed")
 
-    # 나머지 이미지 추가 생성
+    # 나머지 이미지 추가 생성 (send_image_request 사용)
     for i in range(1, NUM_IMAGES):
         print(f"\n[Generating] Image {i+1}/{NUM_IMAGES}...")
+        time.sleep(2)  # rate limiting
 
         image = send_image_request(
             client=client,
@@ -296,7 +322,7 @@ def run_test(test_name: str, test_folder: Path):
             background_image=background_image,
             aspect_ratio=ASPECT_RATIO,
             resolution=RESOLUTION,
-            temperature=1.0,
+            temperature=TEMPERATURE,
         )
 
         if image:
@@ -307,11 +333,8 @@ def run_test(test_name: str, test_folder: Path):
             results.append({"index": i + 1, "status": "failed"})
             print(f"  [FAIL] Generation failed")
 
-        if i < NUM_IMAGES - 1:
-            time.sleep(2)  # Rate limit
-
     # =========================================================
-    # 결과 저장
+    # 결과 저장 (config.json, validation.json)
     # =========================================================
     success_count = sum(1 for r in results if r["status"] == "success")
 
@@ -324,7 +347,7 @@ def run_test(test_name: str, test_folder: Path):
         "model": IMAGE_MODEL,
         "aspect_ratio": ASPECT_RATIO,
         "resolution": RESOLUTION,
-        "temperature": 1.0,
+        "temperature": TEMPERATURE,
         "num_images": NUM_IMAGES,
         "cost_per_image": 190,
         "total_cost": NUM_IMAGES * 190,
@@ -369,7 +392,7 @@ def run_test(test_name: str, test_folder: Path):
     with open(output_dir / "validation.json", "w", encoding="utf-8") as f:
         json.dump(validation, f, ensure_ascii=False, indent=2)
 
-    # 결과 출력
+    # 단일 세트 결과 출력
     print(f"\n{'=' * 60}")
     print(f"TEST COMPLETE: {test_name}")
     print(f"{'=' * 60}")
@@ -377,7 +400,127 @@ def run_test(test_name: str, test_folder: Path):
     print(f"Results: {success_count}/{NUM_IMAGES} success")
     print(f"Cost: {NUM_IMAGES * 190} won ({NUM_IMAGES} x 190)")
 
-    return validation
+    return {
+        "test_name": test_name,
+        "output_dir": str(output_dir),
+        "success_count": success_count,
+        "total": NUM_IMAGES,
+        "validation": validation,
+    }
+
+
+# ============================================================
+# BATCH RUNNER
+# ============================================================
+
+
+def run_batch():
+    """
+    5개 테스트 세트를 순차적으로 실행하고 전체 요약을 출력한다.
+    """
+
+    print("=" * 60)
+    print("AI INFLUENCER BATCH RUNNER - 5 TEST SETS")
+    print("=" * 60)
+    print(f"Settings:")
+    print(f"  aspect_ratio : {ASPECT_RATIO}")
+    print(f"  resolution   : {RESOLUTION}")
+    print(f"  num_images   : {NUM_IMAGES}")
+    print(f"  temperature  : {TEMPERATURE}")
+    print(f"  test_sets    : {len(TEST_SETS)}")
+    print(f"  total_images : {len(TEST_SETS) * NUM_IMAGES}")
+    print(f"  total_cost   : {len(TEST_SETS) * NUM_IMAGES * 190} won")
+    print("=" * 60)
+
+    batch_start = datetime.now()
+    batch_results = []
+
+    for idx, test_name in enumerate(TEST_SETS):
+        test_folder = project_root / "tests" / test_name
+
+        print(f"\n[BATCH {idx+1}/{len(TEST_SETS)}] Starting: {test_name}")
+        print(f"  Path: {test_folder}")
+
+        set_start = datetime.now()
+
+        try:
+            result = run_test(test_name, test_folder)
+            elapsed = (datetime.now() - set_start).total_seconds()
+
+            if result is not None:
+                result["elapsed_sec"] = elapsed
+                batch_results.append(result)
+                print(
+                    f"\n[BATCH {idx+1}/{len(TEST_SETS)}] Done: {test_name} ({elapsed:.1f}s)"
+                )
+            else:
+                batch_results.append(
+                    {
+                        "test_name": test_name,
+                        "output_dir": None,
+                        "success_count": 0,
+                        "total": NUM_IMAGES,
+                        "elapsed_sec": elapsed,
+                        "error": "Test returned None (check missing images or errors above)",
+                    }
+                )
+                print(f"\n[BATCH {idx+1}/{len(TEST_SETS)}] Failed: {test_name}")
+
+        except Exception as e:
+            elapsed = (datetime.now() - set_start).total_seconds()
+            batch_results.append(
+                {
+                    "test_name": test_name,
+                    "output_dir": None,
+                    "success_count": 0,
+                    "total": NUM_IMAGES,
+                    "elapsed_sec": elapsed,
+                    "error": str(e),
+                }
+            )
+            print(f"\n[BATCH {idx+1}/{len(TEST_SETS)}] ERROR: {test_name}")
+            print(f"  Exception: {e}")
+
+        # 세트 간 대기 (마지막 세트는 대기 없음)
+        if idx < len(TEST_SETS) - 1:
+            print(f"\n[WAIT] Sleeping 5s before next set...")
+            time.sleep(5)
+
+    # =========================================================
+    # 전체 배치 요약 출력
+    # =========================================================
+    total_elapsed = (datetime.now() - batch_start).total_seconds()
+    total_success = sum(r.get("success_count", 0) for r in batch_results)
+    total_generated = sum(r.get("total", 0) for r in batch_results)
+    total_sets_ok = sum(1 for r in batch_results if r.get("success_count", 0) > 0)
+
+    print(f"\n{'=' * 60}")
+    print(f"BATCH SUMMARY")
+    print(f"{'=' * 60}")
+    print(f"  Total elapsed  : {total_elapsed:.1f}s ({total_elapsed/60:.1f} min)")
+    print(f"  Sets completed : {total_sets_ok}/{len(TEST_SETS)}")
+    print(f"  Images success : {total_success}/{total_generated}")
+    print(f"  Total cost     : {total_success * 190} won")
+    print(f"")
+    print(f"  {'SET':<20} {'SUCCESS':>8} {'ELAPSED':>10} {'OUTPUT'}")
+    print(f"  {'-'*20} {'-'*8} {'-'*10} {'-'*30}")
+
+    for r in batch_results:
+        success_str = f"{r.get('success_count', 0)}/{r.get('total', NUM_IMAGES)}"
+        elapsed_str = f"{r.get('elapsed_sec', 0):.1f}s"
+        output_str = r.get("output_dir") or r.get("error", "N/A")
+        # 출력 경로가 길면 끝만 표시
+        if output_str and len(output_str) > 45:
+            output_str = "..." + output_str[-42:]
+        print(
+            f"  {r['test_name']:<20} {success_str:>8} {elapsed_str:>10}  {output_str}"
+        )
+
+    print(f"{'=' * 60}")
+    print(f"BATCH DONE")
+    print(f"{'=' * 60}")
+
+    return batch_results
 
 
 # ============================================================
@@ -385,31 +528,4 @@ def run_test(test_name: str, test_folder: Path):
 # ============================================================
 
 if __name__ == "__main__":
-    import argparse
-
-    parser = argparse.ArgumentParser(description="AI Influencer Full Pipeline Test")
-    parser.add_argument(
-        "--test-dir",
-        type=str,
-        required=True,
-        help="Test folder path (e.g., tests/인플테스트3)",
-    )
-    parser.add_argument(
-        "--num-images",
-        type=int,
-        default=3,
-        help="Number of images (default: 3)",
-    )
-
-    args = parser.parse_args()
-
-    # Override NUM_IMAGES
-    NUM_IMAGES = args.num_images
-
-    # Resolve test folder
-    test_folder = Path(args.test_dir)
-    if not test_folder.is_absolute():
-        test_folder = project_root / args.test_dir
-
-    test_name = test_folder.name
-    run_test(test_name, test_folder)
+    run_batch()

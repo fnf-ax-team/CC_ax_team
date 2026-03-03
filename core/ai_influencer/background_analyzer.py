@@ -57,33 +57,81 @@ class BackgroundAnalysisResult:
     confidence: float = 0.5
     raw_response: Dict[str, Any] = None
 
-    def to_schema_format(self) -> Dict[str, Any]:
-        """프롬프트 스키마 형식으로 변환"""
+    # 영어→한글 변환 매핑
+    PROVIDES_KR = {
+        "wall": "벽",
+        "seating": "좌석",
+        "potential_seating": "잠재적좌석",
+        "surface": "표면",
+        "mirror": "거울",
+        "rail": "난간",
+        "walkway": "통로",
+        "door": "문",
+    }
+
+    STANCE_KR = {
+        "stand": "서기",
+        "sit": "앉기",
+        "walk": "걷기",
+        "lean_wall": "벽기대기",
+        "lean": "기대기",
+        "kneel": "무릎꿇기",
+    }
+
+    SCENE_TYPE_KR = {
+        "cafe": "카페",
+        "street": "거리",
+        "graffiti": "그래피티",
+        "crosswalk": "횡단보도",
+        "subway": "지하철",
+        "elevator": "엘리베이터",
+        "door": "출입문",
+        "park": "공원",
+        "indoor": "실내",
+        "rooftop": "루프탑",
+        "other": "기타",
+        "unknown": "알수없음",
+    }
+
+    def to_preset_format(self) -> Dict[str, Any]:
+        """background_presets.json v2.0 형식으로 변환 (전체 한글)"""
         return {
+            "배경유형": self.SCENE_TYPE_KR.get(self.scene_type, self.scene_type),
             "지역": self.region,
             "시간대": self.time_of_day,
             "색감": self.color_tone,
             "장소": self.description,
             "분위기": self.mood,
+            "제공요소": [self.PROVIDES_KR.get(p, p) for p in self.provides],
+            "가능자세": [self.STANCE_KR.get(s, s) for s in self.supported_stances],
+            "앉을곳": self.sit_on,
+            "앉기가능위치": self.potential_seating_locations,
+            "비고": self.notes,
         }
 
     def to_prompt_text(self) -> str:
-        """프롬프트용 텍스트로 변환"""
+        """프롬프트용 텍스트로 변환 (전체 한글)"""
         lines = []
-        lines.append(f"[배경 유형]: {self.scene_type}")
+        lines.append(
+            f"[배경유형]: {self.SCENE_TYPE_KR.get(self.scene_type, self.scene_type)}"
+        )
         lines.append(f"[지역]: {self.region}")
         lines.append(f"[시간대]: {self.time_of_day}")
         lines.append(f"[색감]: {self.color_tone}")
-        lines.append(f"[장소 설명]: {self.description}")
+        lines.append(f"[장소]: {self.description}")
         lines.append(f"[분위기]: {self.mood}")
-        lines.append(f"[제공 요소]: {', '.join(self.provides)}")
-        lines.append(f"[가능한 포즈]: {', '.join(self.supported_stances)}")
+        provides_kr = [self.PROVIDES_KR.get(p, p) for p in self.provides]
+        lines.append(f"[제공요소]: {', '.join(provides_kr)}")
+        stances_kr = [self.STANCE_KR.get(s, s) for s in self.supported_stances]
+        lines.append(f"[가능자세]: {', '.join(stances_kr)}")
+        if self.sit_on:
+            lines.append(f"[앉을곳]: {self.sit_on}")
         if self.potential_seating_locations:
             lines.append(
-                f"[잠재적 좌석 위치]: {', '.join(self.potential_seating_locations)}"
+                f"[앉기가능위치]: {', '.join(self.potential_seating_locations)}"
             )
         if self.notes:
-            lines.append(f"[특이사항]: {'; '.join(self.notes)}")
+            lines.append(f"[비고]: {'; '.join(self.notes)}")
         return "\n".join(lines)
 
     def can_support_stance(self, stance: str) -> bool:

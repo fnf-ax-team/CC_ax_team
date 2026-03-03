@@ -205,8 +205,8 @@ def select_random_combination(
     # 2. 배경 정보에서 지원 포즈 확인
     data = _load_preset_file("background")
     bg_category_data = data["categories"].get(bg_cat, {})
-    supported_stances = bg_category_data.get("supported_stances", [])
-    provides = bg_category_data.get("provides", [])
+    supported_stances = bg_category_data.get("가능자세", [])
+    provides = bg_category_data.get("제공요소", [])
 
     # 3. 포즈 카테고리 결정
     if pose_category:
@@ -248,35 +248,35 @@ def _select_compatible_pose_category(
 ) -> str:
     """배경의 지원 stance/provides에 맞는 포즈 카테고리 선택"""
 
-    # stance → 포즈 카테고리 매핑
+    # 가능자세 → 포즈 카테고리 매핑
     stance_to_pose = {
-        "stand": ["전신", "상반신"],
-        "walk": ["전신"],
-        "sit": ["앉기"],
-        "lean_wall": ["전신", "상반신"],
-        "lean": ["전신", "상반신"],
-        "kneel": ["거울셀피"],
+        "서기": ["전신", "상반신"],
+        "걷기": ["전신"],
+        "앉기": ["앉기"],
+        "벽기대기": ["전신", "상반신"],
+        "기대기": ["전신", "상반신"],
+        "무릎꿇기": ["거울셀피"],
     }
 
-    # provides → 포즈 카테고리 매핑
+    # 제공요소 → 포즈 카테고리 매핑
     provides_to_pose = {
-        "mirror": ["거울셀피"],
-        "seating": ["앉기", "전신"],
-        "rail": ["전신", "상반신"],
+        "거울": ["거울셀피"],
+        "좌석": ["앉기", "전신"],
+        "난간": ["전신", "상반신"],
     }
 
     candidates = set()
 
-    # stance 기반 후보
+    # 가능자세 기반 후보
     for stance in supported_stances:
         if stance in stance_to_pose:
             candidates.update(stance_to_pose[stance])
 
-    # provides 기반 가중치
+    # 제공요소 기반 가중치
     for provide in provides:
         if provide in provides_to_pose:
-            # mirror가 있으면 거울셀피 우선
-            if provide == "mirror":
+            # 거울이 있으면 거울셀피 우선
+            if provide == "거울":
                 return "거울셀피"
             candidates.update(provides_to_pose[provide])
 

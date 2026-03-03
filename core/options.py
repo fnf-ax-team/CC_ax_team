@@ -12,7 +12,7 @@
     )
 """
 
-from typing import Dict, Tuple, List
+from typing import Dict, Tuple, List, Union
 from dataclasses import dataclass
 
 
@@ -206,6 +206,60 @@ def format_options_for_user() -> str:
         lines.append(f"| {qty}장 | ₩{std_cost:,} | ₩{prm_cost:,} |")
 
     return "\n".join(lines)
+
+
+# ============================================================
+# 비율 자동 감지 (소스 이미지 → 가장 가까운 Gemini 비율)
+# ============================================================
+
+# Gemini API 지원 비율의 수치값 (W:H)
+_ASPECT_RATIO_VALUES: Dict[str, float] = {
+    "1:1": 1.0,
+    "2:3": 2 / 3,
+    "3:2": 3 / 2,
+    "3:4": 3 / 4,
+    "4:3": 4 / 3,
+    "4:5": 4 / 5,
+    "5:4": 5 / 4,
+    "9:16": 9 / 16,
+    "16:9": 16 / 9,
+    "21:9": 21 / 9,
+}
+
+
+def detect_aspect_ratio(
+    image: "Union[Image.Image, str, Tuple[int, int]]",
+) -> str:
+    """소스 이미지의 비율을 감지하여 가장 가까운 Gemini 지원 비율 반환
+
+    착장 스왑, 배경 교체 등에서 소스 이미지 비율과 동일한 비율로
+    생성해야 포즈/구도가 유지됨.
+
+    Args:
+        image: PIL Image, 파일 경로, 또는 (width, height) 튜플
+
+    Returns:
+        가장 가까운 Gemini 비율 문자열 (e.g., "2:3", "3:2")
+    """
+    if isinstance(image, tuple):
+        w, h = image
+    elif isinstance(image, str):
+        from PIL import Image as _Image
+
+        img = _Image.open(image)
+        w, h = img.size
+    else:
+        # PIL Image
+        w, h = image.size
+
+    ratio = w / h
+
+    # 가장 가까운 비율 찾기
+    closest_name = min(
+        _ASPECT_RATIO_VALUES,
+        key=lambda name: abs(_ASPECT_RATIO_VALUES[name] - ratio),
+    )
+    return closest_name
 
 
 # ============================================================

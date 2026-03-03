@@ -1211,6 +1211,7 @@ def build_schema_prompt(
     compatibility_result=None,
     model_info: Dict = None,
     pose_format: str = "H",
+    face_result=None,
 ) -> str:
     """
     풀 파이프라인용 스키마 기반 프롬프트 생성 (v3: 이미지 우선)
@@ -1254,8 +1255,10 @@ def build_schema_prompt(
     # expression_result가 dict인 경우 호환 (레거시)
     if isinstance(expression_result, dict):
         expr_dict = expression_result
+    elif hasattr(expression_result, "to_preset_format"):
+        expr_dict = expression_result.to_preset_format()
     else:
-        expr_dict = expression_result.to_schema_format()
+        expr_dict = {"베이스": getattr(expression_result, "베이스", "cool")}
 
     lines = []
 
@@ -1280,6 +1283,14 @@ def build_schema_prompt(
     lines.append(f"- 민족: {_nationality}")
     lines.append(f"- 성별: {_gender}")
     lines.append(f"- 나이: {_age}")
+    # 얼굴 특징 앵커링 (VLM 분석 결과)
+    if face_result is not None:
+        if hasattr(face_result, "to_prompt_text"):
+            lines.append(f"- 얼굴 특징: {face_result.to_prompt_text()}")
+        elif isinstance(face_result, dict):
+            parts = [f"{k} {v}" for k, v in face_result.items() if v]
+            if parts:
+                lines.append(f"- 얼굴 특징: {', '.join(parts)}")
     lines.append("")
 
     # =====================================================
@@ -1296,17 +1307,20 @@ def build_schema_prompt(
     # =====================================================
     lines.append("## [표정]")
 
-    # ExpressionAnalysisResult (상세 버전) 감지
+    # ExpressionAnalysisResult 감지
     if hasattr(expression_result, "to_prompt_text"):
-        # 상세 버전 - prompt_text 사용
         lines.append(expression_result.to_prompt_text())
     else:
-        # dict (간단 버전) - 호환
+        # dict 호환 (v2.0 flat 구조)
         lines.append(f"- 베이스: {expr_dict.get('베이스', 'cool')}")
-        lines.append(f"- 바이브: {expr_dict.get('바이브', 'effortless')}")
-        lines.append("- 눈: 큰 눈")
-        lines.append(f"- 시선: {expr_dict.get('시선', 'direct')}")
-        lines.append(f"- 입: {expr_dict.get('입', 'closed')}")
+        lines.append(f"- 눈: {expr_dict.get('눈', '큰 눈')}")
+        lines.append(f"- 시선: {expr_dict.get('시선', '정면')}")
+        lines.append(f"- 입: {expr_dict.get('입', '다문')}")
+        lines.append(f"- 얼굴각도: {expr_dict.get('얼굴각도', '정면')}")
+        lines.append(f"- 턱: {expr_dict.get('턱', '자연스러운')}")
+        if expr_dict.get("is_wink"):
+            wink_side = "왼쪽" if expr_dict.get("wink_eye") == "left" else "오른쪽"
+            lines.append(f"- 윙크: {wink_side} 눈")
     lines.append("")
 
     # =====================================================

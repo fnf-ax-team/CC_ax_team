@@ -29,6 +29,7 @@ from google.genai import types
 
 from core.config import IMAGE_MODEL
 from core.ai_influencer.hair_analyzer import analyze_hair, HairAnalysisResult
+from core.ai_influencer.face_analyzer import analyze_face, FaceAnalysisResult
 from core.ai_influencer.expression_analyzer import (
     ExpressionAnalyzer,
     ExpressionAnalysisResult,
@@ -54,7 +55,7 @@ def send_image_request(
     background_image: Path,
     aspect_ratio: str = "9:16",
     resolution: str = "2K",
-    temperature: float = 0.35,
+    temperature: float = 1.0,
 ) -> Optional[Image.Image]:
     """
     이미지 생성 API 호출 - 모든 레퍼런스 이미지 포함
@@ -157,7 +158,7 @@ def generate_full_pipeline(
     background_image: Union[str, Path],
     aspect_ratio: str = "9:16",
     resolution: str = "2K",
-    temperature: float = 0.35,
+    temperature: float = 1.0,
     client=None,
     max_retries: int = 2,
     validate: bool = True,
@@ -229,37 +230,44 @@ def generate_full_pipeline(
     # =========================================================
 
     # STEP 1: 헤어 분석
-    print("\n[1/8] Analyzing hair from face image...")
+    print("\n[1/9] Analyzing hair from face image...")
     hair_result = analyze_hair(face_images[0])
     print(f"  Hair: {hair_result.to_schema_format()}")
 
+    # STEP 1.5: 얼굴 특징 분석 (텍스트 앵커링용)
+    print("\n[1.5/9] Analyzing face features for identity anchoring...")
+    face_result = analyze_face(face_images[0])
+    print(f"  Face: {face_result.to_prompt_text()}")
+
     # STEP 2: 표정 분석 (상세 버전)
-    print("\n[2/8] Analyzing expression (detailed)...")
+    print("\n[2/9] Analyzing expression (detailed)...")
     expr_analyzer = ExpressionAnalyzer()
     expression_result = expr_analyzer.analyze(expression_image)
-    print(f"  Mood: {expression_result.mood_base}, {expression_result.mood_vibe}")
+    print(
+        f"  Base: {expression_result.베이스}, Eye: {expression_result.시선}, Wink: {expression_result.is_wink}"
+    )
 
     # STEP 3: 포즈 분석
-    print("\n[3/8] Analyzing pose...")
+    print("\n[3/9] Analyzing pose...")
     pose_result = analyze_pose(pose_image)
     print(f"  Stance: {pose_result.stance}, Framing: {pose_result.framing}")
 
     # STEP 4: 배경 분석
-    print("\n[4/8] Analyzing background...")
+    print("\n[4/9] Analyzing background...")
     background_result = analyze_background(background_image)
     print(
         f"  Scene: {background_result.scene_type}, Provides: {background_result.provides}"
     )
 
     # STEP 5: 호환성 검사
-    print("\n[5/8] Checking compatibility...")
+    print("\n[5/9] Checking compatibility...")
     compatibility_result = check_compatibility(pose_result, background_result)
     print(
         f"  Level: {compatibility_result.level.value}, Score: {compatibility_result.score}"
     )
 
     # STEP 6: 착장 분석
-    print("\n[6/8] Analyzing outfit...")
+    print("\n[6/9] Analyzing outfit...")
     outfit_analyzer = OutfitAnalyzer(client)
     outfit_result = outfit_analyzer.analyze([str(p) for p in outfit_images])
     print(f"  Style: {outfit_result.overall_style}")
@@ -269,6 +277,7 @@ def generate_full_pipeline(
     # 분석 결과 딕셔너리
     analysis = {
         "hair": hair_result,
+        "face": face_result,
         "expression": expression_result,
         "pose": pose_result,
         "background": background_result,
@@ -314,7 +323,7 @@ def generate_full_pipeline(
         print(f"{'#' * 60}")
 
         # STEP 7: 프롬프트 조립 (v3: 이미지 우선 + 계층적 포즈)
-        print("\n[7/8] Building schema prompt (v3: image-first + hierarchical pose)...")
+        print("\n[7/9] Building schema prompt (v3: image-first + hierarchical pose)...")
         prompt = build_schema_prompt(
             hair_result=hair_result,
             expression_result=expression_result,
@@ -323,6 +332,7 @@ def generate_full_pipeline(
             outfit_result=outfit_result,
             compatibility_result=compatibility_result,
             pose_format="H",
+            face_result=face_result,
         )
 
         # 재시도 시 enhancement 텍스트 추가
@@ -334,7 +344,7 @@ def generate_full_pipeline(
         best_prompt = prompt
 
         # STEP 8: 이미지 생성
-        print("\n[8/8] Generating image (all references included)...")
+        print("\n[8/9] Generating image (all references included)...")
         image = send_image_request(
             client=client,
             prompt=prompt,

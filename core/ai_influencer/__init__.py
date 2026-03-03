@@ -72,6 +72,13 @@ from .hair_analyzer import (
     analyze_hair,
 )
 
+# v3.0: 얼굴 특징 분석기
+from .face_analyzer import (
+    FaceAnalyzer,
+    FaceAnalysisResult,
+    analyze_face,
+)
+
 # v2.2: 표정 분석기 (상세)
 from .expression_analyzer import (
     ExpressionAnalyzer,
@@ -128,6 +135,10 @@ __all__ = [
     "HairAnalyzer",
     "HairAnalysisResult",
     "analyze_hair",
+    # v3.0: 얼굴 특징 분석기
+    "FaceAnalyzer",
+    "FaceAnalysisResult",
+    "analyze_face",
     # v2.2: 표정 분석기 (상세)
     "ExpressionAnalyzer",
     "ExpressionAnalysisResult",

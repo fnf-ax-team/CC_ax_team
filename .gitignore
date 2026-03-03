@@ -1,0 +1,40 @@
+# Environment
+.env
+.env.local
+
+# MCP config (contains API keys)
+.mcp.json
+mcp*.json
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.egg-info/
+dist/
+build/
+
+# SQLite
+tasks.db
+
+# OS
+nul
+Thumbs.db
+.DS_Store
+
+# IDE
+.vscode/
+.idea/
+
+# Outputs (large generated images)
+Fnf_studio_outputs/
+
+# Test outputs
+test_output.txt
+temp_faces.txt
+
+# OMC state
+.omc/
+
+# Node
+node_modules/

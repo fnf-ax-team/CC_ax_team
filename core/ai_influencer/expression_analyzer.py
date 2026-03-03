@@ -43,7 +43,7 @@ class ExpressionAnalysisResult:
 
     def to_preset_format(self) -> Dict[str, Any]:
         """expression_presets.json 형식으로 변환"""
-        result = {
+        return {
             "베이스": self.베이스,
             "눈": self.눈,
             "시선": self.시선,
@@ -51,10 +51,8 @@ class ExpressionAnalysisResult:
             "얼굴각도": self.얼굴각도,
             "턱": self.턱,
             "is_wink": self.is_wink,
+            "wink_eye": self.wink_eye if self.is_wink else "",
         }
-        if self.is_wink:
-            result["wink_eye"] = self.wink_eye
-        return result
 
     def to_prompt_text(self) -> str:
         """프롬프트용 텍스트로 변환 (한글 문장형)"""

@@ -647,7 +647,10 @@ def _build_unusual_pose_warning(pose_result, left_leg_lifted, right_leg_lifted) 
             lines.append('The bent leg forms a NUMBER "4" shape:')
             lines.append("- Knee points SIDEWAYS / LATERALLY (to the SIDE of the body)")
             lines.append(
-                "- Foot is pressed against the inner calf/thigh of the standing leg, or tucked BEHIND it"
+                "- Foot SOLE faces INWARD toward the standing leg (발바닥이 지지 다리 안쪽을 향함)"
+            )
+            lines.append(
+                "- Foot rests FLAT against inner calf/knee of standing leg (발이 지지 다리 안쪽에 밀착)"
             )
             lines.append(
                 "- The thigh of the bent leg opens OUTWARD, creating a triangular gap between legs"
@@ -657,11 +660,14 @@ def _build_unusual_pose_warning(pose_result, left_leg_lifted, right_leg_lifted) 
             lines.append(
                 "- DO NOT lift the knee FORWARD or UPWARD (that is L-shape, WRONG!)"
             )
-            lines.append("- DO NOT have the foot dangling in front")
+            lines.append("- DO NOT have the foot dangling in front or pointing outward")
             lines.append("- DO NOT make a flamingo with knee pointing forward")
+            lines.append(
+                "- DO NOT point foot backward/behind — foot SOLE must face the standing leg"
+            )
             lines.append("")
             lines.append(
-                "Think: like crossing legs while standing, or resting sole of foot against inner calf"
+                "Think: like crossing legs while standing, sole of foot pressed flat against inner calf"
             )
             lines.append("")
         else:
@@ -972,8 +978,8 @@ def _build_pose_section_h(pose_result, background_result, framing: str = "FS") -
     - 무릎이 왼다리 설명 안에 인라인
     - 왼발은 왼다리 하위에 들여쓰기
     - 별도 "방향/기울기" 섹션 제거 — 각 부위에 통합
-    - CRITICAL POSE WARNING 제거 — 정보가 leg 설명에 포함
-    - 목표: ~15줄 이내 (기존 A 포맷 ~40줄 → 대폭 축소)
+    - 4자/L자 등 특이 포즈는 CRITICAL POSE WARNING 유지 (발 방향 정확도 위해)
+    - 목표: ~20줄 이내 (기존 A 포맷 ~40줄 → 축소)
 
     Returns: (lines, left_leg_lifted, right_leg_lifted)
     """
@@ -1086,6 +1092,15 @@ def _build_pose_section_h(pose_result, background_result, framing: str = "FS") -
     # sit 포즈일 때 앉는 위치 명시
     if pose_result.stance == "sit" and background_result.sit_on:
         lines.append(f"- 앉는_위치: {background_result.sit_on}")
+
+    # 4자/L자 등 특이 포즈 경고 (FS일 때만, 발 방향 정확도 위해 복원)
+    if show_legs:
+        warning_lines = _build_unusual_pose_warning(
+            pose_result, left_leg_lifted, right_leg_lifted
+        )
+        if warning_lines:
+            lines.append("")
+            lines.extend(warning_lines)
 
     lines.append("")
 
@@ -1398,12 +1413,15 @@ def build_schema_prompt(
         extra_negative.append("flat-footed stance")
         extra_negative.append("symmetrical leg position")
 
-        # 4자 다리일 때 L자 포즈 명시적 금지
+        # 4자 다리일 때 L자 포즈 및 잘못된 발 방향 명시적 금지
         if _is_figure4(pose_result):
             extra_negative.append("knee pointing forward")
             extra_negative.append("knee lifted upward")
             extra_negative.append("L-shaped leg")
             extra_negative.append("foot dangling in front")
+            extra_negative.append("foot pointing outward")
+            extra_negative.append("foot pointing backward")
+            extra_negative.append("foot sole facing outward")
 
     # 조건부 2: 프레이밍별 네거티브 (프레이밍 강제)
     if pose_result.framing:

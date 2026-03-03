@@ -219,6 +219,25 @@ def run_test(test_name: str, test_folder: Path):
             "expression": analysis["expression"].to_schema_format(),
             "pose": analysis["pose"].to_schema_format(),
             "background": analysis["background"].to_schema_format(),
+            "outfit": {
+                "style": analysis["outfit"].overall_style,
+                "brand": analysis["outfit"].brand_detected,
+                "items": [
+                    {
+                        "category": item.category,
+                        "name": item.name,
+                        "color": item.color,
+                        "fit": item.fit,
+                        "logos": [
+                            {"brand": l.brand, "type": l.type, "position": l.position}
+                            for l in (item.logos or [])
+                        ],
+                        "details": item.details,
+                        "state": item.state,
+                    }
+                    for item in analysis["outfit"].items
+                ],
+            },
         },
         "references": {
             "pose_image": str(pose_image),

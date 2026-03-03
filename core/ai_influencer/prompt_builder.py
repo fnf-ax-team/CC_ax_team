@@ -1011,30 +1011,26 @@ def _build_pose_section_h(pose_result, background_result, framing: str = "FS") -
     if torso_parts:
         lines.append(f"- 상체: {', '.join(torso_parts)}")
 
-    # 왼팔 (팔꿈치 인라인)
-    arm_desc = pose_result.left_arm or ""
+    # 왼팔 (키워드 스타일: 팔꿈치 각도+방향만)
     elbow_parts = []
     if pose_result.left_elbow_angle:
-        elbow_parts.append(pose_result.left_elbow_angle)
+        elbow_parts.append(f"팔꿈치 {pose_result.left_elbow_angle}")
     if pose_result.left_elbow_direction:
         elbow_parts.append(pose_result.left_elbow_direction)
-    if elbow_parts:
-        arm_desc += f" (팔꿈치: {', '.join(elbow_parts)})"
+    arm_desc = ", ".join(elbow_parts) if elbow_parts else (pose_result.left_arm or "")
     if arm_desc:
         lines.append(f"- 왼팔: {arm_desc}")
     # 왼손 (왼팔 하위)
     if pose_result.left_hand:
         lines.append(f"  - 왼손: {pose_result.left_hand}")
 
-    # 오른팔 (팔꿈치 인라인)
-    arm_desc = pose_result.right_arm or ""
+    # 오른팔 (키워드 스타일: 팔꿈치 각도+방향만)
     elbow_parts = []
     if pose_result.right_elbow_angle:
-        elbow_parts.append(pose_result.right_elbow_angle)
+        elbow_parts.append(f"팔꿈치 {pose_result.right_elbow_angle}")
     if pose_result.right_elbow_direction:
         elbow_parts.append(pose_result.right_elbow_direction)
-    if elbow_parts:
-        arm_desc += f" (팔꿈치: {', '.join(elbow_parts)})"
+    arm_desc = ", ".join(elbow_parts) if elbow_parts else (pose_result.right_arm or "")
     if arm_desc:
         lines.append(f"- 오른팔: {arm_desc}")
     # 오른손 (오른팔 하위)

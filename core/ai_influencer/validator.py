@@ -599,4 +599,5 @@ class AIInfluencerWorkflowValidator(WorkflowValidator):
             return False
         if result.auto_fail:
             return False
-        return result.total_score < self.config.pass_total
+        # not passed + not auto_fail = 재시도 (critical criterion 실패 포함)
+        return True

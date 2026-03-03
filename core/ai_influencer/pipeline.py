@@ -313,8 +313,8 @@ def generate_full_pipeline(
         )
         print(f"{'#' * 60}")
 
-        # STEP 7: 프롬프트 조립
-        print("\n[7/8] Building schema prompt...")
+        # STEP 7: 프롬프트 조립 (v3: 이미지 우선 + 계층적 포즈)
+        print("\n[7/8] Building schema prompt (v3: image-first + hierarchical pose)...")
         prompt = build_schema_prompt(
             hair_result=hair_result,
             expression_result=expression_result,
@@ -322,6 +322,7 @@ def generate_full_pipeline(
             background_result=background_result,
             outfit_result=outfit_result,
             compatibility_result=compatibility_result,
+            pose_format="H",
         )
 
         # 재시도 시 enhancement 텍스트 추가
@@ -428,7 +429,7 @@ def generate_full_pipeline(
 
             # 재시도 여부 판단
             if not validator.should_retry(validation_result):
-                print(f"[Validation] Auto-fail or not retryable, stopping")
+                print(f"[Validation] Auto-fail detected, not retryable - stopping")
                 break
 
         except Exception as e:

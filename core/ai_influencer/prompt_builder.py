@@ -493,6 +493,28 @@ def _build_outfit_section_image_first(outfit_result, show_legs: bool) -> list:
     lines = []
     lines.append("## [스타일링] -- Match [OUTFIT] images EXACTLY")
 
+    # 아이템별 1줄 요약 (종류 + 색상 + 핏)
+    item_summaries = []
+    for item in outfit_result.items:
+        if item.category in ("shoes", "socks", "footwear") and not show_legs:
+            continue
+        parts = []
+        if item.color:
+            parts.append(item.color)
+        if item.fit:
+            parts.append(item.fit)
+        if item.name:
+            parts.append(item.name)
+        state = getattr(item, "state", "normal") or "normal"
+        if state.lower() != "normal":
+            korean = _STATE_TO_KOREAN.get(state.lower(), state)
+            parts.append(f"({korean})")
+        if parts:
+            item_summaries.append(f"- {item.category}: {' '.join(parts)}")
+    if item_summaries:
+        lines.extend(item_summaries)
+    lines.append("")
+
     hard_details = []
     for item in outfit_result.items:
         # shoes/socks는 프레이밍에 따라 스킵
@@ -1289,14 +1311,16 @@ def build_schema_prompt(
     lines.append("")
 
     # =====================================================
-    # 모델 정보 (간결 — 1줄)
+    # 모델 정보
     # =====================================================
     _model = model_info or {}
     _nationality = _model.get("국적", "한국인")
     _gender = _model.get("성별", "여성")
     _age = _model.get("나이", "20대 초반")
     lines.append("## [모델]")
-    lines.append(f"- {_nationality} {_gender}, {_age}")
+    lines.append(f"- 민족: {_nationality}")
+    lines.append(f"- 성별: {_gender}")
+    lines.append(f"- 나이: {_age}")
     lines.append("")
 
     # =====================================================

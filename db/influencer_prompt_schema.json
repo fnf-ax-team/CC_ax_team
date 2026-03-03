@@ -1,6 +1,6 @@
 {
-  "version": "1.0",
-  "updated": "2026-02-24",
+  "version": "2.0",
+  "updated": "2026-03-03",
   "description": "AI 인플루언서 이미지 생성용 프롬프트 스키마",
   "preset_references": {
     "표정": "expression_presets.json",
@@ -27,22 +27,53 @@
     "표정": {
       "preset_id": "",
       "베이스": "",
-      "바이브": "",
       "눈": "",
       "시선": "",
-      "입": ""
+      "입": "",
+      "얼굴각도": "",
+      "턱": "",
+      "is_wink": false,
+      "wink_eye": ""
     },
 
     "포즈": {
       "preset_id": "",
       "stance": "",
-      "왼팔": "",
-      "오른팔": "",
-      "왼다리": "",
-      "오른다리": "",
-      "힙": "",
+      "왼팔": {
+        "설명": "",
+        "손": "",
+        "팔꿈치각도": "",
+        "팔꿈치방향": ""
+      },
+      "오른팔": {
+        "설명": "",
+        "손": "",
+        "팔꿈치각도": "",
+        "팔꿈치방향": ""
+      },
+      "왼다리": {
+        "설명": "",
+        "무릎각도": "",
+        "무릎방향": "",
+        "무릎높이": "",
+        "발방향": "",
+        "발위치": ""
+      },
+      "오른다리": {
+        "설명": "",
+        "무릎각도": "",
+        "무릎방향": "",
+        "무릎높이": "",
+        "발방향": "",
+        "발위치": ""
+      },
+      "힙": {
+        "설명": "",
+        "상체기울기": ""
+      },
       "어깨라인": "",
-      "얼굴방향": ""
+      "얼굴방향": "",
+      "다리형태": ""
     },
 
     "배경": {
@@ -127,22 +158,53 @@
     "표정": {
       "preset_id": {"required": false, "note": "expression_presets.json의 ID 참조 (예: 시크_02, 러블리_03)"},
       "베이스": {"required": true, "default": "cool", "options": ["cool", "natural", "dreamy", "playful", "cute"]},
-      "바이브": {"required": false, "options": ["sensual", "bold", "mysterious", "effortless", "unbothered", "intense", "innocent", "intimate", "fresh", "flirty", "adorable"]},
-      "눈": {"required": true, "fixed": "큰 눈", "note": "항상 '큰 눈' 고정"},
-      "시선": {"required": false, "default": "direct", "options": ["direct", "side gaze", "downcast", "3/4 측면"]},
-      "입": {"required": false, "default": "closed", "options": ["closed", "slightly parted", "soft smile", "slight pout"]}
+      "눈": {"required": false, "note": "프리셋에서 자동 로드. 예: '큰 눈, 무심한 쿨 눈빛'"},
+      "시선": {"required": false, "default": "정면", "options": ["정면", "왼쪽", "오른쪽", "아래", "3/4 측면"]},
+      "입": {"required": false, "default": "다문", "options": ["다문", "살짝 벌림", "살짝 벌림(2mm)", "살짝 벌림(3mm)", "살짝 벌림(5mm)", "살짝 미소", "살짝 삐죽", "벌림"]},
+      "얼굴각도": {"required": false, "default": "정면", "options": ["정면", "3/4 오른쪽", "3/4 왼쪽", "측면"]},
+      "턱": {"required": false, "default": "자연스러운", "options": ["자연스러운", "들어올린", "내린"]},
+      "is_wink": {"required": false, "default": false, "type": "boolean", "note": "윙크 여부"},
+      "wink_eye": {"required": false, "default": "", "options": ["left", "right"], "note": "is_wink=true일 때 어느 눈으로 윙크하는지"}
     },
 
     "포즈": {
       "preset_id": {"required": false, "note": "pose_presets.json의 ID 참조 (예: 전신_05, 상반신_12, 앉기_07)"},
       "stance": {"required": true, "options": ["stand", "lean_wall", "sit", "walk", "kneel", "lean"]},
-      "왼팔": {"required": true, "note": "팔꿈치 각도, 방향, 손 위치 포함. 예: '팔꿈치를 90도로 구부려 가슴 높이로 들어올림. 손: 가방 끈을 잡고 있음'"},
-      "오른팔": {"required": true, "note": "팔꿈치 각도, 방향, 손 위치 포함"},
-      "왼다리": {"required": true, "note": "무릎각도, 무릎방향, 발방향, 발위치 포함. 예: '무릎 175도로 곧게 펴서 지면 지지. 무릎방향: 정면. 발방향: 정면. 발위치: 엉덩이 아래'"},
-      "오른다리": {"required": true, "note": "무릎각도, 무릎방향, 발방향, 발위치 포함. 특이 포즈(다리 들기)시 반드시 상세 기술"},
-      "힙": {"required": true, "note": "무게중심 + 상체기울기 포함. 예: '무게중심 왼쪽 다리 80%. 상체기울기: 오른쪽으로 5도'"},
+      "왼팔": {"required": true, "type": "object", "fields": {
+        "설명": {"required": true, "note": "팔 전체 동작 설명"},
+        "손": {"required": true, "note": "손 동작/위치"},
+        "팔꿈치각도": {"required": false, "note": "예: '약 90도'"},
+        "팔꿈치방향": {"required": false, "note": "예: '바깥쪽', '아래쪽', '뒤쪽'"}
+      }},
+      "오른팔": {"required": true, "type": "object", "fields": {
+        "설명": {"required": true},
+        "손": {"required": true},
+        "팔꿈치각도": {"required": false},
+        "팔꿈치방향": {"required": false}
+      }},
+      "왼다리": {"required": true, "type": "object", "fields": {
+        "설명": {"required": true, "note": "다리 전체 동작 설명"},
+        "무릎각도": {"required": true, "note": "예: '약 175도 (거의 펴짐)'"},
+        "무릎방향": {"required": true, "note": "예: '정면', '바깥쪽으로 벌어짐'"},
+        "무릎높이": {"required": false, "note": "앉기 포즈에서 중요. 예: '가슴 높이'"},
+        "발방향": {"required": true, "note": "예: '정면', '바깥쪽 30도'"},
+        "발위치": {"required": true, "note": "예: '엉덩이에서 약 40cm 앞'"}
+      }},
+      "오른다리": {"required": true, "type": "object", "fields": {
+        "설명": {"required": true},
+        "무릎각도": {"required": true},
+        "무릎방향": {"required": true},
+        "무릎높이": {"required": false},
+        "발방향": {"required": true},
+        "발위치": {"required": true}
+      }},
+      "힙": {"required": true, "type": "object", "fields": {
+        "설명": {"required": true, "note": "무게중심 설명"},
+        "상체기울기": {"required": true, "note": "예: '오른쪽으로 약 10도 기울임'"}
+      }},
       "어깨라인": {"required": true, "note": "어깨 높낮이. 예: '오른쪽 어깨가 왼쪽보다 낮음'"},
-      "얼굴방향": {"required": true, "note": "얼굴이 향하는 방향. 예: '카메라 정면', '오른쪽으로 45도 돌림'"}
+      "얼굴방향": {"required": true, "note": "얼굴이 향하는 방향. 예: '카메라 정면', '오른쪽으로 45도 돌림'"},
+      "다리형태": {"required": false, "options": ["4자", "L자", "직립"], "note": "구부린 다리 형태. 4자=무릎 옆으로, L자=무릎 앞으로"}
     },
 
     "배경": {
@@ -239,21 +301,52 @@
     "표정": {
       "preset_id": "시크_02",
       "베이스": "cool",
-      "바이브": "mysterious, effortless",
-      "눈": "큰 눈",
-      "시선": "3/4 측면",
-      "입": "closed"
+      "눈": "큰 눈, 무심한 쿨 눈빛",
+      "시선": "정면",
+      "입": "살짝 벌림(3mm)",
+      "얼굴각도": "3/4 왼쪽",
+      "턱": "자연스러운",
+      "is_wink": false,
+      "wink_eye": ""
     },
     "포즈": {
       "preset_id": "전신_05",
       "stance": "walk",
-      "왼팔": "팔꿈치 구부려 가슴 높이로 들어올림",
-      "오른팔": "자연스럽게 뒤로 스윙",
-      "왼손": "가방 들기",
-      "오른손": "자연스럽게 펴서 뒤로",
-      "왼다리": "앞으로 내딛기 (무릎 구부림)",
-      "오른다리": "뒤로 뻗어서 발끝 지면 터치",
-      "힙": "왼쪽 다리에 무게중심"
+      "왼팔": {
+        "설명": "팔꿈치를 살짝 구부려 몸 앞쪽으로 낮게 뻗음",
+        "손": "물체의 손잡이를 잡고 가볍게 쥐고 있음",
+        "팔꿈치각도": "",
+        "팔꿈치방향": ""
+      },
+      "오른팔": {
+        "설명": "팔꿈치를 약 90도로 구부려 손을 허리 높이에 위치시킴, 팔꿈치가 몸 뒤쪽을 향함",
+        "손": "손가락을 가볍게 구부려 허리 부근에 위치",
+        "팔꿈치각도": "약 90도",
+        "팔꿈치방향": "뒤쪽"
+      },
+      "왼다리": {
+        "설명": "거의 펴진 상태로 앞으로 내디딤",
+        "무릎각도": "약 165도 (거의 펴짐)",
+        "무릎방향": "정면",
+        "무릎높이": "",
+        "발방향": "정면에서 바깥쪽으로 약 10도",
+        "발위치": "몸 중심에서 앞쪽으로 약 40cm"
+      },
+      "오른다리": {
+        "설명": "살짝 구부려 뒤쪽에 위치, 발뒤꿈치가 지면에서 살짝 들려 있음",
+        "무릎각도": "약 155도 (살짝 구부러짐)",
+        "무릎방향": "정면",
+        "무릎높이": "",
+        "발방향": "정면",
+        "발위치": "몸 중심에서 뒤쪽으로 약 30cm"
+      },
+      "힙": {
+        "설명": "걷는 동작에 따라 무게중심이 양다리 사이에 분산됨, 골반이 오른쪽으로 살짝 틀어짐",
+        "상체기울기": "수직에 가까우나 진행 방향으로 아주 미세하게 기울어짐"
+      },
+      "어깨라인": "오른쪽 어깨가 왼쪽보다 약간 높고 앞쪽으로 나와 있음",
+      "얼굴방향": "오른쪽 측면 90도 (진행 방향을 바라봄)",
+      "다리형태": "직립"
     },
     "배경": {
       "preset_id": "핫플카페_08",

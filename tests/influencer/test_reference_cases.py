@@ -157,7 +157,7 @@ def run_test(test_name: str, test_folder: Path):
         background_image=background_image,
         aspect_ratio=ASPECT_RATIO,
         resolution=RESOLUTION,
-        temperature=0.35,
+        temperature=1.0,
         client=client,
     )
 
@@ -171,9 +171,20 @@ def run_test(test_name: str, test_folder: Path):
     with open(analysis_dir / "hair_analysis.json", "w", encoding="utf-8") as f:
         json.dump(analysis["hair"].to_schema_format(), f, ensure_ascii=False, indent=2)
     with open(analysis_dir / "expression_analysis.json", "w", encoding="utf-8") as f:
-        json.dump(
-            analysis["expression"].to_schema_format(), f, ensure_ascii=False, indent=2
-        )
+        expr = analysis["expression"]
+        if hasattr(expr, "to_schema_format"):
+            expr_data = expr.to_schema_format()
+        elif hasattr(expr, "to_preset_format"):
+            expr_data = expr.to_preset_format()
+        else:
+            expr_data = {"raw": str(expr)}
+        json.dump(expr_data, f, ensure_ascii=False, indent=2)
+    # 얼굴 특징 분석 저장
+    if "face" in analysis and analysis["face"] is not None:
+        with open(analysis_dir / "face_analysis.json", "w", encoding="utf-8") as f:
+            json.dump(
+                analysis["face"].to_schema_format(), f, ensure_ascii=False, indent=2
+            )
     with open(analysis_dir / "pose_analysis.json", "w", encoding="utf-8") as f:
         json.dump(analysis["pose"].to_schema_format(), f, ensure_ascii=False, indent=2)
     with open(analysis_dir / "background_analysis.json", "w", encoding="utf-8") as f:
@@ -216,7 +227,9 @@ def run_test(test_name: str, test_folder: Path):
         ],
         "analysis": {
             "hair": analysis["hair"].to_schema_format(),
-            "expression": analysis["expression"].to_schema_format(),
+            "expression": analysis["expression"].to_preset_format()
+            if hasattr(analysis["expression"], "to_preset_format")
+            else {"raw": str(analysis["expression"])},
             "pose": analysis["pose"].to_schema_format(),
             "background": analysis["background"].to_schema_format(),
             "outfit": {
@@ -283,7 +296,7 @@ def run_test(test_name: str, test_folder: Path):
             background_image=background_image,
             aspect_ratio=ASPECT_RATIO,
             resolution=RESOLUTION,
-            temperature=0.35,
+            temperature=1.0,
         )
 
         if image:
@@ -311,7 +324,7 @@ def run_test(test_name: str, test_folder: Path):
         "model": IMAGE_MODEL,
         "aspect_ratio": ASPECT_RATIO,
         "resolution": RESOLUTION,
-        "temperature": 0.35,
+        "temperature": 1.0,
         "num_images": NUM_IMAGES,
         "cost_per_image": 190,
         "total_cost": NUM_IMAGES * 190,
@@ -337,7 +350,9 @@ def run_test(test_name: str, test_folder: Path):
         "success_rate": success_count / NUM_IMAGES * 100 if NUM_IMAGES > 0 else 0,
         "analysis": {
             "hair": analysis["hair"].to_schema_format(),
-            "expression": analysis["expression"].to_schema_format(),
+            "expression": analysis["expression"].to_preset_format()
+            if hasattr(analysis["expression"], "to_preset_format")
+            else {"raw": str(analysis["expression"])},
             "pose": analysis["pose"].to_schema_format(),
             "background": analysis["background"].to_schema_format(),
             "compatibility": {

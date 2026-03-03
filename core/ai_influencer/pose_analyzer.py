@@ -78,46 +78,50 @@ class PoseAnalysisResult:
     confidence: float = 0.5  # 0-1
     raw_response: Dict[str, Any] = None
 
-    def to_schema_format(self) -> Dict[str, str]:
-        """프롬프트 스키마 형식으로 변환"""
+    def to_preset_format(self) -> Dict[str, Any]:
+        """pose_presets.json v2.0 부위별 그룹 형식으로 변환"""
         return {
             "stance": self.stance,
-            "왼팔": self.left_arm,
-            "오른팔": self.right_arm,
-            "왼손": self.left_hand,
-            "오른손": self.right_hand,
-            "왼다리": self.left_leg,
-            "오른다리": self.right_leg,
-            "힙": self.hip,
-            # 방향 및 기울기
-            "상체기울기": self.torso_tilt,
-            "왼발방향": self.left_foot_direction,
-            "오른발방향": self.right_foot_direction,
-            "왼무릎방향": self.left_knee_direction,
-            "오른무릎방향": self.right_knee_direction,
-            # 무릎 정밀 분석 ★★★
-            "왼무릎각도": self.left_knee_angle,
-            "오른무릎각도": self.right_knee_angle,
-            "왼무릎높이": self.left_knee_height,
-            "오른무릎높이": self.right_knee_height,
-            "왼발위치": self.left_foot_position,
-            "오른발위치": self.right_foot_position,
+            "왼팔": {
+                "설명": self.left_arm,
+                "손": self.left_hand,
+                "팔꿈치각도": self.left_elbow_angle,
+                "팔꿈치방향": self.left_elbow_direction,
+            },
+            "오른팔": {
+                "설명": self.right_arm,
+                "손": self.right_hand,
+                "팔꿈치각도": self.right_elbow_angle,
+                "팔꿈치방향": self.right_elbow_direction,
+            },
+            "왼다리": {
+                "설명": self.left_leg,
+                "무릎각도": self.left_knee_angle,
+                "무릎방향": self.left_knee_direction,
+                "무릎높이": self.left_knee_height,
+                "발방향": self.left_foot_direction,
+                "발위치": self.left_foot_position,
+            },
+            "오른다리": {
+                "설명": self.right_leg,
+                "무릎각도": self.right_knee_angle,
+                "무릎방향": self.right_knee_direction,
+                "무릎높이": self.right_knee_height,
+                "발방향": self.right_foot_direction,
+                "발위치": self.right_foot_position,
+            },
+            "힙": {
+                "설명": self.hip,
+                "상체기울기": self.torso_tilt,
+            },
             "어깨라인": self.shoulder_line,
             "얼굴방향": self.face_direction,
-            # 목/고개
-            "목기울기": self.neck_tilt,
-            "고개각도": self.head_tilt,
-            # 팔꿈치 정밀 분석
-            "왼팔꿈치각도": self.left_elbow_angle,
-            "오른팔꿈치각도": self.right_elbow_angle,
-            "왼팔꿈치방향": self.left_elbow_direction,
-            "오른팔꿈치방향": self.right_elbow_direction,
-            # 다리 형태
             "다리형태": self.bent_leg_shape,
-            # 촬영 세팅 (prompt.json 로깅용)
-            "프레이밍": self.framing,
-            "앵글": self.camera_angle,
-            "높이": self.camera_height,
+            "촬영": {
+                "앵글": self.camera_angle,
+                "높이": self.camera_height,
+                "프레이밍": self.framing,
+            },
         }
 
     def to_camera_format(self) -> Dict[str, str]:
@@ -129,62 +133,64 @@ class PoseAnalysisResult:
         }
 
     def to_prompt_text(self) -> str:
-        """프롬프트용 텍스트로 변환 (한글 문장형)"""
+        """프롬프트용 텍스트로 변환 (부위별 그룹 한글 문장형)"""
         lines = []
         lines.append(f"[포즈 기본 자세]: {self._stance_korean(self.stance)}")
+        # 왼팔
         lines.append(f"[왼팔]: {self.left_arm}")
-        lines.append(f"[오른팔]: {self.right_arm}")
-        lines.append(f"[왼손]: {self.left_hand}")
-        lines.append(f"[오른손]: {self.right_hand}")
-        lines.append(f"[왼다리]: {self.left_leg}")
-        lines.append(f"[오른다리]: {self.right_leg}")
-        lines.append(f"[무게중심]: {self.hip}")
-        # ★★★ 다리 형태 (핵심!) ★★★
-        if self.bent_leg_shape:
-            lines.append(f"[다리 형태]: {self.bent_leg_shape}")
-        # 방향 및 기울기 (★ 중요: 정확한 방향 재현 필수 ★)
-        if self.torso_tilt:
-            lines.append(f"[상체 기울기]: {self.torso_tilt}")
-        if self.left_foot_direction:
-            lines.append(f"[왼발 방향]: {self.left_foot_direction}")
-        if self.right_foot_direction:
-            lines.append(f"[오른발 방향]: {self.right_foot_direction}")
-        # ★★★ 무릎 정밀 분석 (매우 중요!) ★★★
-        if self.left_knee_angle:
-            lines.append(f"[왼쪽 무릎 각도]: {self.left_knee_angle}")
-        if self.right_knee_angle:
-            lines.append(f"[오른쪽 무릎 각도]: {self.right_knee_angle}")
-        if self.left_knee_height:
-            lines.append(f"[왼쪽 무릎 높이]: {self.left_knee_height}")
-        if self.right_knee_height:
-            lines.append(f"[오른쪽 무릎 높이]: {self.right_knee_height}")
-        if self.left_foot_position:
-            lines.append(f"[왼발 위치]: {self.left_foot_position}")
-        if self.right_foot_position:
-            lines.append(f"[오른발 위치]: {self.right_foot_position}")
-        if self.left_knee_direction:
-            lines.append(f"[왼쪽 무릎 방향]: {self.left_knee_direction}")
-        if self.right_knee_direction:
-            lines.append(f"[오른쪽 무릎 방향]: {self.right_knee_direction}")
-        if self.shoulder_line:
-            lines.append(f"[어깨 라인]: {self.shoulder_line}")
-        if self.face_direction:
-            lines.append(f"[얼굴 방향]: {self.face_direction}")
-        # 목/고개
-        if self.neck_tilt:
-            lines.append(f"[목 기울기]: {self.neck_tilt}")
-        if self.head_tilt:
-            lines.append(f"[고개 각도]: {self.head_tilt}")
-        # 팔꿈치 정밀
+        lines.append(f"  - 손: {self.left_hand}")
         if self.left_elbow_angle:
-            lines.append(f"[왼쪽 팔꿈치 각도]: {self.left_elbow_angle}")
-        if self.right_elbow_angle:
-            lines.append(f"[오른쪽 팔꿈치 각도]: {self.right_elbow_angle}")
+            lines.append(f"  - 팔꿈치각도: {self.left_elbow_angle}")
         if self.left_elbow_direction:
-            lines.append(f"[왼쪽 팔꿈치 방향]: {self.left_elbow_direction}")
+            lines.append(f"  - 팔꿈치방향: {self.left_elbow_direction}")
+        # 오른팔
+        lines.append(f"[오른팔]: {self.right_arm}")
+        lines.append(f"  - 손: {self.right_hand}")
+        if self.right_elbow_angle:
+            lines.append(f"  - 팔꿈치각도: {self.right_elbow_angle}")
         if self.right_elbow_direction:
-            lines.append(f"[오른쪽 팔꿈치 방향]: {self.right_elbow_direction}")
-        # 카메라 설정
+            lines.append(f"  - 팔꿈치방향: {self.right_elbow_direction}")
+        # 왼다리
+        lines.append(f"[왼다리]: {self.left_leg}")
+        if self.left_knee_angle:
+            lines.append(f"  - 무릎각도: {self.left_knee_angle}")
+        if self.left_knee_direction:
+            lines.append(f"  - 무릎방향: {self.left_knee_direction}")
+        if self.left_knee_height:
+            lines.append(f"  - 무릎높이: {self.left_knee_height}")
+        if self.left_foot_direction:
+            lines.append(f"  - 발방향: {self.left_foot_direction}")
+        if self.left_foot_position:
+            lines.append(f"  - 발위치: {self.left_foot_position}")
+        # 오른다리
+        lines.append(f"[오른다리]: {self.right_leg}")
+        if self.right_knee_angle:
+            lines.append(f"  - 무릎각도: {self.right_knee_angle}")
+        if self.right_knee_direction:
+            lines.append(f"  - 무릎방향: {self.right_knee_direction}")
+        if self.right_knee_height:
+            lines.append(f"  - 무릎높이: {self.right_knee_height}")
+        if self.right_foot_direction:
+            lines.append(f"  - 발방향: {self.right_foot_direction}")
+        if self.right_foot_position:
+            lines.append(f"  - 발위치: {self.right_foot_position}")
+        # 힙
+        lines.append(f"[힙]: {self.hip}")
+        if self.torso_tilt:
+            lines.append(f"  - 상체기울기: {self.torso_tilt}")
+        # 상체
+        if self.shoulder_line:
+            lines.append(f"[어깨라인]: {self.shoulder_line}")
+        if self.face_direction:
+            lines.append(f"[얼굴방향]: {self.face_direction}")
+        if self.neck_tilt:
+            lines.append(f"[목기울기]: {self.neck_tilt}")
+        if self.head_tilt:
+            lines.append(f"[고개각도]: {self.head_tilt}")
+        # 다리 형태
+        if self.bent_leg_shape:
+            lines.append(f"[다리형태]: {self.bent_leg_shape}")
+        # 촬영
         lines.append(f"[촬영 앵글]: {self.camera_angle}")
         lines.append(f"[촬영 높이]: {self.camera_height}")
         lines.append(f"[프레이밍]: {self.framing}")

@@ -1,0 +1,31 @@
+{
+  "permissions": {
+    "allow": [
+      "Read(**)",
+      "Edit(queries/**)",
+      "Edit(CLAUDE.md)",
+      "Edit(dashboard_query_plan.md)",
+      "Write(queries/**)",
+      "Bash(ls:*)",
+      "Bash(mkdir:*)",
+      "Bash(cat:*)",
+      "Bash(head:*)",
+      "Bash(tail:*)",
+      "Task(*)",
+      "mcp__snowflake__sql_exec_tool",
+      "mcp__notion__*",
+      "mcp__figma-remote-mcp__*",
+      "Glob",
+      "Grep",
+      "TodoWrite",
+      "WebFetch(domain:docs.snowflake.com)"
+    ],
+    "deny": [
+      "Bash(rm -rf:*)",
+      "Bash(sudo:*)",
+      "Bash(drop:*)",
+      "Bash(truncate:*)"
+    ]
+  },
+  "enableAllProjectMcpServers": true
+}

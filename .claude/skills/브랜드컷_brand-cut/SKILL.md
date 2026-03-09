@@ -292,14 +292,26 @@ result: OutfitAnalysis = analyze_outfit(
 )
 ```
 
-### 2. 포즈/무드 분석 (선택)
+### 2. 포즈/표정 분석 (선택)
 ```python
-from core.brandcut import analyze_pose_expression, analyze_mood
-
-pose_result = analyze_pose_expression(
-    client=genai_client,
-    image="path/to/pose.jpg"
+from core.brandcut import (
+    analyze_pose, analyze_expression, analyze_pose_expression,
+    PoseAnalysisResult, ExpressionAnalysisResult,
 )
+
+# 방법 A: 개별 분석 (권장)
+pose_result: PoseAnalysisResult = analyze_pose(image="path/to/pose.jpg")
+expr_result: ExpressionAnalysisResult = analyze_expression(image="path/to/pose.jpg")
+
+# 방법 B: 통합 분석 (backward compatible)
+combined = analyze_pose_expression(client=genai_client, image="path/to/pose.jpg")
+# combined["_pose_result"] → PoseAnalysisResult
+# combined["_expression_result"] → ExpressionAnalysisResult
+```
+
+### 2-1. 무드 분석 (선택)
+```python
+from core.brandcut import analyze_mood
 
 mood_result = analyze_mood(
     client=genai_client,
@@ -313,9 +325,9 @@ from core.brandcut import build_prompt
 
 prompt_json = build_prompt(
     outfit_analysis=result,
-    pose_analysis=pose_result,  # 선택
-    mood_analysis=mood_result,  # 선택
-    background_type="with_car",
+    pose_analysis=pose_result,            # PoseAnalysisResult 또는 dict(legacy)
+    expression_analysis=expr_result,      # ExpressionAnalysisResult (선택)
+    mood_analysis=mood_result,            # 선택
     user_options={"count": 3, "aspect_ratio": "3:4"}
 )
 ```
@@ -341,7 +353,7 @@ images = generate_brandcut(
     num_images=user_num_images,         # 사용자 선택 수량 (배치)
     aspect_ratio=user_aspect_ratio,     # 사용자 선택 비율
     resolution=user_resolution,         # 사용자 선택 화질
-    temperature=0.25,
+    temperature=0.7,
     pose_reference=pose_ref_image,      # 포즈 레퍼런스 (선택)
 )
 # 반환: List[PIL.Image] (num_images개, 실패한 이미지는 None)
@@ -365,7 +377,7 @@ for i, img in enumerate(images):
         aspect_ratio=user_aspect_ratio,
         resolution=user_resolution,
         max_retries=2,                  # 검증 실패 시 최대 2회 재시도
-        initial_temperature=0.25,
+        initial_temperature=0.7,
         pose_reference=pose_ref_image,
         check_ai_artifacts=False,
         check_gate=True
@@ -419,7 +431,7 @@ edited_image = edit_brandcut(
     strict_preservation=True,             # 얼굴/포즈 보존 (표정은 자연스럽게 변할 수 있음)
     aspect_ratio="3:4",
     resolution="2K",
-    temperature=0.5,                      # 편집은 낮게 권장
+    temperature=0.7,
 )
 # 반환: PIL.Image 또는 None
 ```
@@ -438,7 +450,7 @@ result = edit_with_validation(
     strict_preservation=True,             # 얼굴/포즈 보존 (표정은 자연스럽게)
     aspect_ratio="3:4",
     resolution="2K",
-    temperature=0.5,
+    temperature=0.7,
     max_retries=2,                        # 최대 재시도 횟수
 )
 

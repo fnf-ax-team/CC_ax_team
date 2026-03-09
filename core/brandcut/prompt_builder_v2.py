@@ -4,26 +4,33 @@
 기존 prompt_builder.py + korean_prompt_builder.py 통합.
 한국어 자연어 프롬프트를 기본으로 생성.
 
-변경점:
-- JSON 스키마 + 한국어 자연어를 하나의 프롬프트로 통합
-- enhance_with_korean_layer() 불필요 → build_prompt()가 바로 한국어 프롬프트 포함
+변경점 (v2.1):
+- KBEAUTY_EXPRESSION_PRESETS 하드코딩 제거 -> MLB DB 프리셋 로드
+- PoseAnalysisResult / ExpressionAnalysisResult 타입 지원
+- 동적 포즈/표정/촬영 섹션 플레이스홀더
 """
 
-from typing import Optional, List
+from typing import Optional, List, Union
 import re
 import random
 from core.outfit_analyzer import OutfitAnalysis
+from core.ai_influencer.presets import load_mlb_preset, list_mlb_presets
+from core.ai_influencer.pose_analyzer import PoseAnalysisResult
+from core.ai_influencer.expression_analyzer import ExpressionAnalysisResult
 
 
 # ============================================================
-# 빈도 기반 랜덤 추출 (치트시트 빈도 데이터)
+# 빈도 기반 랜덤 추출 (MLB DB 프리셋에서 빈도 읽기)
 # ============================================================
 
-EXPRESSION_FREQUENCIES = {
-    "베이스": {"cool": 50, "natural": 25, "neutral": 15, "serious": 10},
-    "바이브": {"mysterious": 40, "approachable": 25, "sophisticated": 35},
-    "시선": {"direct": 50, "past": 30, "side": 20},
-    "입": {"closed": 60, "parted": 30, "smile": 10},
+# MLB 표정 빈도 매핑 (mlb_expression_presets.json 기반)
+_MLB_EXPRESSION_FREQUENCY_MAP = {
+    "MLB시크_01": 40,
+    "MLB시크_02": 20,
+    "MLB곁눈질_01": 15,
+    "MLB곁눈질_02": 10,
+    "MLB몽환_01": 8,
+    "MLB몽환_02": 7,
 }
 
 
@@ -35,26 +42,53 @@ def _weighted_random_choice(frequency_dict: dict) -> str:
 
 
 def get_random_expression() -> dict:
-    """빈도 기반 랜덤 표정 조합 생성"""
-    result = {}
-    for field, frequencies in EXPRESSION_FREQUENCIES.items():
-        result[field] = _weighted_random_choice(frequencies)
+    """MLB DB 프리셋에서 빈도 기반 가중 랜덤 표정 선택"""
+    try:
+        preset_ids = list_mlb_presets("expression")
+        if not preset_ids:
+            return _get_fallback_random_expression()
 
-    # 금지 조합 수정
-    if result["베이스"] == "dreamy" and result["시선"] == "direct":
-        result["시선"] = "past"
-    if result["베이스"] in ["serious", "cool"] and result["입"] == "smile":
-        result["입"] = "closed"
+        # 빈도 매핑에서 가중치 가져오기
+        weights = {}
+        for pid in preset_ids:
+            weights[pid] = _MLB_EXPRESSION_FREQUENCY_MAP.get(pid, 10)
 
-    return result
+        selected_id = _weighted_random_choice(weights)
+        preset = load_mlb_preset("expression", selected_id)
+
+        if preset:
+            return {
+                "베이스": preset.get("베이스", "cool"),
+                "눈": preset.get("눈", "큰 아몬드눈"),
+                "시선": preset.get("시선", "정면"),
+                "입": preset.get("입", "다문"),
+                "바이브": preset.get("바이브", "mysterious"),
+                "_preset_id": selected_id,
+            }
+    except Exception as e:
+        print(f"[WARN] MLB preset load failed, using fallback: {e}")
+
+    return _get_fallback_random_expression()
+
+
+def _get_fallback_random_expression() -> dict:
+    """MLB DB 로드 실패 시 폴백 표정"""
+    return {
+        "베이스": "cool",
+        "눈": "큰 아몬드눈, 무심한 쿨 눈빛",
+        "시선": "정면",
+        "입": "다문",
+        "바이브": "mysterious",
+    }
 
 
 # ============================================================
-# K-Beauty 표정 프리셋 (상세 표정 요소)
+# K-Beauty 표정 프리셋 (DEPRECATED - MLB DB로 전환)
+# backward compat용으로 유지, 내부 로직은 MLB DB 우선 사용
 # ============================================================
 
+# DEPRECATED: load_mlb_preset("expression", id)를 사용하세요
 KBEAUTY_EXPRESSION_PRESETS = {
-    # 시크 (Chic) 계열 - 도도하고 카리스마 있는
     "chic_confident": {
         "preset": "chic_confident",
         "베이스": "cool",
@@ -62,19 +96,6 @@ KBEAUTY_EXPRESSION_PRESETS = {
         "시선": "direct",
         "입": "closed",
         "intensity": 75,
-        "detailed": {
-            "eyes": {
-                "openness": "half_lidded",  # 반쯤 감은 눈
-                "eye_corner": "upturned",  # 눈꼬리 올라감
-                "gaze_intensity": "intense_piercing",  # 강렬한 눈빛
-                "eye_smile": "none",
-            },
-            "mouth": {
-                "state": "slightly_parted",  # 살짝 벌린 입술
-                "corner": "neutral_slight_pout",  # 약간 삐죽
-            },
-            "chin": "raised",  # 턱 살짝 들기
-        },
         "prompt_text": "half-lidded eyes with upturned corners, intense piercing gaze, lips slightly parted with subtle pout, chin raised confidently, chic and unapproachable",
     },
     "chic_mysterious": {
@@ -84,22 +105,8 @@ KBEAUTY_EXPRESSION_PRESETS = {
         "시선": "past",
         "입": "closed",
         "intensity": 70,
-        "detailed": {
-            "eyes": {
-                "openness": "half_lidded",
-                "eye_corner": "neutral",
-                "gaze_intensity": "distant_dreamy",
-                "eye_smile": "none",
-            },
-            "mouth": {
-                "state": "closed",
-                "corner": "relaxed",
-            },
-            "chin": "neutral",
-        },
         "prompt_text": "half-lidded dreamy eyes gazing into distance, closed relaxed lips, mysterious and enigmatic expression",
     },
-    # 러블리 (Lovely) 계열 - 사랑스럽고 따뜻한
     "lovely_warm": {
         "preset": "lovely_warm",
         "베이스": "natural",
@@ -107,19 +114,6 @@ KBEAUTY_EXPRESSION_PRESETS = {
         "시선": "direct",
         "입": "smile",
         "intensity": 60,
-        "detailed": {
-            "eyes": {
-                "openness": "natural",
-                "eye_corner": "soft",
-                "gaze_intensity": "soft_warm",
-                "eye_smile": "present",  # 눈웃음
-            },
-            "mouth": {
-                "state": "gentle_smile",
-                "corner": "upturned",  # 입꼬리 올라감
-            },
-            "chin": "neutral_lowered",
-        },
         "prompt_text": "natural soft eyes with warm gaze, gentle eye smile, soft genuine smile with upturned corners, warm and approachable",
     },
     "lovely_dreamy": {
@@ -129,22 +123,8 @@ KBEAUTY_EXPRESSION_PRESETS = {
         "시선": "past",
         "입": "parted",
         "intensity": 55,
-        "detailed": {
-            "eyes": {
-                "openness": "slightly_wide",
-                "eye_corner": "soft_round",
-                "gaze_intensity": "soft_dreamy",
-                "eye_smile": "slight",
-            },
-            "mouth": {
-                "state": "slightly_open",
-                "corner": "soft",
-            },
-            "chin": "lowered",
-        },
         "prompt_text": "slightly wide dreamy eyes with soft round corners, soft distant gaze, lips slightly open, innocent dreamy expression",
     },
-    # 청순 (Innocent/Pure) 계열
     "innocent_pure": {
         "preset": "innocent_pure",
         "베이스": "natural",
@@ -152,22 +132,8 @@ KBEAUTY_EXPRESSION_PRESETS = {
         "시선": "direct",
         "입": "closed",
         "intensity": 50,
-        "detailed": {
-            "eyes": {
-                "openness": "wide",
-                "eye_corner": "round_soft",
-                "gaze_intensity": "clear_pure",
-                "eye_smile": "slight",
-            },
-            "mouth": {
-                "state": "closed",
-                "corner": "soft_neutral",
-            },
-            "chin": "lowered",
-        },
         "prompt_text": "wide clear eyes with round soft corners, pure innocent gaze, closed soft lips, youthful innocent expression",
     },
-    # 도도 (Haughty/Cool) 계열
     "haughty_cool": {
         "preset": "haughty_cool",
         "베이스": "serious",
@@ -175,19 +141,6 @@ KBEAUTY_EXPRESSION_PRESETS = {
         "시선": "direct",
         "입": "closed",
         "intensity": 80,
-        "detailed": {
-            "eyes": {
-                "openness": "narrow",
-                "eye_corner": "sharply_upturned",
-                "gaze_intensity": "cold_piercing",
-                "eye_smile": "none",
-            },
-            "mouth": {
-                "state": "firmly_closed",
-                "corner": "slight_downturn",
-            },
-            "chin": "raised_high",
-        },
         "prompt_text": "narrow cold eyes with sharply upturned corners, piercing icy gaze, firmly closed lips with slight downturn, chin raised high, haughty unapproachable",
     },
     "haughty_elegant": {
@@ -197,22 +150,8 @@ KBEAUTY_EXPRESSION_PRESETS = {
         "시선": "side",
         "입": "closed",
         "intensity": 75,
-        "detailed": {
-            "eyes": {
-                "openness": "half_lidded",
-                "eye_corner": "upturned",
-                "gaze_intensity": "superior_distant",
-                "eye_smile": "none",
-            },
-            "mouth": {
-                "state": "closed",
-                "corner": "neutral",
-            },
-            "chin": "raised",
-        },
         "prompt_text": "half-lidded eyes gazing sideways, upturned corners with superior distant look, closed neutral lips, elegant and untouchable",
     },
-    # 내추럴 (Natural) 계열
     "natural_relaxed": {
         "preset": "natural_relaxed",
         "베이스": "natural",
@@ -220,26 +159,18 @@ KBEAUTY_EXPRESSION_PRESETS = {
         "시선": "direct",
         "입": "parted",
         "intensity": 45,
-        "detailed": {
-            "eyes": {
-                "openness": "natural",
-                "eye_corner": "natural",
-                "gaze_intensity": "soft_natural",
-                "eye_smile": "none",
-            },
-            "mouth": {
-                "state": "naturally_parted",
-                "corner": "relaxed",
-            },
-            "chin": "neutral",
-        },
         "prompt_text": "natural relaxed eyes with soft gaze, lips naturally parted, effortlessly natural expression",
     },
 }
 
 
 def get_expression_preset(preset_name: str) -> Optional[dict]:
-    """프리셋 이름으로 표정 데이터 조회"""
+    """프리셋 이름으로 표정 데이터 조회 (MLB DB 우선, KBEAUTY 폴백)"""
+    # MLB DB에서 먼저 검색
+    mlb_preset = load_mlb_preset("expression", preset_name)
+    if mlb_preset:
+        return mlb_preset
+    # KBEAUTY 폴백 (legacy 호환)
     return KBEAUTY_EXPRESSION_PRESETS.get(preset_name)
 
 
@@ -417,8 +348,20 @@ def infer_styling_from_state(state: str, category: str) -> str:
     return "정상착용"
 
 
+def _extract_stance_from_analysis(
+    pose_analysis: Union[dict, "PoseAnalysisResult", None],
+) -> str:
+    """pose_analysis에서 stance 추출 (새/레거시 타입 모두 지원)"""
+    if pose_analysis is None:
+        return ""
+    if isinstance(pose_analysis, PoseAnalysisResult):
+        return pose_analysis.stance
+    # legacy dict
+    return pose_analysis.get("pose", {}).get("stance", "")
+
+
 # ============================================================
-# 한국어 프롬프트 템플릿
+# 한국어 프롬프트 템플릿 (동적 섹션 포함)
 # ============================================================
 
 KOREAN_PROMPT_TEMPLATE = """
@@ -426,6 +369,12 @@ KOREAN_PROMPT_TEMPLATE = """
 
 [착장] - 반드시 모든 아이템 포함!
 {outfit_section}
+
+{pose_section}
+
+{expression_section}
+
+{camera_section}
 
 [분위기]
 {mood_section}
@@ -458,8 +407,130 @@ MOMENT_TEMPLATES = {
     "stand": "서 있는 자연스러운 순간. 포즈가 아니라 쉬는 느낌.",
     "walk": "걷다가 멈춘 찰나. 자연스러운 움직임 포착.",
     "lean": "기대어 쉬고 있는 순간. 여유로운 분위기.",
+    "lean_wall": "기대어 쉬고 있는 순간. 여유로운 분위기.",
     "sit": "앉아서 생각에 잠긴 순간. 자연스러운 휴식.",
+    "kneel": "무릎 꿇은 자세의 순간. 강렬한 포즈.",
 }
+
+
+# ============================================================
+# 동적 섹션 빌더
+# ============================================================
+
+
+def _build_pose_section(
+    pose_analysis: Union[dict, "PoseAnalysisResult", None],
+) -> str:
+    """포즈 섹션 빌드 (PoseAnalysisResult 또는 legacy dict)"""
+    if pose_analysis is None:
+        return ""
+
+    if isinstance(pose_analysis, PoseAnalysisResult):
+        return f"[포즈]\n{pose_analysis.to_prompt_text()}"
+
+    # legacy dict
+    pose = pose_analysis.get("pose", {})
+    if not pose:
+        return ""
+
+    lines = ["[포즈]"]
+    if pose.get("stance"):
+        lines.append(f"- 자세: {pose['stance']}")
+    for key in [
+        "left_arm",
+        "right_arm",
+        "left_hand",
+        "right_hand",
+        "left_leg",
+        "right_leg",
+        "hip",
+    ]:
+        val = pose.get(key)
+        if val:
+            lines.append(f"- {key}: {val}")
+
+    return "\n".join(lines)
+
+
+def _build_dynamic_expression_section(
+    expression_analysis: Union["ExpressionAnalysisResult", None],
+    pose_analysis: Union[dict, "PoseAnalysisResult", None],
+    user_options: dict,
+) -> str:
+    """표정 섹션 (동적) - ExpressionAnalysisResult 우선"""
+    if isinstance(expression_analysis, ExpressionAnalysisResult):
+        return f"[표정]\n{expression_analysis.to_prompt_text()}"
+
+    # pose_analysis dict에서 expression 추출 (legacy)
+    expr_dict = _build_expression_section(pose_analysis, user_options)
+    if not expr_dict:
+        return ""
+
+    lines = ["[표정]"]
+    for key, val in expr_dict.items():
+        if not key.startswith("_") and key not in (
+            "detailed",
+            "prompt_text",
+            "intensity",
+        ):
+            lines.append(f"- {key}: {val}")
+
+    return "\n".join(lines)
+
+
+def _build_camera_section(
+    pose_analysis: Union[dict, "PoseAnalysisResult", None],
+    user_options: dict,
+) -> dict:
+    """촬영 섹션 빌드 (PoseAnalysisResult 또는 legacy dict)"""
+    if isinstance(pose_analysis, PoseAnalysisResult):
+        return {
+            "프레이밍": pose_analysis.framing
+            or user_options.get("촬영.프레이밍", "MS"),
+            "렌즈": user_options.get("촬영.렌즈", "50mm"),
+            "앵글": pose_analysis.camera_angle
+            or user_options.get("촬영.앵글", "3/4측면"),
+            "높이": pose_analysis.camera_height
+            or user_options.get("촬영.높이", "눈높이"),
+        }
+
+    # legacy dict
+    camera = pose_analysis.get("camera", {}) if pose_analysis else {}
+
+    height_raw = camera.get("camera_height", "")
+    if "low" in height_raw.lower():
+        height = "로우앵글"
+    elif "high" in height_raw.lower():
+        height = "하이앵글"
+    else:
+        height = "눈높이"
+
+    framing_raw = camera.get("framing", "")
+    if "full" in framing_raw.lower() or "FS" in framing_raw:
+        framing = "FS"
+    elif "knee" in framing_raw.lower() or "MFS" in framing_raw:
+        framing = "MFS"
+    else:
+        framing = user_options.get("촬영.프레이밍", "MS")
+
+    return {
+        "프레이밍": framing,
+        "렌즈": user_options.get("촬영.렌즈", "50mm"),
+        "앵글": user_options.get("촬영.앵글", "3/4측면"),
+        "높이": height,
+    }
+
+
+def _build_camera_section_text(
+    pose_analysis: Union[dict, "PoseAnalysisResult", None],
+    user_options: dict,
+) -> str:
+    """촬영 섹션 텍스트 빌드"""
+    camera = _build_camera_section(pose_analysis, user_options)
+    lines = ["[촬영]"]
+    for key, val in camera.items():
+        lines.append(f"- {key}: {val}")
+    return "\n".join(lines)
 
 
 # ============================================================
@@ -469,18 +540,21 @@ MOMENT_TEMPLATES = {
 
 def build_prompt(
     outfit_analysis: OutfitAnalysis,
-    pose_analysis: Optional[dict] = None,
+    pose_analysis: Union[dict, "PoseAnalysisResult", None] = None,
+    expression_analysis: Union["ExpressionAnalysisResult", None] = None,
     mood_analysis: Optional[dict] = None,
     user_options: Optional[dict] = None,
 ) -> dict:
     """
-    통합 프롬프트 빌더 (v2)
+    통합 프롬프트 빌더 (v2.1)
 
     JSON 스키마 + 한국어 자연어를 모두 포함하는 프롬프트 생성.
+    PoseAnalysisResult / ExpressionAnalysisResult 타입 지원.
 
     Args:
         outfit_analysis: OutfitAnalysis 객체
-        pose_analysis: 포즈/표정 분석 결과 (선택)
+        pose_analysis: PoseAnalysisResult 또는 legacy dict (선택)
+        expression_analysis: ExpressionAnalysisResult (선택, 새 타입)
         mood_analysis: 무드/분위기 분석 결과 (선택)
         user_options: 사용자 추가 옵션
 
@@ -488,6 +562,21 @@ def build_prompt(
         dict: 프롬프트 JSON (korean_prompt 필드 포함)
     """
     user_options = user_options or {}
+
+    # pose_analysis dict 안에 _expression_result가 있으면 추출
+    if (
+        expression_analysis is None
+        and isinstance(pose_analysis, dict)
+        and "_expression_result" in pose_analysis
+    ):
+        expression_analysis = pose_analysis["_expression_result"]
+
+    # pose_analysis dict 안에 _pose_result가 있으면 추출
+    _pose_result = None
+    if isinstance(pose_analysis, dict) and "_pose_result" in pose_analysis:
+        _pose_result = pose_analysis["_pose_result"]
+    elif isinstance(pose_analysis, PoseAnalysisResult):
+        _pose_result = pose_analysis
 
     # 1. 착장 섹션 빌드
     outfit_section_lines = []
@@ -546,10 +635,9 @@ def build_prompt(
     mood_parts = []
 
     # 포즈 정보
-    if pose_analysis:
-        stance = pose_analysis.get("pose", {}).get("stance", "")
-        if stance:
-            mood_parts.append(f"자세: {stance}")
+    stance = _extract_stance_from_analysis(pose_analysis)
+    if stance:
+        mood_parts.append(f"자세: {stance}")
 
     # 무드 정보
     if mood_analysis:
@@ -566,17 +654,17 @@ def build_prompt(
 
     # stance에서 순간 템플릿 선택
     moment_type = "stand"
-    if pose_analysis:
-        stance = pose_analysis.get("pose", {}).get("stance", "").lower()
-        if "lean" in stance:
-            moment_type = "lean"
-        elif "sit" in stance:
-            moment_type = "sit"
-        elif "walk" in stance:
-            moment_type = "walk"
+    stance_lower = stance.lower() if stance else ""
+    if "lean" in stance_lower:
+        moment_type = "lean"
+    elif "sit" in stance_lower:
+        moment_type = "sit"
+    elif "walk" in stance_lower:
+        moment_type = "walk"
+    elif "kneel" in stance_lower:
+        moment_type = "kneel"
 
     mood_parts.append(MOMENT_TEMPLATES.get(moment_type, MOMENT_TEMPLATES["stand"]))
-
     mood_section = "\n".join(mood_parts)
 
     # 3. 모델 정보
@@ -584,11 +672,9 @@ def build_prompt(
     model_desc = f"이 얼굴의 한국인 {'여성' if gender == 'female' else '남성'} 모델."
 
     # 4. 네거티브 프롬프트 조정 (표정 프리셋에 따라)
-    # 러블리/따뜻한 표정 프리셋은 smile 금지를 제거해야 함
     preset_name = user_options.get("표정.프리셋") or user_options.get("표정.preset")
     negative_prompt = MLB_BRAND_DNA["negative"]
 
-    # 따뜻한 표정 프리셋 목록 (smile이 필요한 표정들)
     WARM_EXPRESSION_PRESETS = [
         "lovely_warm",
         "lovely_dreamy",
@@ -597,22 +683,33 @@ def build_prompt(
     ]
 
     if preset_name in WARM_EXPRESSION_PRESETS:
-        # smile 관련 금지 제거
         negative_prompt = negative_prompt.replace("bright smile, ", "")
         negative_prompt = negative_prompt.replace("teeth showing, ", "")
         print(
             f"[PROMPT] Warm expression preset '{preset_name}' - smile restriction removed"
         )
 
-    # 5. 한국어 프롬프트 생성
+    # 5. 동적 포즈/표정/촬영 섹션 빌드
+    pose_section = _build_pose_section(_pose_result or pose_analysis)
+    expression_section_text = _build_dynamic_expression_section(
+        expression_analysis, pose_analysis, user_options
+    )
+    camera_section_text = _build_camera_section_text(
+        _pose_result or pose_analysis, user_options
+    )
+
+    # 6. 한국어 프롬프트 생성
     korean_prompt = KOREAN_PROMPT_TEMPLATE.format(
         model_desc=model_desc,
         outfit_section=outfit_section,
+        pose_section=pose_section,
+        expression_section=expression_section_text,
+        camera_section=camera_section_text,
         mood_section=mood_section,
         negative=negative_prompt,
     )
 
-    # 6. JSON 구조 빌드
+    # 7. JSON 구조 빌드
     prompt_json = {
         # 한국어 프롬프트 (최우선 사용)
         "korean_prompt": korean_prompt,
@@ -635,72 +732,49 @@ def build_prompt(
         "_brand_dna": MLB_BRAND_DNA,
     }
 
-    # 표정 정보 추가 (프리셋 우선, pose_analysis 그 다음, 마지막으로 랜덤)
-    # user_options에 프리셋이 있거나 pose_analysis에 expression이 있으면 빌드
-    has_preset = user_options.get("표정.프리셋") or user_options.get("표정.preset")
-    has_pose_expr = pose_analysis and "expression" in pose_analysis
-    if has_preset or has_pose_expr:
-        prompt_json["표정"] = _build_expression_section(pose_analysis, user_options)
+    # 표정 정보 추가
+    if isinstance(expression_analysis, ExpressionAnalysisResult):
+        prompt_json["표정"] = expression_analysis.to_preset_format()
     else:
-        random_expr = get_random_expression()
-        prompt_json["표정"] = random_expr
+        has_preset = user_options.get("표정.프리셋") or user_options.get("표정.preset")
+        has_pose_expr = (
+            isinstance(pose_analysis, dict) and "expression" in pose_analysis
+        )
+        if has_preset or has_pose_expr:
+            prompt_json["표정"] = _build_expression_section(pose_analysis, user_options)
+        else:
+            prompt_json["표정"] = get_random_expression()
 
     # 포즈 정보 추가
-    if pose_analysis:
+    if isinstance(_pose_result, PoseAnalysisResult):
+        prompt_json["포즈"] = _pose_result.to_preset_format()
+        prompt_json["촬영"] = _build_camera_section(_pose_result, user_options)
+    elif isinstance(pose_analysis, dict) and "pose" in pose_analysis:
         prompt_json["포즈"] = pose_analysis.get("pose", {})
         prompt_json["촬영"] = _build_camera_section(pose_analysis, user_options)
 
     return prompt_json
 
 
-def _build_camera_section(pose_analysis: Optional[dict], user_options: dict) -> dict:
-    """촬영 섹션 빌드"""
-    camera = pose_analysis.get("camera", {}) if pose_analysis else {}
-
-    height_raw = camera.get("camera_height", "")
-    if "low" in height_raw.lower():
-        height = "로우앵글"
-    elif "high" in height_raw.lower():
-        height = "하이앵글"
-    else:
-        height = "눈높이"
-
-    framing_raw = camera.get("framing", "")
-    if "full" in framing_raw.lower() or "FS" in framing_raw:
-        framing = "FS"
-    elif "knee" in framing_raw.lower() or "MFS" in framing_raw:
-        framing = "MFS"
-    else:
-        framing = user_options.get("촬영.프레이밍", "MS")
-
-    return {
-        "프레이밍": framing,
-        "렌즈": user_options.get("촬영.렌즈", "50mm"),
-        "앵글": user_options.get("촬영.앵글", "3/4측면"),
-        "높이": height,
-    }
-
-
 def _build_expression_section(
-    pose_analysis: Optional[dict], user_options: dict
+    pose_analysis: Union[dict, None], user_options: dict
 ) -> dict:
-    """표정 섹션 빌드 (K-Beauty 프리셋 지원)"""
+    """표정 섹션 빌드 (MLB DB 프리셋 / KBEAUTY 폴백)"""
 
-    # 1. 먼저 user_options에서 프리셋 확인
+    # 1. user_options에서 프리셋 확인
     preset_name = user_options.get("표정.프리셋") or user_options.get("표정.preset")
     if preset_name:
         preset = get_expression_preset(preset_name)
         if preset:
-            # 프리셋 기반 표정 반환
             result = {
                 "베이스": preset.get("베이스", "cool"),
                 "바이브": preset.get("바이브", "mysterious"),
-                "시선": preset.get("시선", "direct"),
-                "입": preset.get("입", "closed"),
+                "시선": preset.get("시선", "정면"),
+                "입": preset.get("입", "다문"),
             }
-            # 상세 정보가 있으면 추가
-            if preset.get("detailed"):
-                result["detailed"] = preset["detailed"]
+            # 상세 정보
+            if preset.get("눈"):
+                result["눈"] = preset["눈"]
             if preset.get("prompt_text"):
                 result["prompt_text"] = preset["prompt_text"]
             if preset.get("intensity"):
@@ -708,12 +782,16 @@ def _build_expression_section(
             return result
 
     # 2. pose_analysis에서 표정 정보 확인
-    expression = pose_analysis.get("expression", {}) if pose_analysis else {}
+    if pose_analysis is None:
+        return get_random_expression()
+
+    expression = pose_analysis.get("expression", {})
 
     if not expression:
         return get_random_expression()
 
-    mood_raw = expression.get("mood", "")
+    # legacy expression dict에서 변환
+    mood_raw = expression.get("mood", expression.get("베이스", ""))
     if "cool" in mood_raw.lower() or "confident" in mood_raw.lower():
         base = "cool"
     elif "dreamy" in mood_raw.lower():
@@ -723,16 +801,20 @@ def _build_expression_section(
     else:
         base = "cool"
 
-    mouth_raw = expression.get("mouth", "")
-    if "open" in mouth_raw.lower() or "parted" in mouth_raw.lower():
+    mouth_raw = expression.get("mouth", expression.get("입", ""))
+    if (
+        "open" in mouth_raw.lower()
+        or "parted" in mouth_raw.lower()
+        or "벌림" in mouth_raw
+    ):
         mouth = "parted"
     else:
         mouth = "closed"
 
     return {
         "베이스": base,
-        "바이브": expression.get("mood", "mysterious"),
-        "시선": "direct",
+        "바이브": expression.get("mood", expression.get("바이브", "mysterious")),
+        "시선": expression.get("시선", "direct"),
         "입": mouth,
     }
 
@@ -760,7 +842,7 @@ def enhance_prompt_for_retry(
     """
     enhanced = original_prompt.copy()
 
-    # 착장 실패 → 착장 프롬프트만 강화
+    # 착장 실패
     if "outfit_accuracy" in failed_criteria:
         outfit_reason = reasons.get("outfit_accuracy", "")
         outfit_fix = f"""
@@ -775,7 +857,7 @@ def enhance_prompt_for_retry(
 """
         enhanced["_outfit_enhancement"] = outfit_fix
 
-    # 얼굴 실패 → 얼굴 프롬프트만 강화
+    # 얼굴 실패
     if "face_identity" in failed_criteria:
         face_reason = reasons.get("face_identity", "")
         face_fix = f"""
@@ -791,7 +873,7 @@ def enhance_prompt_for_retry(
 """
         enhanced["_face_enhancement"] = face_fix
 
-    # 브랜드 톤 실패 → 브랜드 프롬프트만 강화
+    # 브랜드 톤 실패
     if "brand_compliance" in failed_criteria or "brand_vibe" in failed_criteria:
         brand_reason = reasons.get("brand_compliance", "") or reasons.get(
             "brand_vibe", ""
@@ -808,7 +890,7 @@ MLB 브랜드 DNA를 정확히 반영:
 """
         enhanced["_brand_enhancement"] = brand_fix
 
-    # 미감 실패 → 미감 프롬프트만 강화
+    # 미감 실패
     if "aesthetic_appeal" in failed_criteria:
         aesthetic_reason = reasons.get("aesthetic_appeal", "")
         aesthetic_fix = f"""
@@ -823,7 +905,7 @@ MLB 브랜드 DNA를 정확히 반영:
 """
         enhanced["_aesthetic_enhancement"] = aesthetic_fix
 
-    # 포즈 실패 → 포즈 프롬프트만 강화
+    # 포즈 실패
     if "pose_quality" in failed_criteria:
         pose_reason = reasons.get("pose_quality", "")
         pose_fix = f"""
@@ -856,12 +938,9 @@ def build_prompt_with_director(
     """
     Director Analysis 기반 프롬프트 빌더 (A급 품질 향상용)
 
-    director_json 또는 micro_instructions가 제공되면
-    해당 micro-instruction을 프롬프트에 포함하여 A급 수준 달성.
-
     Args:
         outfit_analysis: OutfitAnalysis 객체
-        director_json: director_analysis JSON (선택, 직접 전달)
+        director_json: director_analysis JSON (선택)
         micro_instructions: 미리 변환된 micro-instruction 문자열 (선택)
         mood_analysis: 무드/분위기 분석 결과 (선택)
         user_options: 사용자 추가 옵션
@@ -871,18 +950,21 @@ def build_prompt_with_director(
     """
     # director_json이 있으면 pose_analysis 형태로 변환
     pose_analysis = None
+    expression_analysis = None
     if director_json:
         pose_analysis = _director_to_pose_analysis(director_json)
+        expression_analysis = _director_to_expression_analysis(director_json)
 
     # 기본 프롬프트 빌드
     prompt_json = build_prompt(
         outfit_analysis=outfit_analysis,
         pose_analysis=pose_analysis,
+        expression_analysis=expression_analysis,
         mood_analysis=mood_analysis,
         user_options=user_options,
     )
 
-    # micro_instructions가 직접 제공되면 사용, 아니면 director_json에서 생성
+    # micro_instructions 처리
     if micro_instructions:
         prompt_json["micro_instructions"] = micro_instructions
     elif director_json:
@@ -913,7 +995,7 @@ def build_prompt_with_director(
 
         prompt_json["micro_instructions"] = "\n\n".join(micro_parts)
 
-    # director_json 원본도 저장 (디버깅/검증용)
+    # director_json 원본도 저장
     if director_json:
         prompt_json["_director_json"] = director_json
 
@@ -926,7 +1008,7 @@ def _director_to_pose_analysis(director_json: dict) -> dict:
     pose = director_json.get("pose", {})
     expression = director_json.get("expression", {})
 
-    # 카메라 높이 → 앵글
+    # 카메라 높이
     height_cm = camera.get("camera_height_cm", 100)
     if height_cm < 50:
         camera_height = "low angle"
@@ -964,13 +1046,42 @@ def _director_to_pose_analysis(director_json: dict) -> dict:
     }
 
 
+def _director_to_expression_analysis(
+    director_json: dict,
+) -> Optional[ExpressionAnalysisResult]:
+    """director_json에서 ExpressionAnalysisResult 변환"""
+    expression = director_json.get("expression", {})
+    if not expression:
+        return None
+
+    mood = expression.get("overall_expression", "cool")
+    mouth_state = expression.get("mouth_state", "closed_neutral")
+
+    # mouth_state -> 입
+    if "parted" in mouth_state.lower() or "open" in mouth_state.lower():
+        mouth = "살짝 벌림(3mm)"
+    else:
+        mouth = "다문"
+
+    return ExpressionAnalysisResult(
+        베이스=mood,
+        눈=f"큰 아몬드눈, {expression.get('attractiveness_vibe', 'cool')} 눈빛",
+        시선="정면",
+        입=mouth,
+        얼굴각도="3/4",
+        턱="자연스러운",
+        is_wink=False,
+        wink_eye="",
+    )
+
+
 __all__ = [
     "build_prompt",
     "build_prompt_with_director",
     "enhance_prompt_for_retry",
     "MLB_BRAND_DNA",
     "get_random_expression",
-    # K-Beauty 표정 프리셋
+    # K-Beauty 표정 프리셋 (DEPRECATED - MLB DB 사용 권장)
     "KBEAUTY_EXPRESSION_PRESETS",
     "get_expression_preset",
 ]

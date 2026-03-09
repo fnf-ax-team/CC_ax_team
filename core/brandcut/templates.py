@@ -1,7 +1,7 @@
 """
 브랜드컷 VLM 프롬프트 템플릿 모듈
 
-착장/포즈/무드 분석 및 API 전송용 지시문 템플릿 제공
+착장/포즈 분석 및 API 전송용 지시문 템플릿 제공
 """
 
 # 착장 분석용 프롬프트 (모든 착장 이미지 대상)
@@ -26,7 +26,9 @@ JSON 형식으로 출력:
 """
 
 
-# 포즈/표정 레퍼런스 분석용 (상세 추출)
+# [DEPRECATED] 포즈/표정 레퍼런스 분석용 (상세 추출)
+# → PoseAnalyzer + ExpressionAnalyzer (core.ai_influencer) 로 대체됨
+# → 삭제하지 않음 (하위 호환)
 POSE_EXPRESSION_ANALYSIS_PROMPT = """
 이 이미지에서 포즈와 표정을 **아주 상세하게** 분석하세요.
 생성 AI가 **똑같이 따라할 수 있도록** 왼쪽/오른쪽을 구분하여 구체적으로 설명해야 합니다.
@@ -201,71 +203,6 @@ POSE_EXPRESSION_ANALYSIS_PROMPT = """
 """
 
 
-# 무드/분위기 레퍼런스 분석용
-MOOD_ANALYSIS_PROMPT = """
-이 이미지의 무드와 분위기를 **아주 상세하게** 분석하세요.
-생성 AI가 **똑같은 분위기를 재현**할 수 있도록 구체적으로 설명해야 합니다.
-
-## 추출할 정보
-
-### [조명 상세]
-- 조명 타입: 자연광 / 스튜디오 / 혼합
-- 조명 방향: 정면 / 왼쪽 45도 / 오른쪽 45도 / 역광 / 탑라이트 / 언더라이트
-- 조명 품질: 소프트(부드러운 그림자) / 하드(날카로운 그림자)
-- 색온도: 쿨(청색 5600K+) / 뉴트럴(5000-5600K) / 웜(따뜻한 4000K 이하)
-- 그림자 강도: 없음 / 약함 / 중간 / 강함
-
-### [색감/톤]
-- 전체 색감: 쿨톤 / 뉴트럴 / 웜톤
-- 채도: 높음 / 중간 / 낮음 / 무채색
-- 콘트라스트: 높음 / 중간 / 낮음
-- 하이라이트: 밝음 / 중간 / 어두움
-- 색상 캐스트: 없음 / 블루 / 청록 / 핑크 / 옐로우 (절대 없어야 하면 명시)
-
-### [배경/환경]
-- 배경 타입: 실내 / 실외 / 스튜디오
-- 배경 스타일: 미니멀 / 산업적 / 럭셔리 / 도시 / 자연
-- 배경 요소: 있는 것들 나열 (차량, 건물, 콘크리트 등)
-- 배경 선명도: 선명 / 약간 흐림 / 많이 흐림(보케)
-
-### [전체 무드]
-- 분위기: cool / warm / dreamy / natural / edgy / elegant / playful / serious
-- 브랜드 느낌: high-end / casual / street / sporty / luxurious
-- 시간대 느낌: 새벽 / 아침 / 낮 / 저녁 / 밤
-
-## JSON 출력 (반드시 이 형식으로):
-{
-  "lighting": {
-    "type": "natural daylight, overcast sky",
-    "direction": "soft front-left 45 degrees",
-    "quality": "soft, diffused",
-    "color_temperature": "neutral to cool (5600K-6000K)",
-    "shadow_intensity": "soft, subtle shadows"
-  },
-  "color_grade": {
-    "overall_tone": "cool neutral",
-    "saturation": "medium-low, desaturated",
-    "contrast": "medium",
-    "highlights": "clean, bright",
-    "color_cast": "none, absolutely no warm/yellow cast"
-  },
-  "background": {
-    "type": "outdoor urban",
-    "style": "industrial minimal, brutalist",
-    "elements": "black SUV, concrete pavement, modern architecture",
-    "blur": "sharp foreground, slightly blurred background"
-  },
-  "mood": {
-    "atmosphere": "cool, confident, urban chic",
-    "brand_feel": "high-end streetwear, young & rich",
-    "time_feel": "daytime, neutral lighting"
-  },
-  "keywords": ["editorial", "high-end", "confident", "urban", "cool", "clean"],
-  "prompt_text": "Urban outdoor setting with black SUV. Neutral-cool daylight, soft diffused lighting from front-left. Clean cool tones, no warm color cast. Industrial minimal background with modern architecture. High-end streetwear editorial mood."
-}
-"""
-
-
 # 표정 레퍼런스 API 전송 시 사용하는 지시문 태그
 # 얼굴 이미지와 별개로 표정/무드만 복사하도록 지시
 EXPRESSION_REFERENCE_TAG = """
@@ -332,7 +269,6 @@ CRITICAL:
 __all__ = [
     "OUTFIT_ANALYSIS_PROMPT",
     "POSE_EXPRESSION_ANALYSIS_PROMPT",
-    "MOOD_ANALYSIS_PROMPT",
     "POSE_REFERENCE_TAG",
     "EXPRESSION_REFERENCE_TAG",
 ]

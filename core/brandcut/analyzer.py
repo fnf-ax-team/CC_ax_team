@@ -3,34 +3,38 @@ VLM 기반 분석 모듈 (Composition 패턴)
 
 기존 core/outfit_analyzer.py를 래핑하여 확장.
 - 착장 분석: OutfitAnalyzer 재사용
-- 포즈/표정 분석: 신규 추가
-- 무드/분위기 분석: 신규 추가
+- 포즈 분석: PoseAnalyzer 재사용 (인플루언서 모듈)
+- 표정 분석: ExpressionAnalyzer 재사용 (인플루언서 모듈)
 """
 
 from PIL import Image
 from google import genai
 from core.outfit_analyzer import OutfitAnalyzer, OutfitAnalysis
-from core.config import VISION_MODEL
-from .templates import (
-    POSE_EXPRESSION_ANALYSIS_PROMPT,
-    MOOD_ANALYSIS_PROMPT,
+from core.ai_influencer.pose_analyzer import (
+    PoseAnalyzer,
+    PoseAnalysisResult,
 )
-import json
-import re
+from core.ai_influencer.expression_analyzer import (
+    ExpressionAnalyzer,
+    ExpressionAnalysisResult,
+)
 
 
 class BrandcutAnalyzer:
     """브랜드컷 전용 분석기 (OutfitAnalyzer 래핑)"""
 
-    def __init__(self, client):
+    def __init__(self, client=None):
         """
         초기화
 
         Args:
-            client: Google GenAI client instance
+            client: Google GenAI client instance (optional, legacy 호환)
         """
         self.client = client
-        self._outfit_analyzer = OutfitAnalyzer(client)  # 재사용
+        if client:
+            self._outfit_analyzer = OutfitAnalyzer(client)
+        else:
+            self._outfit_analyzer = None
 
     def analyze_outfit(self, images: list) -> OutfitAnalysis:
         """
@@ -42,175 +46,109 @@ class BrandcutAnalyzer:
         Returns:
             OutfitAnalysis with all extracted information
         """
+        if self._outfit_analyzer is None:
+            raise ValueError("OutfitAnalyzer requires a client instance")
         return self._outfit_analyzer.analyze(images)
 
-    def analyze_pose_expression(self, image) -> dict:
+    def analyze_pose(self, image, api_key=None) -> PoseAnalysisResult:
         """
-        포즈/표정 레퍼런스 분석 → JSON 반환
+        포즈 분석 - PoseAnalyzer 위임
 
         Args:
             image: Image path (str) or PIL.Image object
+            api_key: Gemini API key (None이면 자동 로드)
+
+        Returns:
+            PoseAnalysisResult
+        """
+        analyzer = PoseAnalyzer(api_key=api_key)
+        return analyzer.analyze(image)
+
+    def analyze_expression(self, image, api_key=None) -> ExpressionAnalysisResult:
+        """
+        표정 분석 - ExpressionAnalyzer 위임
+
+        Args:
+            image: Image path (str) or PIL.Image object
+            api_key: Gemini API key (None이면 자동 로드)
+
+        Returns:
+            ExpressionAnalysisResult
+        """
+        analyzer = ExpressionAnalyzer(api_key=api_key)
+        return analyzer.analyze(image)
+
+    def analyze_pose_expression(self, image, api_key=None) -> dict:
+        """
+        포즈/표정 레퍼런스 분석 (backward compatible)
+
+        내부에서 PoseAnalyzer + ExpressionAnalyzer를 호출하고,
+        기존 dict 형식으로 반환 + _pose_result / _expression_result 키 추가.
+
+        Args:
+            image: Image path (str) or PIL.Image object
+            api_key: Gemini API key (None이면 자동 로드)
 
         Returns:
             dict: {
                 "pose": {...},
                 "expression": {...},
                 "camera": {...},
-                "prompt_text": str
+                "prompt_text": str,
+                "_pose_result": PoseAnalysisResult,
+                "_expression_result": ExpressionAnalysisResult,
             }
         """
-        # 이미지 로드
-        if isinstance(image, str):
-            try:
-                pil_image = Image.open(image)
-            except Exception as e:
-                print(f"Error loading image {image}: {e}")
-                return self._get_fallback_pose_analysis()
-        else:
-            pil_image = image
+        # 포즈 분석
+        pose_result = self.analyze_pose(image, api_key=api_key)
 
-        # VLM 호출
-        try:
-            response = self.client.models.generate_content(
-                model=VISION_MODEL,
-                contents=[POSE_EXPRESSION_ANALYSIS_PROMPT, pil_image],
-            )
+        # 표정 분석
+        expr_result = self.analyze_expression(image, api_key=api_key)
 
-            response_text = response.text.strip()
-
-            # JSON 파싱
-            data = self._parse_json_response(response_text)
-
-            # 필수 키 검증
-            if not all(k in data for k in ["pose", "expression", "camera"]):
-                print("Warning: Missing required keys in pose analysis")
-                return self._get_fallback_pose_analysis()
-
-            return data
-
-        except Exception as e:
-            print(f"Error during pose/expression analysis: {e}")
-            return self._get_fallback_pose_analysis()
-
-    def analyze_mood(self, image) -> dict:
-        """
-        무드/분위기 레퍼런스 분석 → JSON 반환
-
-        Args:
-            image: Image path (str) or PIL.Image object
-
-        Returns:
-            dict: {
-                "mood": str,
-                "lighting": str,
-                "color_grade": str,
-                "background_feel": str,
-                "keywords": list,
-                "prompt_text": str
-            }
-        """
-        # 이미지 로드
-        if isinstance(image, str):
-            try:
-                pil_image = Image.open(image)
-            except Exception as e:
-                print(f"Error loading image {image}: {e}")
-                return self._get_fallback_mood_analysis()
-        else:
-            pil_image = image
-
-        # VLM 호출
-        try:
-            response = self.client.models.generate_content(
-                model=VISION_MODEL, contents=[MOOD_ANALYSIS_PROMPT, pil_image]
-            )
-
-            response_text = response.text.strip()
-
-            # JSON 파싱
-            data = self._parse_json_response(response_text)
-
-            # 필수 키 검증
-            if not all(k in data for k in ["mood", "lighting", "color_grade"]):
-                print("Warning: Missing required keys in mood analysis")
-                return self._get_fallback_mood_analysis()
-
-            return data
-
-        except Exception as e:
-            print(f"Error during mood analysis: {e}")
-            return self._get_fallback_mood_analysis()
-
-    def _parse_json_response(self, response_text: str) -> dict:
-        """JSON 응답 파싱 (마크다운 코드 블록 제거)"""
-        # Try to extract JSON from markdown code blocks
-        json_match = re.search(
-            r"```(?:json)?\s*(\{.*?\})\s*```", response_text, re.DOTALL
-        )
-        if json_match:
-            response_text = json_match.group(1)
-
-        # Try to parse JSON
-        try:
-            return json.loads(response_text)
-        except json.JSONDecodeError as e:
-            print(f"JSON parse error: {e}")
-            print(f"Response text: {response_text[:500]}")
-
-            # Try to find JSON object in text
-            start_idx = response_text.find("{")
-            end_idx = response_text.rfind("}")
-
-            if start_idx != -1 and end_idx != -1 and start_idx < end_idx:
-                try:
-                    return json.loads(response_text[start_idx : end_idx + 1])
-                except json.JSONDecodeError:
-                    pass
-
-            # Return empty dict on failure
-            return {}
-
-    def _get_fallback_pose_analysis(self) -> dict:
-        """포즈 분석 실패 시 폴백"""
-        return {
-            "pose": {
-                "stance": "standing naturally",
-                "weight": "evenly distributed",
-                "legs": "feet shoulder-width apart",
-                "arms": "relaxed at sides",
-                "shoulders": "level and relaxed",
-                "head": "straight, looking forward",
-            },
-            "expression": {
-                "eyes": "natural, open",
-                "eyebrows": "relaxed",
-                "mouth": "closed, neutral",
-                "mood": "natural, confident",
-            },
-            "camera": {
-                "gaze": "looking at camera",
-                "angle": "eye level",
-                "framing": "MFS (mid-full shot)",
-            },
-            "prompt_text": "standing naturally with confident expression, eye-level shot, mid-full shot framing",
+        # legacy dict 형식으로 변환
+        pose_dict = {
+            "stance": pose_result.stance,
+            "left_arm": pose_result.left_arm,
+            "right_arm": pose_result.right_arm,
+            "left_hand": pose_result.left_hand,
+            "right_hand": pose_result.right_hand,
+            "left_leg": pose_result.left_leg,
+            "right_leg": pose_result.right_leg,
+            "hip": pose_result.hip,
+            "torso_tilt": pose_result.torso_tilt,
+            "shoulder_line": pose_result.shoulder_line,
+            "face_direction": pose_result.face_direction,
         }
 
-    def _get_fallback_mood_analysis(self) -> dict:
-        """무드 분석 실패 시 폴백"""
+        expression_dict = expr_result.to_preset_format()
+
+        camera_dict = {
+            "camera_height": pose_result.camera_height,
+            "framing": pose_result.framing,
+            "camera_angle": pose_result.camera_angle,
+        }
+
+        # prompt_text 조합
+        prompt_text = (
+            f"{pose_result.summary or pose_result.stance}, "
+            f"{expr_result.to_prompt_text()}"
+        )
+
         return {
-            "mood": "natural, clean",
-            "lighting": "soft natural daylight",
-            "color_grade": "cool neutral tones, clean",
-            "background_feel": "minimal, modern",
-            "keywords": ["natural", "clean", "modern", "minimal"],
-            "prompt_text": "natural clean atmosphere with soft daylight, cool neutral tones, minimal modern background",
+            "pose": pose_dict,
+            "expression": expression_dict,
+            "camera": camera_dict,
+            "prompt_text": prompt_text,
+            # 새 타입 접근용
+            "_pose_result": pose_result,
+            "_expression_result": expr_result,
         }
 
 
 # 편의 함수 (시그니처: client가 첫 번째)
 def analyze_outfit(client, images: list) -> OutfitAnalysis:
     """
-    착장 이미지 분석 → OutfitAnalysis 반환
+    착장 이미지 분석 -> OutfitAnalysis 반환
 
     Args:
         client: Google GenAI client instance (첫 번째 매개변수)
@@ -218,8 +156,6 @@ def analyze_outfit(client, images: list) -> OutfitAnalysis:
 
     Returns:
         OutfitAnalysis with all extracted information
-
-    Note: 시그니처가 (client, images) 순서로 기존 outfit_analyzer.py와 동일
     """
     analyzer = BrandcutAnalyzer(client)
     return analyzer.analyze_outfit(images)
@@ -227,7 +163,7 @@ def analyze_outfit(client, images: list) -> OutfitAnalysis:
 
 def analyze_pose_expression(client, image) -> dict:
     """
-    포즈/표정 레퍼런스 분석 → JSON 반환
+    포즈/표정 레퍼런스 분석 -> JSON 반환 (backward compatible)
 
     Args:
         client: Google GenAI client instance (첫 번째 매개변수)
@@ -238,34 +174,54 @@ def analyze_pose_expression(client, image) -> dict:
             "pose": {...},
             "expression": {...},
             "camera": {...},
-            "prompt_text": str
+            "prompt_text": str,
+            "_pose_result": PoseAnalysisResult,
+            "_expression_result": ExpressionAnalysisResult,
         }
-
-    Note: 시그니처가 (client, image) 순서로 일관성 유지
     """
     analyzer = BrandcutAnalyzer(client)
     return analyzer.analyze_pose_expression(image)
 
 
-def analyze_mood(client, image) -> dict:
+def analyze_pose(client_or_image, image=None, api_key=None) -> PoseAnalysisResult:
     """
-    무드/분위기 레퍼런스 분석 → JSON 반환
+    포즈 분석 (편의 함수)
 
-    Args:
-        client: Google GenAI client instance (첫 번째 매개변수)
-        image: Image path or PIL.Image object (두 번째 매개변수)
+    두 가지 호출 방식 지원:
+    - analyze_pose(client, image)  # legacy
+    - analyze_pose(image, api_key=key)  # 인플루언서 스타일
 
     Returns:
-        dict: {
-            "mood": str,
-            "lighting": str,
-            "color_grade": str,
-            "background_feel": str,
-            "keywords": list,
-            "prompt_text": str
-        }
-
-    Note: 시그니처가 (client, image) 순서로 일관성 유지
+        PoseAnalysisResult
     """
-    analyzer = BrandcutAnalyzer(client)
-    return analyzer.analyze_mood(image)
+    if image is not None:
+        # legacy: analyze_pose(client, image)
+        analyzer = BrandcutAnalyzer()
+        return analyzer.analyze_pose(image, api_key=api_key)
+    else:
+        # 인플루언서 스타일: analyze_pose(image)
+        analyzer = BrandcutAnalyzer()
+        return analyzer.analyze_pose(client_or_image, api_key=api_key)
+
+
+def analyze_expression(
+    client_or_image, image=None, api_key=None
+) -> ExpressionAnalysisResult:
+    """
+    표정 분석 (편의 함수)
+
+    두 가지 호출 방식 지원:
+    - analyze_expression(client, image)  # legacy
+    - analyze_expression(image, api_key=key)  # 인플루언서 스타일
+
+    Returns:
+        ExpressionAnalysisResult
+    """
+    if image is not None:
+        # legacy: analyze_expression(client, image)
+        analyzer = BrandcutAnalyzer()
+        return analyzer.analyze_expression(image, api_key=api_key)
+    else:
+        # 인플루언서 스타일: analyze_expression(image)
+        analyzer = BrandcutAnalyzer()
+        return analyzer.analyze_expression(client_or_image, api_key=api_key)

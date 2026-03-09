@@ -82,16 +82,17 @@ class WorkflowDefaults:
 
 
 WORKFLOW_DEFAULTS: Dict[str, WorkflowDefaults] = {
-    "brandcut": WorkflowDefaults("3:4", 0.25, "브랜드컷 (에디토리얼)"),
-    "reference_brandcut": WorkflowDefaults("3:4", 0.2, "레퍼런스 브랜드컷"),
-    "background_swap": WorkflowDefaults("original", 0.2, "배경 교체"),
-    "influencer": WorkflowDefaults("9:16", 0.5, "인플루언서"),
-    "selfie": WorkflowDefaults("9:16", 0.3, "셀피/UGC"),
-    "daily_casual": WorkflowDefaults("4:5", 0.3, "데일리 캐주얼"),
-    "seeding_ugc": WorkflowDefaults("9:16", 0.35, "시딩 UGC"),
-    "product_shot": WorkflowDefaults("1:1", 0.2, "제품샷"),
-    "free_generation": WorkflowDefaults("3:4", 0.4, "자유 생성"),
+    "brandcut": WorkflowDefaults("3:4", 0.7, "브랜드컷 (에디토리얼)"),
+    "reference_brandcut": WorkflowDefaults("3:4", 0.7, "레퍼런스 브랜드컷"),
+    "background_swap": WorkflowDefaults("original", 0.7, "배경 교체"),
+    "influencer": WorkflowDefaults("9:16", 0.7, "인플루언서"),
+    "selfie": WorkflowDefaults("9:16", 0.7, "셀피/UGC"),
+    "daily_casual": WorkflowDefaults("4:5", 0.7, "데일리 캐주얼"),
+    "seeding_ugc": WorkflowDefaults("9:16", 0.7, "시딩 UGC"),
+    "product_shot": WorkflowDefaults("1:1", 0.7, "제품샷"),
+    "free_generation": WorkflowDefaults("3:4", 0.7, "자유 생성"),
     "experimental": WorkflowDefaults("3:4", 0.8, "실험적/아트"),
+    "fit_variation": WorkflowDefaults("1:1", 0.3, "바지 핏 베리에이션"),
 }
 
 
@@ -170,7 +171,7 @@ def get_workflow_defaults(workflow_type: str) -> WorkflowDefaults:
     """
     return WORKFLOW_DEFAULTS.get(
         workflow_type.lower(),
-        WorkflowDefaults(DEFAULT_ASPECT_RATIO, 0.3, "Unknown workflow"),
+        WorkflowDefaults(DEFAULT_ASPECT_RATIO, 0.7, "Unknown workflow"),
     )
 
 

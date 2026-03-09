@@ -1,11 +1,10 @@
 """
-이미지 생성 모듈 v2 - 무드 이미지 직접 전송 지원
+이미지 생성 모듈 v2
 
 변경점 (v1 대비):
-1. mood_reference를 API에 직접 전송 (텍스트 변환 X)
-2. "무드만! 스타일만! 따라하라" 명확한 지시 추가
-3. 이미지 전송 순서 최적화: 얼굴 → 착장 → 포즈 → 무드
-4. prompt_builder_v2의 korean_prompt 직접 사용
+1. expression_reference 추가 (K-Beauty 표정)
+2. 이미지 전송 순서 최적화: 얼굴 → 착장 → 포즈
+3. prompt_builder_v2의 korean_prompt 직접 사용
 """
 
 import json
@@ -40,30 +39,26 @@ def generate_brandcut(
     face_images: List[Union[str, Path, Image.Image]],
     outfit_images: List[Union[str, Path, Image.Image]],
     pose_reference: Optional[Image.Image] = None,
-    mood_reference: Optional[Image.Image] = None,  # 무드 이미지 직접 전송
-    expression_reference: Optional[Image.Image] = None,  # NEW: 표정 레퍼런스
+    expression_reference: Optional[Image.Image] = None,  # K-Beauty 표정 레퍼런스
     style_reference: Optional[Image.Image] = None,  # 스타일 레퍼런스
     api_key: Optional[str] = None,
     num_images: int = 1,
     aspect_ratio: str = "3:4",
     resolution: str = "2K",
-    temperature: float = 0.25,
+    temperature: float = 0.7,
 ) -> Union[Optional[Image.Image], List[Optional[Image.Image]]]:
     """
     브랜드컷 이미지 생성 (v2)
 
     변경점:
-    - mood_reference를 API에 직접 전송
     - expression_reference 추가 (K-Beauty 표정)
-    - "무드/조명/색감만 따라하라" 명확한 지시
-    - 전송 순서: 프롬프트 → 얼굴 → 착장 → 포즈 → 무드 → 표정
+    - 전송 순서: 프롬프트 → 얼굴 → 착장 → 포즈
 
     Args:
         prompt_json: 프롬프트 JSON (korean_prompt 필드 포함)
         face_images: 얼굴 이미지 목록
         outfit_images: 착장 이미지 목록
         pose_reference: 포즈 레퍼런스 (선택) - 포즈/앵글/프레이밍 복사
-        mood_reference: 무드 레퍼런스 (선택) - 조명/색감/분위기만 복사
         expression_reference: 표정 레퍼런스 (선택) - K-Beauty 표정 복사
         style_reference: 스타일 레퍼런스 (선택) - 전체 스타일 참조
         api_key: Gemini API 키
@@ -82,7 +77,6 @@ def generate_brandcut(
             face_images=face_images,
             outfit_images=outfit_images,
             pose_reference=pose_reference,
-            mood_reference=mood_reference,
             expression_reference=expression_reference,
             style_reference=style_reference,
             api_key=api_key,
@@ -129,7 +123,6 @@ def generate_brandcut(
     # 2. 얼굴 이미지 (최우선 - 동일성 중요)
     # 3. 착장 이미지 (2순위 - 디테일 중요)
     # 4. 포즈 레퍼런스 (있으면)
-    # 5. 무드 레퍼런스 (있으면) - NEW!
     # ============================================================
 
     parts = []
@@ -275,43 +268,10 @@ EXPRESSION REFERENCE IMAGE (copy this expression):
         )
         parts.append(pil_to_part(pose_reference))
 
-    # ============================================================
-    # 5. 무드 레퍼런스 (NEW!) - 조명/색감/분위기만!
-    # ============================================================
-    if mood_reference is not None:
-        parts.append(
-            types.Part(
-                text="""
-[무드 레퍼런스] - 무드만! 스타일만! 따라하기!
-
-★★★ 이 이미지에서 따라할 것 (무드/스타일만!) ★★★
-- 전체적인 분위기와 무드
-- 조명의 방향과 품질
-- 색온도 (반드시 쿨톤 유지!)
-- 그림자의 강도와 방향
-- 에디토리얼 패션 화보 느낌
-- 프리미엄하고 고급스러운 질감
-
-★★★ 따라하지 않을 것 (절대!) ★★★
-- 얼굴 → 얼굴 레퍼런스 사용
-- 착장 → 착장 레퍼런스 사용
-- 포즈 → 포즈 레퍼런스 사용
-- 배경의 구체적 요소
-- 헤어스타일
-
-핵심: 이 사진의 "느낌", "톤", "무드"만 가져와!
-구체적인 요소(얼굴/옷/포즈)는 다른 레퍼런스 따라!
-
-무드 레퍼런스 이미지:
-"""
-            )
-        )
-        parts.append(pil_to_part(mood_reference))
-
     # (표정 레퍼런스는 맨 앞 section 0에서 처리됨)
 
     # ============================================================
-    # 6. 마지막 강조
+    # 5. 마지막 강조
     # ============================================================
     # 표정 레퍼런스가 있으면 체크리스트에 포함
     expr_check = (
@@ -393,7 +353,6 @@ def _generate_batch(
     face_images: List[Union[str, Path, Image.Image]],
     outfit_images: List[Union[str, Path, Image.Image]],
     pose_reference: Optional[Image.Image],
-    mood_reference: Optional[Image.Image],
     expression_reference: Optional[Image.Image],
     style_reference: Optional[Image.Image],
     api_key: Optional[str],
@@ -414,7 +373,6 @@ def _generate_batch(
             face_images=face_images,
             outfit_images=outfit_images,
             pose_reference=pose_reference,
-            mood_reference=mood_reference,
             expression_reference=expression_reference,
             style_reference=style_reference,
             api_key=api_key,

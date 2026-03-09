@@ -5,7 +5,6 @@
 1. 실패 항목별로 해당 프롬프트만 강화 (착장 틀리면 착장만)
 2. prompt_builder_v2의 enhance_prompt_for_retry() 사용
 3. validator_v2의 14개 기준 사용
-4. mood_reference 지원
 """
 
 import time
@@ -39,7 +38,6 @@ def generate_with_validation(
     resolution: str = "2K",
     initial_temperature: float = 0.30,
     pose_reference: Optional[Image.Image] = None,
-    mood_reference: Optional[Image.Image] = None,  # NEW: 무드 레퍼런스
     outfit_spec: Optional["OutfitAnalysis"] = None,
 ) -> dict:
     """
@@ -47,7 +45,6 @@ def generate_with_validation(
 
     변경점:
     - 실패 항목별 타겟 강화
-    - mood_reference 지원
     - 14개 기준 검증
 
     Args:
@@ -60,7 +57,6 @@ def generate_with_validation(
         resolution: 해상도
         initial_temperature: 초기 온도
         pose_reference: 포즈 레퍼런스 (선택)
-        mood_reference: 무드 레퍼런스 (선택)
         outfit_spec: OutfitAnalysis 객체 (선택)
 
     Returns:
@@ -100,7 +96,6 @@ def generate_with_validation(
             face_images=face_images,
             outfit_images=outfit_images,
             pose_reference=pose_reference,
-            mood_reference=mood_reference,  # NEW
             api_key=api_key,
             aspect_ratio=aspect_ratio,
             resolution=resolution,
@@ -127,7 +122,6 @@ def generate_with_validation(
                 face_images=face_images,
                 outfit_images=outfit_images,
                 pose_reference=pose_reference,
-                mood_reference=mood_reference,
                 outfit_spec=outfit_spec,
             )
         except Exception as e:

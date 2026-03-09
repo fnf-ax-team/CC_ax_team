@@ -36,6 +36,9 @@ class WorkflowType(Enum):
     PRODUCT_STYLED = "product_styled"
     SHOES_3D = "shoes_3d"
 
+    # Design 카테고리
+    FIT_VARIATION = "fit_variation"
+
 
 class QualityTier(Enum):
     """품질 분류 등급 - MLBValidator의 QualityTier와 값 호환"""

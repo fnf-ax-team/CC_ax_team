@@ -3,17 +3,15 @@
 
 변경점 (v1 대비):
 1. prompt_builder_v2: 한국어 프롬프트 통합
-2. generator_v2: 무드 이미지 직접 전송
-3. validator_v2: 14개 기준 (aesthetic_appeal, brand_vibe 추가)
-4. retry_generator_v2: 실패 항목별 타겟 강화
-5. edit_generator: 편집 모드 (기존 A컷 이미지 기반 착장/배경 변경)
+2. validator_v2: 14개 기준 (aesthetic_appeal, brand_vibe 추가)
+3. retry_generator_v2: 실패 항목별 타겟 강화
+4. edit_generator: 편집 모드 (기존 A컷 이미지 기반 착장/배경 변경)
 
 Usage:
     from core.brandcut import (
         # 분석
         analyze_outfit,
         analyze_pose_expression,
-        analyze_mood,
         # 프롬프트 빌드
         build_prompt,
         # 생성 모드 (새 이미지 생성)
@@ -29,12 +27,17 @@ Usage:
     )
 """
 
-# Analyzer functions (unchanged)
+# Analyzer functions
 from .analyzer import (
     analyze_outfit,
     analyze_pose_expression,
-    analyze_mood,
+    analyze_pose,
+    analyze_expression,
 )
+
+# 인플루언서 분석 타입 re-export (type hints 용)
+from core.ai_influencer.pose_analyzer import PoseAnalysisResult
+from core.ai_influencer.expression_analyzer import ExpressionAnalysisResult
 
 # Prompt builder v2 (unified Korean prompt builder)
 from .prompt_builder_v2 import (
@@ -120,7 +123,11 @@ __all__ = [
     # Analyzer functions
     "analyze_outfit",
     "analyze_pose_expression",
-    "analyze_mood",
+    "analyze_pose",
+    "analyze_expression",
+    # 인플루언서 분석 타입
+    "PoseAnalysisResult",
+    "ExpressionAnalysisResult",
     # Prompt builder functions
     "build_prompt",
     "build_prompt_with_director",

@@ -399,7 +399,6 @@ class BrandcutValidator:
         face_images: List[Union[str, Path, Image.Image]],
         outfit_images: List[Union[str, Path, Image.Image]],
         pose_reference: Optional[Image.Image] = None,
-        mood_reference: Optional[Image.Image] = None,
         outfit_spec: Optional["OutfitAnalysis"] = None,
     ) -> ValidationResult:
         """
@@ -410,7 +409,6 @@ class BrandcutValidator:
             face_images: 얼굴 레퍼런스
             outfit_images: 착장 레퍼런스
             pose_reference: 포즈 레퍼런스 (선택)
-            mood_reference: 무드 레퍼런스 (선택)
             outfit_spec: 착장 스펙 (선택)
 
         Returns:
@@ -437,11 +435,6 @@ class BrandcutValidator:
         if pose_reference:
             parts.append(types.Part(text="[POSE REFERENCE]"))
             parts.append(self._pil_to_part(pose_reference))
-
-        # 무드 레퍼런스
-        if mood_reference:
-            parts.append(types.Part(text="[MOOD REFERENCE]"))
-            parts.append(self._pil_to_part(mood_reference))
 
         # VLM 호출
         try:

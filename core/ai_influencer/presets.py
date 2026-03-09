@@ -7,7 +7,6 @@ db/ 폴더의 프리셋 JSON 파일들을 로드
 - camera_presets.json (촬영 세팅)
 - background_presets.json (배경)
 - styling_preset_db.json (스타일링)
-- visual_mood_preset_db.json (비주얼 무드)
 """
 
 import json
@@ -25,7 +24,6 @@ PRESET_FILES = {
     "camera": "camera_presets.json",
     "background": "background_presets.json",
     "styling": "styling_preset_db.json",
-    "visual_mood": "visual_mood_preset_db.json",
 }
 
 
@@ -35,7 +33,7 @@ def _load_preset_file(preset_type: str) -> Dict:
     프리셋 파일 로드 (캐싱)
 
     Args:
-        preset_type: 프리셋 타입 (expression, pose, camera, background, styling, visual_mood)
+        preset_type: 프리셋 타입 (expression, pose, camera, background, styling)
 
     Returns:
         프리셋 JSON 데이터
@@ -112,7 +110,6 @@ def _get_preset_key(preset_type: str) -> str:
         "camera": "settings",
         "background": "backgrounds",
         "styling": "styles",
-        "visual_mood": "moods",
     }
     return key_mapping.get(preset_type, "items")
 
@@ -259,105 +256,127 @@ def search_presets(preset_type: str, keyword: str) -> List[Dict[str, Any]]:
 
 
 # ============================================================
-# 비주얼 무드 프리셋 (AI 인플루언서 전용)
+# MLB 브랜드 전용 프리셋 로더
 # ============================================================
 
-# 기본 비주얼 무드 프리셋 ID
-DEFAULT_VISUAL_MOOD_PRESET = "OUTDOOR_CASUAL_001"
+MLB_PRESET_BASE_PATH = PRESET_BASE_PATH / "mlb_style"
+
+MLB_PRESET_FILES = {
+    "expression": "mlb_expression_presets.json",
+    "pose": "mlb_pose_presets.json",
+    "background": "mlb_background_presets.json",
+    "camera": "mlb_camera_presets.json",
+}
 
 
-def get_visual_mood_preset(preset_id: str = None) -> Optional[Dict[str, Any]]:
+@lru_cache(maxsize=10)
+def _load_mlb_preset_file(preset_type: str) -> Dict:
     """
-    비주얼 무드 프리셋 로드
+    MLB 프리셋 파일 로드 (캐싱)
 
     Args:
-        preset_id: 프리셋 ID (None이면 기본값 OUTDOOR_CASUAL_001)
+        preset_type: 프리셋 타입 (expression, pose, background, camera)
 
     Returns:
-        비주얼 무드 프리셋 데이터
+        MLB 프리셋 JSON 데이터
     """
-    if preset_id is None:
-        preset_id = DEFAULT_VISUAL_MOOD_PRESET
+    if preset_type not in MLB_PRESET_FILES:
+        raise ValueError(
+            f"알 수 없는 MLB 프리셋 타입: {preset_type}. "
+            f"가능한 값: {list(MLB_PRESET_FILES.keys())}"
+        )
 
-    # visual_mood_preset_db.json 직접 로드
-    file_path = PRESET_BASE_PATH / "visual_mood_preset_db.json"
+    file_path = MLB_PRESET_BASE_PATH / MLB_PRESET_FILES[preset_type]
     if not file_path.exists():
-        raise FileNotFoundError(f"비주얼 무드 프리셋 파일 없음: {file_path}")
+        raise FileNotFoundError(f"MLB 프리셋 파일 없음: {file_path}")
 
     with open(file_path, "r", encoding="utf-8") as f:
-        data = json.load(f)
+        return json.load(f)
 
-    # visual_presets 배열에서 ID로 검색
-    presets = data.get("visual_presets", [])
-    for preset in presets:
-        if preset.get("id") == preset_id:
-            return preset
+
+def load_mlb_preset(preset_type: str, preset_id: str) -> Optional[Dict[str, Any]]:
+    """
+    MLB 특정 프리셋 로드
+
+    Args:
+        preset_type: 프리셋 타입 (expression, pose, background, camera)
+        preset_id: 프리셋 ID (예: "MLB시크_01")
+
+    Returns:
+        프리셋 데이터 dict (없으면 None)
+    """
+    data = _load_mlb_preset_file(preset_type)
+    categories = data.get("categories", {})
+    preset_key = _get_preset_key(preset_type)
+
+    for cat_name, cat_data in categories.items():
+        items = cat_data.get(preset_key, [])
+        for item in items:
+            if item.get("id") == preset_id:
+                result = item.copy()
+                result["_category"] = cat_name
+                return result
 
     return None
 
 
-def get_visual_mood_for_prompt(preset_id: str = None) -> Dict[str, Dict[str, str]]:
+def list_mlb_presets(preset_type: str, category: str = None) -> List[str]:
     """
-    프롬프트 빌드용 비주얼 무드 값 반환
+    MLB 프리셋 ID 목록 반환
 
     Args:
-        preset_id: 프리셋 ID (None이면 기본값 OUTDOOR_CASUAL_001)
+        preset_type: 프리셋 타입
+        category: 카테고리 (None이면 전체)
 
     Returns:
-        {
-            "필름_텍스처": {"질감": "...", "보정법": "..."},
-            "컬러_그레이딩": {"주요색조": "...", "채도": "...", "노출": "..."},
-            "조명": {"광원": "...", "방향": "...", "그림자": "..."}
-        }
+        프리셋 ID 목록
     """
-    preset = get_visual_mood_preset(preset_id)
-    if not preset:
-        raise ValueError(f"비주얼 무드 프리셋 없음: {preset_id}")
+    data = _load_mlb_preset_file(preset_type)
+    categories = data.get("categories", {})
+    preset_key = _get_preset_key(preset_type)
 
-    visual_mood = preset.get("비주얼_무드", {})
-    return {
-        "필름_텍스처": visual_mood.get("필름_텍스처", {}),
-        "컬러_그레이딩": visual_mood.get("컬러_그레이딩", {}),
-        "조명": visual_mood.get("조명", {}),
-    }
+    preset_ids = []
+
+    if category:
+        if category not in categories:
+            return []
+        items = categories[category].get(preset_key, [])
+        for item in items:
+            preset_ids.append(item.get("id", ""))
+    else:
+        for cat_name, cat_data in categories.items():
+            items = cat_data.get(preset_key, [])
+            for item in items:
+                preset_ids.append(item.get("id", ""))
+
+    return [pid for pid in preset_ids if pid]
 
 
-def format_visual_mood_for_prompt(preset_id: str = None) -> List[str]:
+def search_mlb_presets(preset_type: str, keyword: str) -> List[Dict[str, Any]]:
     """
-    프롬프트에 직접 추가할 수 있는 라인 목록 반환
+    MLB 프리셋 키워드 검색
 
     Args:
-        preset_id: 프리셋 ID (None이면 기본값 OUTDOOR_CASUAL_001)
+        preset_type: 프리셋 타입
+        keyword: 검색 키워드
 
     Returns:
-        프롬프트 라인 목록
+        매칭된 프리셋 목록
     """
-    mood = get_visual_mood_for_prompt(preset_id)
-    lines = []
+    data = _load_mlb_preset_file(preset_type)
+    categories = data.get("categories", {})
+    preset_key = _get_preset_key(preset_type)
 
-    lines.append("## [비주얼_무드]")
+    results = []
+    keyword_lower = keyword.lower()
 
-    # 필름_텍스처
-    lines.append("### 필름_텍스처:")
-    film = mood.get("필름_텍스처", {})
-    lines.append(f"- 질감: {film.get('질감', 'clean digital')}")
-    lines.append(f"- 보정법: {film.get('보정법', 'minimal edit')}")
-    lines.append("")
+    for cat_name, cat_data in categories.items():
+        items = cat_data.get(preset_key, [])
+        for item in items:
+            item_str = json.dumps(item, ensure_ascii=False).lower()
+            if keyword_lower in item_str:
+                result = item.copy()
+                result["_category"] = cat_name
+                results.append(result)
 
-    # 컬러_그레이딩
-    lines.append("### 컬러_그레이딩:")
-    color = mood.get("컬러_그레이딩", {})
-    lines.append(f"- 주요색조: {color.get('주요색조', 'neutral natural')}")
-    lines.append(f"- 채도: {color.get('채도', 'natural')}")
-    lines.append(f"- 노출: {color.get('노출', 'balanced')}")
-    lines.append("")
-
-    # 조명
-    lines.append("### 조명:")
-    light = mood.get("조명", {})
-    lines.append(f"- 광원: {light.get('광원', 'natural daylight')}")
-    lines.append(f"- 방향: {light.get('방향', 'diffused')}")
-    lines.append(f"- 그림자: {light.get('그림자', 'soft')}")
-    lines.append("")
-
-    return lines
+    return results

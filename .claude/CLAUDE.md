@@ -133,7 +133,7 @@ GEMINI_API_KEY=key1,key2,key3,key4,key5
 
 ```python
 config=types.GenerateContentConfig(
-    temperature=0.2,
+    temperature=0.7,
     response_modalities=["IMAGE", "TEXT"],
     image_config=types.ImageConfig(
         aspect_ratio="3:4",
@@ -187,7 +187,7 @@ result = generate_with_workflow_validation(
     generate_func=my_generate_func,        # 생성 함수
     prompt=prompt,
     reference_images={"face": [...], "outfit": [...]},
-    config={"temperature": 0.25},
+    config={"temperature": 0.7},
     max_retries=2,  # 필수: 최소 2회 재시도
 )
 ```
@@ -250,16 +250,16 @@ result = validator.validate(generated_img, reference_images)
 
 | 타입 | Aspect Ratio | Temperature |
 |------|--------------|-------------|
-| Brand Cut (에디토리얼) | 3:4 | 0.2 ~ 0.3 |
-| Reference Brand Cut | 3:4 | 0.2 |
-| Background Swap | Original | 0.2 |
-| Influencer | 9:16 | 0.5 |
-| Selfie | 9:16 | 0.3 |
-| Daily Casual | 4:5 | 0.3 |
-| Seeding UGC | 9:16 | 0.35 |
-| Product Shot | 1:1 / 3:4 | 0.2 |
-| 자유 생성 | - | 0.3 ~ 0.5 |
-| 실험적/아트 | - | 0.7 ~ 0.9 |
+| Brand Cut (에디토리얼) | 3:4 | 0.7 |
+| Reference Brand Cut | 3:4 | 0.7 |
+| Background Swap | Original | 0.7 |
+| Influencer | 9:16 | 0.7 |
+| Selfie | 9:16 | 0.7 |
+| Daily Casual | 4:5 | 0.7 |
+| Seeding UGC | 9:16 | 0.7 |
+| Product Shot | 1:1 / 3:4 | 0.7 |
+| 자유 생성 | - | 0.7 |
+| 실험적/아트 | - | 0.8 |
 
 ### 필수 질문 옵션 (모든 이미지 생성 스킬)
 
@@ -326,7 +326,7 @@ from core.options import get_workflow_defaults
 
 defaults = get_workflow_defaults("brandcut")
 aspect_ratio = defaults.aspect_ratio  # "3:4"
-temperature = defaults.temperature    # 0.25
+temperature = defaults.temperature    # 0.7
 ```
 
 ---
@@ -379,8 +379,7 @@ temperature = defaults.temperature    # 0.25
 ```json
 {
   "주제": {
-    "character": "필름 그레인 질감, 에디토리얼 패션 사진 스타일",
-    "mood": ""                // [필수] cool, confident, effortless
+    "character": "필름 그레인 질감, 에디토리얼 패션 사진 스타일"
   },
   "모델": {
     "민족": "",               // [필수] 기본값: korean
@@ -763,7 +762,7 @@ result = generate_with_workflow_validation(
     generate_func=my_func,
     prompt=prompt,
     reference_images={"face": [...], "outfit": [...]},
-    config={"temperature": 0.25},
+    config={"temperature": 0.7},
 )
 ```
 
@@ -776,9 +775,8 @@ result = generate_with_workflow_validation(
 | 순위 | 항목 |
 |------|------|
 | 1 (최우선) | 착장 이미지 전체 전송 (1개도 빠뜨리면 안됨) |
-| 2 | 얼굴 이미지 반드시 전송 |
-| 3 | 컨셉/무드 |
-| 4 | 배경/조명 |
+| 2 | 얼굴 이미지 반드시 전송 (1~3장) |
+| 3 | 배경/조명 |
 
 ### 브랜드컷 (brand-cut) 전송 순서
 
@@ -788,7 +786,6 @@ result = generate_with_workflow_validation(
 3. 착장 이미지 (API 직접 전달)
 ```
 
-- **컨셉 레퍼런스: API에 전송 안함!** VLM 분석 → 텍스트로 변환 → 프롬프트에 포함
 - 배경: VLM 분석 → 텍스트로만 전달
 
 ### 레퍼런스 브랜드컷 (reference-brandcut) 전송 순서 — V4
@@ -891,7 +888,7 @@ Fnf_studio_outputs/
   "model": "gemini-3-pro-image-preview",
   "aspect_ratio": "3:4",
   "resolution": "2K",
-  "temperature": 0.25,
+  "temperature": 0.7,
   "num_images": 3,
   "cost_per_image": 190,
   "total_cost": 570,
@@ -931,7 +928,7 @@ Outfits: outfit_tanktop.jpg, outfit_cargo_denim.jpg
 === CONFIG ===
 Aspect Ratio: 3:4
 Resolution: 2K
-Temperature: 0.25
+Temperature: 0.7
 ```
 
 ### validation.json 형식
@@ -1238,7 +1235,7 @@ Outfits: {", ".join(OUTFIT_IMAGES)}
 === CONFIG ===
 Aspect Ratio: {ASPECT_RATIO}
 Resolution: {RESOLUTION}
-Temperature: 0.25
+Temperature: 0.7
 Num Images: {NUM_IMAGES}
 """
     with open(output_dir / "prompt.txt", "w", encoding="utf-8") as f:
@@ -1251,7 +1248,7 @@ Num Images: {NUM_IMAGES}
         "timestamp": datetime.now().isoformat(),
         "aspect_ratio": ASPECT_RATIO,
         "resolution": RESOLUTION,
-        "temperature": 0.25,
+        "temperature": 0.7,
         "num_images": NUM_IMAGES,
         "cost_per_image": 190,
         "total_cost": NUM_IMAGES * 190,

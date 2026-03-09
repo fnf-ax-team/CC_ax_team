@@ -37,7 +37,6 @@ from .character import Character
 from .presets import (
     load_preset,
     get_camera_preset_for_pose,
-    format_visual_mood_for_prompt,
 )
 
 
@@ -111,7 +110,6 @@ def build_influencer_prompt(
             prompt_schema["표정"] = {
                 "preset_id": expression_preset,
                 "베이스": expr_data.get("베이스", "cool"),
-                "바이브": expr_data.get("바이브", ""),
                 "눈": expr_data.get("눈", "큰 눈"),
                 "시선": expr_data.get("시선", "direct"),
                 "입": expr_data.get("입", "closed"),
@@ -306,8 +304,6 @@ def schema_to_prompt_text(prompt_schema: Dict, character: Character = None) -> s
         expr_desc = []
         if expr.get("베이스"):
             expr_desc.append(expr["베이스"])
-        if expr.get("바이브"):
-            expr_desc.append(expr["바이브"])
         if expr_desc:
             prompt_parts.append(" ".join(expr_desc) + " expression")
 
@@ -540,32 +536,6 @@ def _build_outfit_section_image_first(outfit_result, show_legs: bool) -> list:
 
     lines.append("")
     return lines
-
-
-def _select_visual_mood(background_result, pose_result) -> str:
-    """
-    배경/포즈 분석 결과 기반 비주얼 무드 프리셋 자동 선택
-
-    Returns:
-        비주얼 무드 프리셋 ID
-    """
-    scene = background_result.scene_type.lower()
-    time = background_result.time_of_day
-
-    # 실내 스튜디오 → STUDIO_EDITORIAL_001
-    if "studio" in scene or "스튜디오" in scene:
-        return "STUDIO_EDITORIAL_001"
-
-    # 야간/플래시 → SUMMER_003 (Y2K flash)
-    if time in ["야간", "night"]:
-        return "SUMMER_003"
-
-    # 카페/실내 → SPRING_006 (cozy cafe, indoor natural + artificial mix)
-    if any(kw in scene for kw in ["cafe", "카페", "indoor", "실내"]) or time == "실내":
-        return "SPRING_006"
-
-    # 기본 (야외/주간) → OUTDOOR_CASUAL_001
-    return "OUTDOOR_CASUAL_001"
 
 
 def _detect_leg_lifted(pose_result) -> tuple:
@@ -1390,13 +1360,6 @@ def build_schema_prompt(
     # 스타일링 (v3: 이미지 주도 — hard detail만 텍스트)
     # =====================================================
     lines.extend(_build_outfit_section_image_first(outfit_result, show_legs))
-
-    # =====================================================
-    # 비주얼 무드 (배경 분석 기반 자동 선택)
-    # =====================================================
-    visual_mood_id = _select_visual_mood(background_result, pose_result)
-    visual_mood_lines = format_visual_mood_for_prompt(visual_mood_id)
-    lines.extend(visual_mood_lines)
 
     # =====================================================
     # 네거티브 (동적 추가 - 풀 스키마 조건부)

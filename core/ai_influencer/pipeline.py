@@ -55,7 +55,7 @@ def send_image_request(
     background_image: Path,
     aspect_ratio: str = "9:16",
     resolution: str = "2K",
-    temperature: float = 1.0,
+    temperature: float = 0.7,
 ) -> Optional[Image.Image]:
     """
     이미지 생성 API 호출 - 모든 레퍼런스 이미지 포함
@@ -158,7 +158,7 @@ def generate_full_pipeline(
     background_image: Union[str, Path],
     aspect_ratio: str = "9:16",
     resolution: str = "2K",
-    temperature: float = 1.0,
+    temperature: float = 0.7,
     client=None,
     max_retries: int = 2,
     validate: bool = True,
@@ -185,7 +185,7 @@ def generate_full_pipeline(
         background_image: 배경 레퍼런스 이미지 경로
         aspect_ratio: 화면 비율 (기본 9:16)
         resolution: 해상도 (기본 2K)
-        temperature: 생성 온도 (기본 0.35)
+        temperature: 생성 온도 (기본 0.7)
         client: genai.Client (None이면 자동 생성)
         max_retries: 검증 실패 시 최대 재시도 횟수 (기본 2)
         validate: 검증 활성화 여부 (기본 True)
@@ -211,6 +211,15 @@ def generate_full_pipeline(
             }
         }
     """
+    # 얼굴 이미지 1~3장 검증
+    if len(face_images) == 0:
+        raise ValueError("At least 1 face image is required")
+    if len(face_images) > 3:
+        print(
+            f"[Pipeline] WARNING: {len(face_images)} face images provided, using first 3 only"
+        )
+        face_images = face_images[:3]
+
     # Path 변환
     face_images = [Path(p) for p in face_images]
     outfit_images = [Path(p) for p in outfit_images]
@@ -394,6 +403,7 @@ def generate_full_pipeline(
                 reference_images={
                     "face": [str(p) for p in face_images],
                     "outfit": [str(p) for p in outfit_images],
+                    "pose": [str(pose_image)],
                 },
             )
 
@@ -416,6 +426,21 @@ def generate_full_pipeline(
                 )
             print(f"{'=' * 60}\n")
 
+            # criteria_scores 추출
+            criteria_detail = {}
+            if (
+                hasattr(validation_result, "criteria_scores")
+                and validation_result.criteria_scores
+            ):
+                for crit_name, crit_data in validation_result.criteria_scores.items():
+                    if isinstance(crit_data, dict):
+                        criteria_detail[crit_name] = {
+                            "score": crit_data.get("score", 0),
+                            "threshold": crit_data.get("threshold", 0),
+                            "passed": crit_data.get("passed", False),
+                            "reason": crit_data.get("reason", ""),
+                        }
+
             history.append(
                 {
                     "attempt": attempt + 1,
@@ -423,6 +448,7 @@ def generate_full_pipeline(
                     "total_score": score,
                     "grade": grade,
                     "passed": passed,
+                    "criteria": criteria_detail,
                 }
             )
 

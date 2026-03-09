@@ -47,7 +47,7 @@ core/background_swap_validator.py      ← 검증 모듈 (7/9-criteria)
 | 생성 | 1회 | 최대 3회 | 1회 (Fast) |
 | 검증 | 점수만 | 이미지별 통과/실패 | 배치 일괄 검증 |
 | 재생성 | 없음 | 이미지별 진단+재생성 | 실패분만 재생성 |
-| Temperature | 0.2 고정 | 0.2→0.1→0.05 | 0.2→retry시 감소 |
+| Temperature | 0.7 고정 | 0.7→0.5→0.3 | 0.7→retry시 감소 |
 | 용도 | 테스트 | 소량 프로덕션 | **대량 프로덕션 (추천)** |
 
 ---
@@ -165,7 +165,7 @@ result = generate_with_validation(
 | GROUND_POOR | ground < 80 | 접지 강화 |
 | EDGE_ARTIFACTS | edge < 85 | 경계 최적화 |
 
-**Temperature 감소**: 0.2 → 0.1 → 0.05
+**Temperature 감소**: 0.7 → 0.5 → 0.3
 
 ---
 

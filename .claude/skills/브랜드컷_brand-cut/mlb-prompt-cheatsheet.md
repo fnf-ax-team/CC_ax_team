@@ -15,7 +15,7 @@
 | 카테고리 | 참조 파일 | 프리셋 수 | 설명 |
 |----------|-----------|----------|------|
 | 포즈 | `db/mlb_style/mlb_pose_presets.json` | 16개 | 왼팔/오른팔/왼손/오른손/왼다리/오른다리/힙 상세 |
-| 표정 | `db/mlb_style/mlb_expression_presets.json` | 8개 | 베이스/바이브/눈/시선/입 상세, 큰 아몬드눈 필수 |
+| 표정 | `db/mlb_style/mlb_expression_presets.json` | 6개 | 베이스/바이브/눈/시선/입 상세, 큰 아몬드눈 필수 |
 | 배경 | `db/mlb_style/mlb_background_presets.json` | 12개 | 지역/시간대/색감/장소/분위기/provides/supported_stances |
 | 비주얼_무드 | `db/mlb_style/mlb_visual_mood_presets.json` | 6개 | 필름텍스처/컬러그레이딩/조명, 쿨톤 필수 |
 | 촬영_세팅 | `db/mlb_style/mlb_camera_presets.json` | 8개 | 포즈와 1:1 매칭, f/2.8 고정 |
@@ -25,18 +25,15 @@
 ### 프리셋 사용법
 
 ```python
-import json
-from pathlib import Path
+from core.ai_influencer.presets import load_mlb_preset, list_mlb_presets
 
-# MLB 프리셋 로드
-mlb_presets_dir = Path("db/mlb_style")
+# MLB 프리셋 로드 (캐싱됨)
+expr = load_mlb_preset("expression", "MLB시크_01")
+pose = load_mlb_preset("pose", "전신_01")
 
-with open(mlb_presets_dir / "mlb_pose_presets.json", encoding="utf-8") as f:
-    pose_presets = json.load(f)
-
-# 프리셋 ID로 참조
-pose = pose_presets["categories"]["confident_standing"]["poses"][0]
-# → 왼팔, 오른팔, 왼손, 오른손, 왼다리, 오른다리, 힙 필드 사용
+# MLB 프리셋 ID 목록
+all_expr_ids = list_mlb_presets("expression")
+# → ["MLB시크_01", "MLB시크_02", "MLB곁눈질_01", ...]
 ```
 
 ---

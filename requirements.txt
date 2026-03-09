@@ -1,0 +1,17 @@
+# FNF Studio - Core Dependencies
+# pip install -r requirements.txt
+
+# Gemini API
+google-genai>=1.50.0
+
+# Image processing
+Pillow>=10.0.0
+
+# Environment
+python-dotenv>=1.0.0
+
+# HTTP client (used by google-genai)
+httpx>=0.27.0
+
+# Data
+numpy>=1.24.0

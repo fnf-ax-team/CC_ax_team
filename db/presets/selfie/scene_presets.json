@@ -1,0 +1,382 @@
+{
+  "version": "1.0",
+  "updated": "2026-02-24",
+  "description": "검증된 포즈+배경+카메라 조합 프리셋",
+  "reference_folder": "4. 배경",
+  "total_count": 98,
+  "compatibility_rules": {
+    "description": "포즈와 배경 호환성 검증 규칙",
+    "validation": {
+      "rule_1": "포즈.requires가 있으면, 배경.provides에 모두 포함되어야 함",
+      "rule_2": "포즈.stance가 배경.supported_stances에 포함되어야 함",
+      "rule_3": "거울셀피 포즈는 mirror를 provides하는 배경에서만 가능"
+    },
+    "auto_block": [
+      {
+        "pose_category": "거울셀피",
+        "blocked_backgrounds": ["횡단보도", "그래피티", "해외스트릿"],
+        "exceptions": {
+          "지하철": ["지하철_07"],
+          "힙스트릿라이프스타일": ["힙라이프_05"]
+        },
+        "exception_note": "지하철_07(역사 에스컬레이터)와 힙라이프_05(락커룸)는 거울 있음"
+      },
+      {"pose_category": "앉기", "blocked_backgrounds": ["횡단보도"]}
+    ]
+  },
+  "categories": {
+    "핫플카페": {
+      "count": 21,
+      "compatible_pose_categories": ["전신", "상반신", "앉기"],
+      "scenes": [
+        {
+          "id": "scene_핫플카페_01",
+          "background_preset_id": "핫플카페_01",
+          "pose_preset_id": "전신_02",
+          "camera_preset_id": "전신_02",
+          "reference_image": "1. 핫플카페/핫플 카페 (1).jpeg",
+          "suggested_stance": "lean_wall",
+          "tags": ["카페", "테라스", "브루어리", "인더스트리얼"]
+        },
+        {
+          "id": "scene_핫플카페_02",
+          "background_preset_id": "핫플카페_02",
+          "pose_preset_id": "앉기_01",
+          "camera_preset_id": "앉기_01",
+          "reference_image": "1. 핫플카페/핫플 카페 (2).png",
+          "suggested_stance": "sit",
+          "tags": ["카페", "테라스", "지중해", "브런치"]
+        },
+        {
+          "id": "scene_핫플카페_03",
+          "background_preset_id": "핫플카페_03",
+          "pose_preset_id": "전신_01",
+          "camera_preset_id": "전신_01",
+          "reference_image": "1. 핫플카페/핫플 카페 (3).png",
+          "suggested_stance": "walk",
+          "tags": ["루프탑", "성수", "한남", "플랜테리어"]
+        },
+        {
+          "id": "scene_핫플카페_04",
+          "background_preset_id": "핫플카페_04",
+          "pose_preset_id": "전신_03",
+          "camera_preset_id": "전신_03",
+          "reference_image": "1. 핫플카페/핫플 카페 (4).png",
+          "suggested_stance": "stand",
+          "tags": ["파리", "비스트로", "클래식"]
+        },
+        {
+          "id": "scene_핫플카페_05",
+          "background_preset_id": "핫플카페_05",
+          "pose_preset_id": "전신_04",
+          "camera_preset_id": "전신_04",
+          "reference_image": "1. 핫플카페/핫플 카페 (5).png",
+          "suggested_stance": "lean_wall",
+          "tags": ["홍대", "이태원", "바", "야간"]
+        },
+        {
+          "id": "scene_핫플카페_06",
+          "background_preset_id": "핫플카페_06",
+          "pose_preset_id": "앉기_03",
+          "camera_preset_id": "앉기_03",
+          "reference_image": "1. 핫플카페/핫플 카페 (6).png",
+          "suggested_stance": "sit",
+          "tags": ["이탈리아", "에스프레소", "골목"]
+        },
+        {
+          "id": "scene_핫플카페_07",
+          "background_preset_id": "핫플카페_07",
+          "pose_preset_id": "앉기_07",
+          "camera_preset_id": "앉기_07",
+          "reference_image": "1. 핫플카페/핫플 카페 (7).png",
+          "suggested_stance": "sit",
+          "tags": ["멜버른", "브런치", "민트"]
+        },
+        {
+          "id": "scene_핫플카페_08",
+          "background_preset_id": "핫플카페_08",
+          "pose_preset_id": "전신_07",
+          "camera_preset_id": "전신_07",
+          "reference_image": "1. 핫플카페/핫플 카페 (8).png",
+          "suggested_stance": "lean_wall",
+          "tags": ["성수", "인더스트리얼", "콘크리트"]
+        },
+        {
+          "id": "scene_핫플카페_09",
+          "background_preset_id": "핫플카페_09",
+          "pose_preset_id": "전신_06",
+          "camera_preset_id": "전신_06",
+          "reference_image": "1. 핫플카페/핫플 카페 (9).png",
+          "suggested_stance": "stand",
+          "tags": ["삼청동", "갤러리", "미니멀"]
+        },
+        {
+          "id": "scene_핫플카페_10",
+          "background_preset_id": "핫플카페_10",
+          "pose_preset_id": "앉기_11",
+          "camera_preset_id": "앉기_11",
+          "reference_image": "1. 핫플카페/핫플 카페 (10).png",
+          "suggested_stance": "sit",
+          "tags": ["제주", "가든", "힐링"]
+        },
+        {
+          "id": "scene_핫플카페_11",
+          "background_preset_id": "핫플카페_11",
+          "pose_preset_id": "전신_03",
+          "camera_preset_id": "전신_03",
+          "reference_image": "1. 핫플카페/핫플 카페 (11).png",
+          "suggested_stance": "stand",
+          "tags": ["파리", "베이커리", "파스텔"]
+        },
+        {
+          "id": "scene_핫플카페_12",
+          "background_preset_id": "핫플카페_12",
+          "pose_preset_id": "앉기_14",
+          "camera_preset_id": "앉기_14",
+          "reference_image": "1. 핫플카페/핫플 카페 (12).png",
+          "suggested_stance": "sit",
+          "tags": ["연남동", "북카페", "아늑함"]
+        },
+        {
+          "id": "scene_핫플카페_13",
+          "background_preset_id": "핫플카페_13",
+          "pose_preset_id": "앉기_16",
+          "camera_preset_id": "앉기_16",
+          "reference_image": "1. 핫플카페/핫플 카페 (13).png",
+          "suggested_stance": "sit",
+          "tags": ["스페인", "와인바", "저녁"]
+        },
+        {
+          "id": "scene_핫플카페_14",
+          "background_preset_id": "핫플카페_14",
+          "pose_preset_id": "전신_08",
+          "camera_preset_id": "전신_08",
+          "reference_image": "1. 핫플카페/핫플 카페 (14).png",
+          "suggested_stance": "stand",
+          "tags": ["가로수길", "디저트", "파스텔"]
+        },
+        {
+          "id": "scene_핫플카페_15",
+          "background_preset_id": "핫플카페_15",
+          "pose_preset_id": "앉기_07",
+          "camera_preset_id": "앉기_07",
+          "reference_image": "1. 핫플카페/핫플 카페 (15).png",
+          "suggested_stance": "sit",
+          "tags": ["도쿄", "오모테산도", "미니멀"]
+        },
+        {
+          "id": "scene_핫플카페_16",
+          "background_preset_id": "핫플카페_16",
+          "pose_preset_id": "전신_01",
+          "camera_preset_id": "전신_01",
+          "reference_image": "1. 핫플카페/핫플 카페 (16).png",
+          "suggested_stance": "walk",
+          "tags": ["브루클린", "테이크아웃", "심플"]
+        },
+        {
+          "id": "scene_핫플카페_17",
+          "background_preset_id": "핫플카페_17",
+          "pose_preset_id": "앉기_13",
+          "camera_preset_id": "앉기_13",
+          "reference_image": "1. 핫플카페/핫플 카페 (17).png",
+          "suggested_stance": "sit",
+          "tags": ["북촌", "한옥", "전통"]
+        },
+        {
+          "id": "scene_핫플카페_18",
+          "background_preset_id": "핫플카페_18",
+          "pose_preset_id": "전신_06",
+          "camera_preset_id": "전신_06",
+          "reference_image": "1. 핫플카페/핫플 카페 (18).png",
+          "suggested_stance": "stand",
+          "tags": ["망원동", "컬러풀", "시그니처"]
+        },
+        {
+          "id": "scene_핫플카페_19",
+          "background_preset_id": "핫플카페_19",
+          "pose_preset_id": "앉기_16",
+          "camera_preset_id": "앉기_16",
+          "reference_image": "1. 핫플카페/핫플 카페 (19).png",
+          "suggested_stance": "sit",
+          "tags": ["청담", "럭셔리", "호텔라운지"]
+        },
+        {
+          "id": "scene_핫플카페_20",
+          "background_preset_id": "핫플카페_20",
+          "pose_preset_id": "전신_10",
+          "camera_preset_id": "전신_10",
+          "reference_image": "1. 핫플카페/핫플 카페 (20).png",
+          "suggested_stance": "stand",
+          "tags": ["한남", "편집샵", "갤러리"]
+        },
+        {
+          "id": "scene_핫플카페_21",
+          "background_preset_id": "핫플카페_21",
+          "pose_preset_id": "전신_04",
+          "camera_preset_id": "전신_04",
+          "reference_image": "1. 핫플카페/핫플 카페 (21).png",
+          "suggested_stance": "lean_wall",
+          "tags": ["이태원", "루프탑", "야경", "네온"]
+        }
+      ]
+    },
+    "그래피티": {
+      "count": 15,
+      "compatible_pose_categories": ["전신", "상반신"],
+      "scenes": [
+        {"id": "scene_그래피티_01", "background_preset_id": "그래피티_01", "pose_preset_id": "전신_02", "camera_preset_id": "전신_02", "reference_image": "2. 그래피티/그래피티 (1).jpeg", "suggested_stance": "lean_wall", "tags": ["뉴욕", "부쉬윅", "스트릿아트"]},
+        {"id": "scene_그래피티_02", "background_preset_id": "그래피티_02", "pose_preset_id": "전신_04", "camera_preset_id": "전신_04", "reference_image": "2. 그래피티/그래피티 (2).png", "suggested_stance": "lean_wall", "tags": ["런던", "브릭레인", "뮤럴"]},
+        {"id": "scene_그래피티_03", "background_preset_id": "그래피티_03", "pose_preset_id": "전신_07", "camera_preset_id": "전신_07", "reference_image": "2. 그래피티/그래피티 (3).png", "suggested_stance": "lean_wall", "tags": ["LA", "태그", "힙합"]},
+        {"id": "scene_그래피티_04", "background_preset_id": "그래피티_04", "pose_preset_id": "전신_09", "camera_preset_id": "전신_09", "reference_image": "2. 그래피티/그래피티 (4).png", "suggested_stance": "lean_wall", "tags": ["베를린", "터널", "언더그라운드"]},
+        {"id": "scene_그래피티_05", "background_preset_id": "그래피티_05", "pose_preset_id": "전신_02", "camera_preset_id": "전신_02", "reference_image": "2. 그래피티/그래피티 (5).png", "suggested_stance": "lean_wall", "tags": ["폐공장", "러프", "인더스트리얼"]},
+        {"id": "scene_그래피티_06", "background_preset_id": "그래피티_06", "pose_preset_id": "전신_01", "camera_preset_id": "전신_01", "reference_image": "2. 그래피티/그래피티 (6).png", "suggested_stance": "walk", "tags": ["홍대", "주차장", "스트릿"]},
+        {"id": "scene_그래피티_07", "background_preset_id": "그래피티_07", "pose_preset_id": "전신_07", "camera_preset_id": "전신_07", "reference_image": "2. 그래피티/그래피티 (7).png", "suggested_stance": "lean_wall", "tags": ["을지로", "셔터", "뉴트로"]},
+        {"id": "scene_그래피티_08", "background_preset_id": "그래피티_08", "pose_preset_id": "전신_01", "camera_preset_id": "전신_01", "reference_image": "2. 그래피티/그래피티 (8).png", "suggested_stance": "walk", "tags": ["베니스비치", "스케이트파크"]},
+        {"id": "scene_그래피티_09", "background_preset_id": "그래피티_09", "pose_preset_id": "전신_05", "camera_preset_id": "전신_05", "reference_image": "2. 그래피티/그래피티 (9).png", "suggested_stance": "walk", "tags": ["런던", "브릭레인", "마켓"]},
+        {"id": "scene_그래피티_10", "background_preset_id": "그래피티_10", "pose_preset_id": "전신_03", "camera_preset_id": "전신_03", "reference_image": "2. 그래피티/그래피티 (10).png", "suggested_stance": "stand", "tags": ["마이애미", "윈우드", "기하학"]},
+        {"id": "scene_그래피티_11", "background_preset_id": "그래피티_11", "pose_preset_id": "전신_06", "camera_preset_id": "전신_06", "reference_image": "2. 그래피티/그래피티 (11).png", "suggested_stance": "stand", "tags": ["도쿄", "하라주쿠", "캐릭터"]},
+        {"id": "scene_그래피티_12", "background_preset_id": "그래피티_12", "pose_preset_id": "전신_04", "camera_preset_id": "전신_04", "reference_image": "2. 그래피티/그래피티 (12).png", "suggested_stance": "lean_wall", "tags": ["바르셀로나", "추상화"]},
+        {"id": "scene_그래피티_13", "background_preset_id": "그래피티_13", "pose_preset_id": "전신_03", "camera_preset_id": "전신_03", "reference_image": "2. 그래피티/그래피티 (13).png", "suggested_stance": "stand", "tags": ["뉴욕", "타이포그래피"]},
+        {"id": "scene_그래피티_14", "background_preset_id": "그래피티_14", "pose_preset_id": "전신_02", "camera_preset_id": "전신_02", "reference_image": "2. 그래피티/그래피티 (14).png", "suggested_stance": "lean_wall", "tags": ["브롱스", "올드스쿨", "버블레터"]},
+        {"id": "scene_그래피티_15", "background_preset_id": "그래피티_15", "pose_preset_id": "전신_04", "camera_preset_id": "전신_04", "reference_image": "2. 그래피티/그래피티 (15).png", "suggested_stance": "lean_wall", "tags": ["이태원", "야간", "네온"]}
+      ]
+    },
+    "철문": {
+      "count": 10,
+      "compatible_pose_categories": ["전신", "상반신"],
+      "scenes": [
+        {"id": "scene_철문_01", "background_preset_id": "철문_01", "pose_preset_id": "전신_02", "camera_preset_id": "전신_02", "reference_image": "3. 철문/철문 (1).jpeg", "suggested_stance": "lean_wall", "tags": ["을지로", "셔터", "미니멀"]},
+        {"id": "scene_철문_02", "background_preset_id": "철문_02", "pose_preset_id": "전신_04", "camera_preset_id": "전신_04", "reference_image": "3. 철문/철문 (2).png", "suggested_stance": "lean_wall", "tags": ["브루클린", "녹슨", "빈티지"]},
+        {"id": "scene_철문_03", "background_preset_id": "철문_03", "pose_preset_id": "전신_03", "camera_preset_id": "전신_03", "reference_image": "3. 철문/철문 (3).png", "suggested_stance": "stand", "tags": ["그리스", "블루", "지중해"]},
+        {"id": "scene_철문_04", "background_preset_id": "철문_04", "pose_preset_id": "전신_07", "camera_preset_id": "전신_07", "reference_image": "3. 철문/철문 (4).png", "suggested_stance": "lean_wall", "tags": ["런던", "노팅힐", "그린"]},
+        {"id": "scene_철문_05", "background_preset_id": "철문_05", "pose_preset_id": "전신_09", "camera_preset_id": "전신_09", "reference_image": "3. 철문/철문 (5).png", "suggested_stance": "lean_wall", "tags": ["성수", "갤러리", "블랙"]},
+        {"id": "scene_철문_06", "background_preset_id": "철문_06", "pose_preset_id": "전신_02", "camera_preset_id": "전신_02", "reference_image": "3. 철문/철문 (6).png", "suggested_stance": "lean_wall", "tags": ["베를린", "창고", "대형"]},
+        {"id": "scene_철문_07", "background_preset_id": "철문_07", "pose_preset_id": "전신_04", "camera_preset_id": "전신_04", "reference_image": "3. 철문/철문 (7).png", "suggested_stance": "lean_wall", "tags": ["홍대", "그래피티", "태그"]},
+        {"id": "scene_철문_08", "background_preset_id": "철문_08", "pose_preset_id": "전신_07", "camera_preset_id": "전신_08", "reference_image": "3. 철문/철문 (8).png", "suggested_stance": "lean_wall", "tags": ["파리", "부티크", "반개방"]},
+        {"id": "scene_철문_09", "background_preset_id": "철문_09", "pose_preset_id": "전신_09", "camera_preset_id": "전신_09", "reference_image": "3. 철문/철문 (9).png", "suggested_stance": "lean_wall", "tags": ["로마", "구시가", "빈티지"]},
+        {"id": "scene_철문_10", "background_preset_id": "철문_10", "pose_preset_id": "전신_02", "camera_preset_id": "전신_02", "reference_image": "3. 철문/철문 (10).png", "suggested_stance": "lean_wall", "tags": ["문래동", "실버", "철공소"]}
+      ]
+    },
+    "기타문": {
+      "count": 10,
+      "compatible_pose_categories": ["전신", "상반신"],
+      "scenes": [
+        {"id": "scene_기타문_01", "background_preset_id": "기타문_01", "pose_preset_id": "전신_03", "camera_preset_id": "전신_03", "reference_image": "4. 기타 문/기타문 (1).jpeg", "suggested_stance": "stand", "tags": ["파리", "오스만", "클래식"]},
+        {"id": "scene_기타문_02", "background_preset_id": "기타문_02", "pose_preset_id": "전신_02", "camera_preset_id": "전신_02", "reference_image": "4. 기타 문/기타문 (2).png", "suggested_stance": "lean_wall", "tags": ["파리", "아르누보", "철제"]},
+        {"id": "scene_기타문_03", "background_preset_id": "기타문_03", "pose_preset_id": "전신_06", "camera_preset_id": "전신_06", "reference_image": "4. 기타 문/기타문 (3).png", "suggested_stance": "stand", "tags": ["이태원", "카페", "유리문"]},
+        {"id": "scene_기타문_04", "background_preset_id": "기타문_04", "pose_preset_id": "전신_03", "camera_preset_id": "전신_03", "reference_image": "4. 기타 문/기타문 (4).png", "suggested_stance": "stand", "tags": ["런던", "조지안", "귀족"]},
+        {"id": "scene_기타문_05", "background_preset_id": "기타문_05", "pose_preset_id": "전신_02", "camera_preset_id": "전신_02", "reference_image": "4. 기타 문/기타문 (5).png", "suggested_stance": "lean_wall", "tags": ["바르셀로나", "고딕", "아치"]},
+        {"id": "scene_기타문_06", "background_preset_id": "기타문_06", "pose_preset_id": "전신_03", "camera_preset_id": "전신_03", "reference_image": "4. 기타 문/기타문 (6).png", "suggested_stance": "stand", "tags": ["모로코", "블루", "이국적"]},
+        {"id": "scene_기타문_07", "background_preset_id": "기타문_07", "pose_preset_id": "전신_06", "camera_preset_id": "전신_06", "reference_image": "4. 기타 문/기타문 (7).png", "suggested_stance": "stand", "tags": ["청담", "부티크", "럭셔리"]},
+        {"id": "scene_기타문_08", "background_preset_id": "기타문_08", "pose_preset_id": "전신_01", "camera_preset_id": "전신_01", "reference_image": "4. 기타 문/기타문 (8).png", "suggested_stance": "walk", "tags": ["비엔나", "호텔", "그랜드"]},
+        {"id": "scene_기타문_09", "background_preset_id": "기타문_09", "pose_preset_id": "전신_03", "camera_preset_id": "전신_03", "reference_image": "4. 기타 문/기타문 (9).png", "suggested_stance": "stand", "tags": ["뉴욕", "소호", "빈티지샵"]},
+        {"id": "scene_기타문_10", "background_preset_id": "기타문_10", "pose_preset_id": "전신_02", "camera_preset_id": "전신_02", "reference_image": "4. 기타 문/기타문 (10).png", "suggested_stance": "lean_wall", "tags": ["피렌체", "테라코타", "르네상스"]}
+      ]
+    },
+    "해외스트릿": {
+      "count": 10,
+      "compatible_pose_categories": ["전신", "상반신"],
+      "scenes": [
+        {"id": "scene_해외스트릿_01", "background_preset_id": "해외스트릿_01", "pose_preset_id": "전신_01", "camera_preset_id": "전신_01", "reference_image": "5. 해외스트릿/해외스트릿 (1).jpeg", "suggested_stance": "walk", "tags": ["런던", "하이스트릿", "레드"]},
+        {"id": "scene_해외스트릿_02", "background_preset_id": "해외스트릿_02", "pose_preset_id": "전신_05", "camera_preset_id": "전신_05", "reference_image": "5. 해외스트릿/해외스트릿 (2).png", "suggested_stance": "walk", "tags": ["런던", "피카딜리", "버스"]},
+        {"id": "scene_해외스트릿_03", "background_preset_id": "해외스트릿_03", "pose_preset_id": "전신_01", "camera_preset_id": "전신_01", "reference_image": "5. 해외스트릿/해외스트릿 (3).png", "suggested_stance": "walk", "tags": ["파리", "마레", "자전거"]},
+        {"id": "scene_해외스트릿_04", "background_preset_id": "해외스트릿_04", "pose_preset_id": "전신_03", "camera_preset_id": "전신_03", "reference_image": "5. 해외스트릿/해외스트릿 (4).png", "suggested_stance": "stand", "tags": ["샌프란시스코", "파스텔", "언덕"]},
+        {"id": "scene_해외스트릿_05", "background_preset_id": "해외스트릿_05", "pose_preset_id": "전신_01", "camera_preset_id": "전신_01", "reference_image": "5. 해외스트릿/해외스트릿 (5).png", "suggested_stance": "walk", "tags": ["뉴욕", "맨해튼", "택시"]},
+        {"id": "scene_해외스트릿_06", "background_preset_id": "해외스트릿_06", "pose_preset_id": "전신_05", "camera_preset_id": "전신_05", "reference_image": "5. 해외스트릿/해외스트릿 (6).png", "suggested_stance": "walk", "tags": ["시드니", "트램", "벽돌"]},
+        {"id": "scene_해외스트릿_07", "background_preset_id": "해외스트릿_07", "pose_preset_id": "전신_02", "camera_preset_id": "전신_02", "reference_image": "5. 해외스트릿/해외스트릿 (7).png", "suggested_stance": "lean_wall", "tags": ["파리", "세느강", "황혼"]},
+        {"id": "scene_해외스트릿_08", "background_preset_id": "해외스트릿_08", "pose_preset_id": "전신_01", "camera_preset_id": "전신_01", "reference_image": "5. 해외스트릿/해외스트릿 (8).png", "suggested_stance": "walk", "tags": ["뉴욕", "소호", "코블스톤"]},
+        {"id": "scene_해외스트릿_09", "background_preset_id": "해외스트릿_09", "pose_preset_id": "전신_05", "camera_preset_id": "전신_05", "reference_image": "5. 해외스트릿/해외스트릿 (9).png", "suggested_stance": "walk", "tags": ["로마", "광장", "분수"]},
+        {"id": "scene_해외스트릿_10", "background_preset_id": "해외스트릿_10", "pose_preset_id": "전신_01", "camera_preset_id": "전신_01", "reference_image": "5. 해외스트릿/해외스트릿 (10).png", "suggested_stance": "walk", "tags": ["파리", "자전거", "일상"]}
+      ]
+    },
+    "힙스트릿라이프스타일": {
+      "count": 11,
+      "compatible_pose_categories": ["전신", "상반신", "앉기"],
+      "exceptions": {
+        "힙라이프_05": {
+          "allows": ["거울셀피"],
+          "reason": "락커룸 - 전신 거울 있음"
+        }
+      },
+      "scenes": [
+        {"id": "scene_힙라이프_01", "background_preset_id": "힙라이프_01", "pose_preset_id": "상반신_02", "camera_preset_id": "상반신_02", "reference_image": "6. 힙스트릿 라이프스타일/힙라이프 (1).jpeg", "suggested_stance": "stand", "tags": ["LA", "레코드샵", "빈티지"]},
+        {"id": "scene_힙라이프_02", "background_preset_id": "힙라이프_02", "pose_preset_id": "상반신_03", "camera_preset_id": "상반신_03", "reference_image": "6. 힙스트릿 라이프스타일/힙라이프 (2).png", "suggested_stance": "stand", "tags": ["런던", "록포스터", "브리티시"]},
+        {"id": "scene_힙라이프_03", "background_preset_id": "힙라이프_03", "pose_preset_id": "앉기_15", "camera_preset_id": "앉기_15", "reference_image": "6. 힙스트릿 라이프스타일/힙라이프 (3).png", "suggested_stance": "sit", "tags": ["암스테르담", "북마켓", "플리마켓"]},
+        {"id": "scene_힙라이프_04", "background_preset_id": "힙라이프_04", "pose_preset_id": "전신_01", "camera_preset_id": "전신_01", "reference_image": "6. 힙스트릿 라이프스타일/힙라이프 (4).png", "suggested_stance": "walk", "tags": ["도쿄", "시부야", "네온"]},
+        {"id": "scene_힙라이프_05", "background_preset_id": "힙라이프_05", "pose_preset_id": "전신_02", "camera_preset_id": "전신_02", "reference_image": "6. 힙스트릿 라이프스타일/힙라이프 (5).png", "suggested_stance": "lean_wall", "tags": ["미국", "락커룸", "하이틴"]},
+        {"id": "scene_힙라이프_05_mirror", "background_preset_id": "힙라이프_05", "pose_preset_id": "거울셀피_05", "camera_preset_id": "거울셀피_05", "reference_image": null, "suggested_stance": "stand", "tags": ["미국", "락커룸", "거울셀피", "OOTD"], "note": "락커룸 전신거울 셀카"},
+        {"id": "scene_힙라이프_06", "background_preset_id": "힙라이프_06", "pose_preset_id": "전신_03", "camera_preset_id": "전신_03", "reference_image": "6. 힙스트릿 라이프스타일/힙라이프 (6).png", "suggested_stance": "stand", "tags": ["홍대", "레코드샵", "바이닐"]},
+        {"id": "scene_힙라이프_07", "background_preset_id": "힙라이프_07", "pose_preset_id": "상반신_04", "camera_preset_id": "상반신_04", "reference_image": "6. 힙스트릿 라이프스타일/힙라이프 (7).png", "suggested_stance": "stand", "tags": ["도쿄", "서점", "아트북"]},
+        {"id": "scene_힙라이프_08", "background_preset_id": "힙라이프_08", "pose_preset_id": "앉기_07", "camera_preset_id": "앉기_07", "reference_image": "6. 힙스트릿 라이프스타일/힙라이프 (8).png", "suggested_stance": "sit", "tags": ["네덜란드", "스포츠클럽", "레트로"]},
+        {"id": "scene_힙라이프_09", "background_preset_id": "힙라이프_09", "pose_preset_id": "전신_07", "camera_preset_id": "전신_07", "reference_image": "6. 힙스트릿 라이프스타일/힙라이프 (9).png", "suggested_stance": "lean_wall", "tags": ["도쿄", "네온", "사이버펑크"]},
+        {"id": "scene_힙라이프_10", "background_preset_id": "힙라이프_10", "pose_preset_id": "상반신_05", "camera_preset_id": "상반신_05", "reference_image": "6. 힙스트릿 라이프스타일/힙라이프 (10).png", "suggested_stance": "stand", "tags": ["일본", "편의점", "겨울"]}
+      ]
+    },
+    "지하철": {
+      "count": 11,
+      "compatible_pose_categories": ["전신", "상반신", "앉기"],
+      "blocked_pose_categories": ["거울셀피"],
+      "block_reason": "지하철 차량 내부에 거울 없음",
+      "exceptions": {
+        "지하철_07": {
+          "allows": ["거울셀피"],
+          "reason": "역사 에스컬레이터 - 광고판 거울 있을 수 있음"
+        }
+      },
+      "scenes": [
+        {"id": "scene_지하철_01", "background_preset_id": "지하철_01", "pose_preset_id": "전신_01", "camera_preset_id": "전신_01", "reference_image": "7. 지하철/지하철 (1).jpeg", "suggested_stance": "walk", "tags": ["서울", "계단", "형광등"]},
+        {"id": "scene_지하철_02", "background_preset_id": "지하철_02", "pose_preset_id": "앉기_07", "camera_preset_id": "앉기_07", "reference_image": "7. 지하철/지하철 (2).png", "suggested_stance": "sit", "tags": ["뉴욕", "대합실", "빈티지"]},
+        {"id": "scene_지하철_03", "background_preset_id": "지하철_03", "pose_preset_id": "전신_05", "camera_preset_id": "전신_05", "reference_image": "7. 지하철/지하철 (3).png", "suggested_stance": "walk", "tags": ["뉴욕", "야간", "ACE사인"]},
+        {"id": "scene_지하철_04", "background_preset_id": "지하철_04", "pose_preset_id": "전신_01", "camera_preset_id": "전신_01", "reference_image": "7. 지하철/지하철 (4).png", "suggested_stance": "walk", "tags": ["뉴욕", "플랫폼", "EXIT"]},
+        {"id": "scene_지하철_05", "background_preset_id": "지하철_05", "pose_preset_id": "앉기_03", "camera_preset_id": "앉기_03", "reference_image": "7. 지하철/지하철 (5).png", "suggested_stance": "sit", "tags": ["파리", "메트로", "스트라이프"]},
+        {"id": "scene_지하철_06", "background_preset_id": "지하철_06", "pose_preset_id": "전신_13", "camera_preset_id": "전신_13", "reference_image": "7. 지하철/지하철 (6).png", "suggested_stance": "stand", "tags": ["도쿄", "전철내부", "오렌지손잡이"]},
+        {"id": "scene_지하철_07", "background_preset_id": "지하철_07", "pose_preset_id": "전신_01", "camera_preset_id": "전신_01", "reference_image": "7. 지하철/지하철 (7).png", "suggested_stance": "walk", "tags": ["뉴욕", "에스컬레이터", "Gate"]},
+        {"id": "scene_지하철_07_mirror", "background_preset_id": "지하철_07", "pose_preset_id": "거울셀피_03", "camera_preset_id": "거울셀피_03", "reference_image": null, "suggested_stance": "stand", "tags": ["뉴욕", "역사", "거울셀피"], "note": "역사 광고판 거울 셀카"},
+        {"id": "scene_지하철_08", "background_preset_id": "지하철_08", "pose_preset_id": "전신_21", "camera_preset_id": "전신_21", "reference_image": "7. 지하철/지하철 (8).png", "suggested_stance": "stand", "tags": ["일본", "JR선", "광고"]},
+        {"id": "scene_지하철_09", "background_preset_id": "지하철_09", "pose_preset_id": "전신_03", "camera_preset_id": "전신_03", "reference_image": "7. 지하철/지하철 (9).png", "suggested_stance": "stand", "tags": ["뉴욕", "노선도", "MTA"]},
+        {"id": "scene_지하철_10", "background_preset_id": "지하철_10", "pose_preset_id": "앉기_14", "camera_preset_id": "앉기_14", "reference_image": "7. 지하철/지하철 (10).png", "suggested_stance": "sit", "tags": ["서울", "연결부", "일상"]}
+      ]
+    },
+    "엘레베이터": {
+      "count": 5,
+      "compatible_pose_categories": ["전신", "상반신", "거울셀피"],
+      "note": "거울 있음 - 거울셀피 포즈 사용 가능",
+      "scenes": [
+        {"id": "scene_엘레베이터_01", "background_preset_id": "엘레베이터_01", "pose_preset_id": "거울셀피_02", "camera_preset_id": "거울셀피_02", "reference_image": "8. 엘레베이터/엘리베이터 (1).jpeg", "suggested_stance": "stand", "tags": ["오피스", "스테인리스", "미러"]},
+        {"id": "scene_엘레베이터_02", "background_preset_id": "엘레베이터_02", "pose_preset_id": "거울셀피_03", "camera_preset_id": "거울셀피_03", "reference_image": "8. 엘레베이터/엘리베이터 (2).png", "suggested_stance": "stand", "tags": ["갤러리", "미니멀", "그레이"]},
+        {"id": "scene_엘레베이터_03", "background_preset_id": "엘레베이터_03", "pose_preset_id": "거울셀피_10", "camera_preset_id": "거울셀피_10", "reference_image": "8. 엘레베이터/엘리베이터 (3).png", "suggested_stance": "stand", "tags": ["아파트", "전신거울", "일상"]},
+        {"id": "scene_엘레베이터_04", "background_preset_id": "엘레베이터_04", "pose_preset_id": "거울셀피_07", "camera_preset_id": "거울셀피_07", "reference_image": "8. 엘레베이터/엘리베이터 (4).png", "suggested_stance": "stand", "tags": ["아파트", "플래시", "OOTD"]},
+        {"id": "scene_엘레베이터_05", "background_preset_id": "엘레베이터_05", "pose_preset_id": "거울셀피_03", "camera_preset_id": "거울셀피_03", "reference_image": "8. 엘레베이터/엘리베이터 (5).jpeg", "suggested_stance": "stand", "tags": ["오피스", "출근", "전신샷"]}
+      ]
+    },
+    "횡단보도": {
+      "count": 5,
+      "compatible_pose_categories": ["전신"],
+      "blocked_pose_categories": ["앉기", "거울셀피"],
+      "block_reason": "횡단보도에서는 서있거나 걷는 포즈만 적합",
+      "scenes": [
+        {"id": "scene_횡단보도_01", "background_preset_id": "횡단보도_01", "pose_preset_id": "전신_01", "camera_preset_id": "전신_01", "reference_image": "9. 횡단보도/횡단보도 (1).jpeg", "suggested_stance": "walk", "tags": ["파리", "오스만", "흐린날"]},
+        {"id": "scene_횡단보도_02", "background_preset_id": "횡단보도_02", "pose_preset_id": "전신_05", "camera_preset_id": "전신_05", "reference_image": "9. 횡단보도/횡단보도 (2).png", "suggested_stance": "walk", "tags": ["파리", "주택가", "캐주얼"]},
+        {"id": "scene_횡단보도_03", "background_preset_id": "횡단보도_03", "pose_preset_id": "전신_01", "camera_preset_id": "전신_01", "reference_image": "9. 횡단보도/횡단보도 (3).png", "suggested_stance": "walk", "tags": ["뉴욕", "맨해튼", "ONEWAY"]},
+        {"id": "scene_횡단보도_04", "background_preset_id": "횡단보도_04", "pose_preset_id": "전신_05", "camera_preset_id": "전신_05", "reference_image": "9. 횡단보도/횡단보도 (4).png", "suggested_stance": "walk", "tags": ["부다페스트", "여름", "노란건물"]},
+        {"id": "scene_횡단보도_05", "background_preset_id": "횡단보도_05", "pose_preset_id": "전신_01", "camera_preset_id": "전신_01", "reference_image": "9. 횡단보도/횡단보도 (5).png", "suggested_stance": "walk", "tags": ["이태원", "경리단길", "힙스터"]}
+      ]
+    }
+  },
+  "usage": {
+    "description": "scene_preset을 선택하면 호환되는 pose, background, camera가 자동 로드됨",
+    "example": {
+      "scene_id": "scene_엘레베이터_03",
+      "loads": {
+        "pose_preset_id": "거울셀피_10",
+        "background_preset_id": "엘레베이터_03",
+        "camera_preset_id": "거울셀피_10"
+      },
+      "validation": {
+        "pose_requires": ["mirror"],
+        "background_provides": ["mirror", "wall"],
+        "compatible": true
+      }
+    }
+  }
+}

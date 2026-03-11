@@ -38,6 +38,8 @@ def generate_with_validation(
     resolution: str = "2K",
     initial_temperature: float = 0.30,
     pose_reference: Optional[Image.Image] = None,
+    expression_reference: Optional[Image.Image] = None,
+    background_reference: Optional[Image.Image] = None,
     outfit_spec: Optional["OutfitAnalysis"] = None,
 ) -> dict:
     """
@@ -57,6 +59,7 @@ def generate_with_validation(
         resolution: 해상도
         initial_temperature: 초기 온도
         pose_reference: 포즈 레퍼런스 (선택)
+        expression_reference: 표정 레퍼런스 (선택)
         outfit_spec: OutfitAnalysis 객체 (선택)
 
     Returns:
@@ -96,6 +99,8 @@ def generate_with_validation(
             face_images=face_images,
             outfit_images=outfit_images,
             pose_reference=pose_reference,
+            expression_reference=expression_reference,
+            background_reference=background_reference,
             api_key=api_key,
             aspect_ratio=aspect_ratio,
             resolution=resolution,

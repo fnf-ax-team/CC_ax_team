@@ -93,6 +93,10 @@ WORKFLOW_DEFAULTS: Dict[str, WorkflowDefaults] = {
     "free_generation": WorkflowDefaults("3:4", 0.7, "자유 생성"),
     "experimental": WorkflowDefaults("3:4", 0.8, "실험적/아트"),
     "fit_variation": WorkflowDefaults("1:1", 0.3, "바지 핏 베리에이션"),
+    "video_t2v": WorkflowDefaults("16:9", 0.5, "텍스트-투-비디오"),
+    "video_i2v": WorkflowDefaults("16:9", 0.5, "이미지-투-비디오"),
+    "beauty_video": WorkflowDefaults("9:16", 0.7, "뷰티 영상 릴스"),
+    "upscale": WorkflowDefaults("original", 0.05, "4K 업스케일"),
 }
 
 

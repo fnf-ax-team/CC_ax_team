@@ -2,15 +2,18 @@
 FNF AI Studio MCP Server
 
 F&F 패션 브랜드 AI 이미지 생성 플랫폼의 MCP 서버.
-4가지 주요 워크플로 + 2가지 유틸리티 도구를 제공합니다.
+7가지 주요 워크플로 + 2가지 유틸리티 도구를 제공합니다.
 
 도구 목록:
   1. generate_brandcut     - 브랜드컷(에디토리얼 화보) 생성
   2. swap_background       - 배경 교체
   3. swap_outfit            - 착장 교체
   4. generate_influencer   - AI 인플루언서 이미지 생성
-  5. list_options           - 비율/해상도/비용 옵션 조회
-  6. list_presets           - 프리셋/캐릭터 목록 조회
+  5. swap_face              - 얼굴 교체 (포즈/착장/배경 유지)
+  6. generate_ecommerce    - 이커머스 모델 이미지 생성
+  7. copy_pose              - 포즈 따라하기 (레퍼런스 포즈 복제)
+  8. list_options           - 비율/해상도/비용 옵션 조회
+  9. list_presets           - 프리셋/캐릭터 목록 조회
 """
 
 import os
@@ -426,7 +429,295 @@ def generate_influencer(
 
 
 # ============================================================
-# Tool 5: 옵션 조회
+# Tool 5: 얼굴 교체
+# ============================================================
+
+
+@mcp.tool()
+def swap_face(
+    source_image_path: str,
+    face_image_paths: list[str],
+    aspect_ratio: str = "3:4",
+    resolution: str = "2K",
+    max_retries: int = 2,
+) -> str:
+    """인물 이미지의 얼굴만 교체합니다.
+    포즈, 착장, 배경은 그대로 유지합니다.
+
+    Args:
+        source_image_path: 원본 인물 이미지 파일 경로 (포즈/착장/배경 보존)
+        face_image_paths: 교체할 얼굴 이미지 파일 경로 목록 (1~3장)
+        aspect_ratio: 비율 (1:1, 2:3, 3:2, 3:4, 4:3, 4:5, 5:4, 9:16, 16:9, 21:9)
+        resolution: 해상도 (1K, 2K, 4K)
+        max_retries: 최대 재시도 횟수
+
+    Returns:
+        생성 결과 JSON (success, output_path, score, passed, attempts, cost_krw)
+    """
+    try:
+        api_key = _get_api_key()
+
+        with protect_stdout():
+            from core.face_swap import generate_with_validation
+            from core.options import get_cost
+
+            result = generate_with_validation(
+                source_image=source_image_path,
+                face_images=face_image_paths,
+                api_key=api_key,
+                max_retries=max_retries,
+                aspect_ratio=aspect_ratio,
+                resolution=resolution,
+            )
+
+        if result.get("image") is None:
+            return json.dumps(
+                {
+                    "success": False,
+                    "error": "All generation attempts failed",
+                    "history": result.get("history", []),
+                },
+                ensure_ascii=False,
+            )
+
+        output_path = save_generation_result(
+            workflow="face_swap",
+            image=result["image"],
+            config={
+                "aspect_ratio": aspect_ratio,
+                "resolution": resolution,
+            },
+            validation=result.get("criteria"),
+            input_images={
+                "source": [source_image_path],
+                "face": face_image_paths,
+            },
+        )
+
+        return json.dumps(
+            {
+                "success": True,
+                "output_path": output_path,
+                "score": result.get("score", 0),
+                "passed": result.get("passed", False),
+                "attempts": result.get("attempts", 1),
+                "cost_krw": get_cost(resolution, result.get("attempts", 1)),
+            },
+            ensure_ascii=False,
+        )
+
+    except Exception as e:
+        return json.dumps(
+            {
+                "success": False,
+                "error": str(e),
+                "traceback": traceback.format_exc(),
+            },
+            ensure_ascii=False,
+        )
+
+
+# ============================================================
+# Tool 6: 이커머스 모델 이미지 생성
+# ============================================================
+
+
+@mcp.tool()
+def generate_ecommerce(
+    face_image_paths: list[str],
+    outfit_image_paths: list[str],
+    pose: str = "front_standing",
+    background: str = "white_studio",
+    aspect_ratio: str = "3:4",
+    resolution: str = "2K",
+    max_retries: int = 2,
+    temperature: float = 0.2,
+) -> str:
+    """이커머스용 모델 이미지를 생성합니다.
+    온라인 쇼핑몰 상세페이지 및 룩북용. 착장 정확도를 최우선합니다.
+
+    Args:
+        face_image_paths: 얼굴 이미지 파일 경로 목록 (1~3장)
+        outfit_image_paths: 착장 이미지 파일 경로 목록 (전체 전송 필수)
+        pose: 포즈 프리셋 (front_standing, side_standing, walking 등)
+        background: 배경 프리셋 (white_studio, gray_studio, minimal 등)
+        aspect_ratio: 비율 (1:1, 2:3, 3:2, 3:4, 4:3, 4:5, 5:4, 9:16, 16:9, 21:9)
+        resolution: 해상도 (1K, 2K, 4K)
+        max_retries: 최대 재시도 횟수
+        temperature: 생성 온도 (기본 0.2, 상업적 일관성)
+
+    Returns:
+        생성 결과 JSON (success, output_path, score, passed, attempts, cost_krw)
+    """
+    try:
+        api_key = _get_api_key()
+
+        with protect_stdout():
+            from core.ecommerce import generate_with_validation
+            from core.options import get_cost
+
+            result = generate_with_validation(
+                face_images=face_image_paths,
+                outfit_images=outfit_image_paths,
+                api_key=api_key,
+                pose=pose,
+                background=background,
+                max_retries=max_retries,
+                temperature=temperature,
+                aspect_ratio=aspect_ratio,
+                resolution=resolution,
+            )
+
+        if result.get("image") is None:
+            return json.dumps(
+                {
+                    "success": False,
+                    "error": "All generation attempts failed",
+                    "history": result.get("history", []),
+                },
+                ensure_ascii=False,
+            )
+
+        output_path = save_generation_result(
+            workflow="ecommerce",
+            image=result["image"],
+            prompt_json=result.get("prompt"),
+            config={
+                "aspect_ratio": aspect_ratio,
+                "resolution": resolution,
+                "temperature": temperature,
+                "pose": pose,
+                "background": background,
+            },
+            validation=result.get("criteria"),
+            input_images={
+                "face": face_image_paths,
+                "outfit": outfit_image_paths,
+            },
+        )
+
+        return json.dumps(
+            {
+                "success": True,
+                "output_path": output_path,
+                "score": result.get("score", 0),
+                "passed": result.get("passed", False),
+                "attempts": result.get("attempts", 1),
+                "cost_krw": get_cost(resolution, result.get("attempts", 1)),
+            },
+            ensure_ascii=False,
+        )
+
+    except Exception as e:
+        return json.dumps(
+            {
+                "success": False,
+                "error": str(e),
+                "traceback": traceback.format_exc(),
+            },
+            ensure_ascii=False,
+        )
+
+
+# ============================================================
+# Tool 7: 포즈 따라하기
+# ============================================================
+
+
+@mcp.tool()
+def copy_pose(
+    source_image_path: str,
+    reference_image_path: str,
+    background_mode: str = "reference",
+    custom_background: str | None = None,
+    aspect_ratio: str = "3:4",
+    resolution: str = "2K",
+    max_retries: int = 2,
+) -> str:
+    """레퍼런스 이미지의 포즈를 소스 인물에 적용합니다.
+    소스의 얼굴, 착장을 유지하면서 레퍼런스의 포즈/구도를 복제합니다.
+
+    Args:
+        source_image_path: 소스 인물 이미지 파일 경로 (얼굴/착장 보존)
+        reference_image_path: 레퍼런스 이미지 파일 경로 (포즈/구도 복제 대상)
+        background_mode: 배경 처리 ("reference"=레퍼런스배경, "source"=소스배경, "custom"=직접지정)
+        custom_background: background_mode가 "custom"일 때 배경 설명
+        aspect_ratio: 비율 (1:1, 2:3, 3:2, 3:4, 4:3, 4:5, 5:4, 9:16, 16:9, 21:9)
+        resolution: 해상도 (1K, 2K, 4K)
+        max_retries: 최대 재시도 횟수
+
+    Returns:
+        생성 결과 JSON (success, output_path, score, passed, attempts, cost_krw)
+    """
+    try:
+        api_key = _get_api_key()
+
+        with protect_stdout():
+            from core.pose_copy import generate_with_validation
+            from core.options import get_cost
+
+            result = generate_with_validation(
+                source_image=source_image_path,
+                reference_image=reference_image_path,
+                api_key=api_key,
+                background_mode=background_mode,
+                custom_background=custom_background,
+                max_retries=max_retries,
+                aspect_ratio=aspect_ratio,
+                resolution=resolution,
+            )
+
+        if result.get("image") is None:
+            return json.dumps(
+                {
+                    "success": False,
+                    "error": "All generation attempts failed",
+                    "history": result.get("history", []),
+                },
+                ensure_ascii=False,
+            )
+
+        output_path = save_generation_result(
+            workflow="pose_copy",
+            image=result["image"],
+            config={
+                "aspect_ratio": aspect_ratio,
+                "resolution": resolution,
+                "background_mode": background_mode,
+                "custom_background": custom_background,
+            },
+            validation=result.get("criteria"),
+            input_images={
+                "source": [source_image_path],
+                "reference": [reference_image_path],
+            },
+        )
+
+        return json.dumps(
+            {
+                "success": True,
+                "output_path": output_path,
+                "score": result.get("score", 0),
+                "passed": result.get("passed", False),
+                "attempts": result.get("attempts", 1),
+                "cost_krw": get_cost(resolution, result.get("attempts", 1)),
+            },
+            ensure_ascii=False,
+        )
+
+    except Exception as e:
+        return json.dumps(
+            {
+                "success": False,
+                "error": str(e),
+                "traceback": traceback.format_exc(),
+            },
+            ensure_ascii=False,
+        )
+
+
+# ============================================================
+# Tool 8: 옵션 조회
 # ============================================================
 
 
@@ -475,7 +766,7 @@ def list_options() -> str:
 
 
 # ============================================================
-# Tool 6: 프리셋 조회
+# Tool 9: 프리셋 조회
 # ============================================================
 
 

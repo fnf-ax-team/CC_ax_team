@@ -35,7 +35,11 @@ class PipelineConfig:
 
     # 재시도 설정
     max_retries: int = 2
-    temperature_schedule: Tuple[float, ...] = (0.15, 0.1, 0.05)  # First attempt 0.15 for better preservation
+    temperature_schedule: Tuple[float, ...] = (
+        0.15,
+        0.1,
+        0.05,
+    )  # First attempt 0.15 for better preservation
     enable_retry: bool = True
 
     # 진단 기준
@@ -58,6 +62,7 @@ class PipelineConfig:
     # API 설정
     api_retry_count: int = 3
     api_retry_delay: int = 10
+
 
 # ============================================================
 # Tripo 3D API 설정
@@ -90,6 +95,7 @@ TRIPO_POLL_INTERVAL = 5
 @dataclass
 class ProductRetryConfig:
     """제품 이미지 생성 재시도 설정"""
+
     max_retries: int = 2
     temperature_schedule: Tuple[float, ...] = (0.2, 0.15, 0.1)
     tripo_poll_timeout: int = 300

@@ -9,7 +9,9 @@ from pathlib import Path
 from dataclasses import dataclass, field
 from typing import List, Dict, Optional
 
-# 캐릭터 데이터 기본 경로
+from core.storage import resolve_path, get_json, list_files
+
+# 캐릭터 데이터 기본 경로 (로컬 폴백용)
 CHARACTER_BASE_PATH = Path(__file__).parent.parent.parent / "db" / "ai_influencer"
 
 
@@ -127,40 +129,55 @@ def load_character(name: str, base_path: Path = None) -> Character:
     if base_path is None:
         base_path = CHARACTER_BASE_PATH
 
+    # S3/로컬 자동 전환: profile.json 로드
+    relative_profile = f"db/ai_influencer/{name}/profile.json"
     folder_path = base_path / name
 
-    # 폴더 확인
-    if not folder_path.exists():
-        raise FileNotFoundError(f"캐릭터 폴더 없음: {folder_path}")
-
-    # profile.json 로드
-    profile_path = folder_path / "profile.json"
-    if not profile_path.exists():
-        raise FileNotFoundError(f"profile.json 없음: {profile_path}")
-
     try:
-        with open(profile_path, "r", encoding="utf-8") as f:
-            profile = json.load(f)
-    except json.JSONDecodeError as e:
-        raise ValueError(f"profile.json 파싱 실패: {e}")
+        profile = get_json(relative_profile)
+    except FileNotFoundError:
+        # 로컬 폴백
+        profile_path = folder_path / "profile.json"
+        if not profile_path.exists():
+            raise FileNotFoundError(f"캐릭터 폴더 없음: {folder_path}")
+        try:
+            with open(profile_path, "r", encoding="utf-8") as f:
+                profile = json.load(f)
+        except json.JSONDecodeError as e:
+            raise ValueError(f"profile.json 파싱 실패: {e}")
 
-    # 얼굴 이미지 로드
-    face_folder = folder_path / "face"
+    # 얼굴 이미지 로드 (S3/로컬 자동 전환)
+    face_relative_dir = f"db/ai_influencer/{name}/face"
     face_images = []
-    if face_folder.exists():
-        for ext in ["*.jpg", "*.jpeg", "*.png"]:
-            face_images.extend(face_folder.glob(ext))
-        face_images = sorted(face_images)
+
+    # storage 모듈의 list_files로 조회 (S3 manifest 지원)
+    face_file_paths = list_files(face_relative_dir, [".jpg", ".jpeg", ".png"])
+    if face_file_paths:
+        for fp in face_file_paths:
+            try:
+                resolved = resolve_path(fp)
+                face_images.append(resolved)
+            except FileNotFoundError:
+                pass
+    else:
+        # 로컬 폴백
+        face_folder = folder_path / "face"
+        if face_folder.exists():
+            for ext in ["*.jpg", "*.jpeg", "*.png"]:
+                face_images.extend(face_folder.glob(ext))
+            face_images = sorted(face_images)
 
     if len(face_images) < 1:
-        raise ValueError(f"얼굴 이미지 없음: {face_folder}")
+        raise ValueError(f"얼굴 이미지 없음: {face_relative_dir}")
 
     # 스타일 가이드 로드 (선택적)
     style_guide = None
-    style_guide_path = folder_path / "style_guide.md"
-    if style_guide_path.exists():
-        with open(style_guide_path, "r", encoding="utf-8") as f:
+    try:
+        style_guide_resolved = resolve_path(f"db/ai_influencer/{name}/style_guide.md")
+        with open(style_guide_resolved, "r", encoding="utf-8") as f:
             style_guide = f.read()
+    except FileNotFoundError:
+        pass
 
     # FaceFeatures 파싱
     face_data = profile.get("face_features", {})

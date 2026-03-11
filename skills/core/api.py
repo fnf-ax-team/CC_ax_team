@@ -26,9 +26,13 @@ from core.config import IMAGE_MODEL, VISION_MODEL
 # Exception Classes
 # ============================================================
 
+
 class APIError(Exception):
     """Base exception for API-related errors."""
-    def __init__(self, message: str, error_code: Optional[str] = None, retryable: bool = False):
+
+    def __init__(
+        self, message: str, error_code: Optional[str] = None, retryable: bool = False
+    ):
         super().__init__(message)
         self.error_code = error_code
         self.retryable = retryable
@@ -36,18 +40,21 @@ class APIError(Exception):
 
 class RateLimitError(APIError):
     """Rate limit exceeded error."""
+
     def __init__(self, message: str):
         super().__init__(message, error_code="RATE_LIMIT", retryable=True)
 
 
 class AuthenticationError(APIError):
     """Authentication error."""
+
     def __init__(self, message: str):
         super().__init__(message, error_code="AUTH_ERROR", retryable=False)
 
 
 class SafetyBlockError(APIError):
     """Safety filter blocked the request."""
+
     def __init__(self, message: str):
         super().__init__(message, error_code="SAFETY_BLOCK", retryable=False)
 
@@ -55,6 +62,7 @@ class SafetyBlockError(APIError):
 # ============================================================
 # API Key Management
 # ============================================================
+
 
 def _get_api_keys() -> List[str]:
     """Get all available API keys from environment."""
@@ -85,7 +93,10 @@ def _get_next_api_key() -> str:
 # Helper Functions
 # ============================================================
 
-def _load_image(image_input: Union[str, Path, Image.Image], max_size: int = 2048) -> Image.Image:
+
+def _load_image(
+    image_input: Union[str, Path, Image.Image], max_size: int = 2048
+) -> Image.Image:
     """
     Load and optionally resize an image.
 
@@ -112,7 +123,9 @@ def _load_image(image_input: Union[str, Path, Image.Image], max_size: int = 2048
     return img
 
 
-def _pil_to_part(img: Image.Image, format: str = "JPEG", quality: int = 90) -> types.Part:
+def _pil_to_part(
+    img: Image.Image, format: str = "JPEG", quality: int = 90
+) -> types.Part:
     """
     Convert PIL Image to Gemini Part object.
 
@@ -131,6 +144,43 @@ def _pil_to_part(img: Image.Image, format: str = "JPEG", quality: int = 90) -> t
     return types.Part(inline_data=types.Blob(mime_type=mime_type, data=buf.getvalue()))
 
 
+def image_to_part(
+    image_input: Union[str, Path, Image.Image],
+    max_size: int = 2048,
+) -> types.Part:
+    """
+    이미지를 Gemini Part로 변환 (URL / 파일경로 / PIL 자동 분기).
+
+    - URL (http/https) → file_data로 직접 전달 (다운로드 없음)
+    - 파일 경로 → PIL 로드 → inline_data
+    - PIL Image → inline_data
+
+    Args:
+        image_input: URL 문자열, 파일 경로, 또는 PIL Image
+        max_size: 파일 로드 시 최대 크기 (URL 모드에선 무시)
+
+    Returns:
+        types.Part
+    """
+    # URL → from_uri (S3 URL 등 다운로드 없이 직접 전달)
+    if isinstance(image_input, str) and image_input.startswith(("http://", "https://")):
+        ext = Path(image_input.split("?")[0]).suffix.lower()
+        mime_map = {
+            ".jpg": "image/jpeg",
+            ".jpeg": "image/jpeg",
+            ".png": "image/png",
+            ".webp": "image/webp",
+        }
+        mime_type = mime_map.get(ext, "image/jpeg")
+        return types.Part(
+            file_data=types.FileData(file_uri=image_input, mime_type=mime_type)
+        )
+
+    # 파일 경로 / PIL Image → 기존 inline_data 방식
+    img = _load_image(image_input, max_size=max_size)
+    return _pil_to_part(img)
+
+
 def _base64_to_part(image_data: str) -> types.Part:
     """
     Convert base64 encoded image to Gemini Part object.
@@ -145,11 +195,11 @@ def _base64_to_part(image_data: str) -> types.Part:
     img_bytes = base64.b64decode(image_data)
 
     # Determine mime type from image data
-    if img_bytes.startswith(b'\x89PNG'):
+    if img_bytes.startswith(b"\x89PNG"):
         mime_type = "image/png"
-    elif img_bytes.startswith(b'\xff\xd8\xff'):
+    elif img_bytes.startswith(b"\xff\xd8\xff"):
         mime_type = "image/jpeg"
-    elif img_bytes.startswith(b'RIFF') and b'WEBP' in img_bytes[:12]:
+    elif img_bytes.startswith(b"RIFF") and b"WEBP" in img_bytes[:12]:
         mime_type = "image/webp"
     else:
         mime_type = "image/jpeg"  # Default fallback
@@ -161,12 +211,13 @@ def _base64_to_part(image_data: str) -> types.Part:
 # Vision API (VLM)
 # ============================================================
 
+
 def call_gemini_vision(
     prompt: str,
     image_data: str,
     model: Optional[str] = None,
     temperature: float = 0.1,
-    max_retries: int = 3
+    max_retries: int = 3,
 ) -> str:
     """
     Call Gemini Vision API for image analysis.
@@ -198,32 +249,24 @@ def call_gemini_vision(
 
             # Create content
             contents = [
-                types.Content(
-                    role="user",
-                    parts=[
-                        types.Part(text=prompt),
-                        image_part
-                    ]
-                )
+                types.Content(role="user", parts=[types.Part(text=prompt), image_part])
             ]
 
             # Call API
             response = client.models.generate_content(
                 model=model,
                 contents=contents,
-                config=types.GenerateContentConfig(
-                    temperature=temperature
-                )
+                config=types.GenerateContentConfig(temperature=temperature),
             )
 
             # Extract text from response
-            if hasattr(response, 'text') and response.text:
+            if hasattr(response, "text") and response.text:
                 return response.text
 
             # Fallback: extract from parts
             for candidate in response.candidates:
                 for part in candidate.content.parts:
-                    if hasattr(part, 'text') and part.text:
+                    if hasattr(part, "text") and part.text:
                         return part.text
 
             raise APIError("No text response received from vision API")
@@ -232,24 +275,28 @@ def call_gemini_vision(
             error_str = str(e).lower()
 
             # Check for specific error types
-            if '429' in error_str or 'rate' in error_str or 'quota' in error_str:
+            if "429" in error_str or "rate" in error_str or "quota" in error_str:
                 if attempt < max_retries - 1:
-                    wait_time = (2 ** attempt) * 5  # Exponential backoff: 5, 10, 20 seconds
+                    wait_time = (
+                        2**attempt
+                    ) * 5  # Exponential backoff: 5, 10, 20 seconds
                     time.sleep(wait_time)
                     continue
                 raise RateLimitError(f"Rate limit exceeded: {e}")
 
-            if '401' in error_str or 'auth' in error_str or 'api key' in error_str:
+            if "401" in error_str or "auth" in error_str or "api key" in error_str:
                 raise AuthenticationError(f"Authentication failed: {e}")
 
-            if 'safety' in error_str or 'blocked' in error_str:
+            if "safety" in error_str or "blocked" in error_str:
                 raise SafetyBlockError(f"Content blocked by safety filters: {e}")
 
-            if '503' in error_str or 'overload' in error_str:
+            if "503" in error_str or "overload" in error_str:
                 if attempt < max_retries - 1:
                     time.sleep(10)
                     continue
-                raise APIError(f"Server overloaded: {e}", error_code="SERVER_ERROR", retryable=True)
+                raise APIError(
+                    f"Server overloaded: {e}", error_code="SERVER_ERROR", retryable=True
+                )
 
             # Generic error
             if attempt < max_retries - 1:
@@ -264,6 +311,7 @@ def call_gemini_vision(
 # Image Generation API
 # ============================================================
 
+
 def generate_image(
     prompt: str,
     output_path: Union[str, Path],
@@ -273,7 +321,7 @@ def generate_image(
     temperature: float = 0.3,
     image_size: str = "2K",
     reference_images: Optional[List[Union[str, Path, Image.Image]]] = None,
-    max_retries: int = 3
+    max_retries: int = 3,
 ) -> Optional[str]:
     """
     Generate an image using Gemini API and save to file.
@@ -306,12 +354,11 @@ def generate_image(
     # Build parts list
     parts: List[Any] = []
 
-    # Add reference images first
+    # Add reference images first (URL이면 다운로드 없이 직접 전달)
     if reference_images:
         for i, ref_img in enumerate(reference_images):
             parts.append(f"[Reference Image {i+1}]")
-            img = _load_image(ref_img, max_size=2048)
-            parts.append(_pil_to_part(img))
+            parts.append(image_to_part(ref_img, max_size=2048))
 
     # Add prompt
     full_prompt = prompt
@@ -332,16 +379,15 @@ def generate_image(
                     temperature=temperature,
                     response_modalities=["IMAGE", "TEXT"],
                     image_config=types.ImageConfig(
-                        aspect_ratio=aspect_ratio,
-                        image_size=image_size
-                    )
-                )
+                        aspect_ratio=aspect_ratio, image_size=image_size
+                    ),
+                ),
             )
 
             # Extract image from response
             for candidate in response.candidates:
                 for part in candidate.content.parts:
-                    if hasattr(part, 'inline_data') and part.inline_data:
+                    if hasattr(part, "inline_data") and part.inline_data:
                         # Save image
                         img = Image.open(io.BytesIO(part.inline_data.data))
                         img.save(output_path)
@@ -353,24 +399,26 @@ def generate_image(
             error_str = str(e).lower()
 
             # Check for specific error types
-            if '429' in error_str or 'rate' in error_str or 'quota' in error_str:
+            if "429" in error_str or "rate" in error_str or "quota" in error_str:
                 if attempt < max_retries - 1:
-                    wait_time = (2 ** attempt) * 5  # Exponential backoff
+                    wait_time = (2**attempt) * 5  # Exponential backoff
                     time.sleep(wait_time)
                     continue
                 raise RateLimitError(f"Rate limit exceeded: {e}")
 
-            if '401' in error_str or 'auth' in error_str or 'api key' in error_str:
+            if "401" in error_str or "auth" in error_str or "api key" in error_str:
                 raise AuthenticationError(f"Authentication failed: {e}")
 
-            if 'safety' in error_str or 'blocked' in error_str:
+            if "safety" in error_str or "blocked" in error_str:
                 raise SafetyBlockError(f"Content blocked by safety filters: {e}")
 
-            if '503' in error_str or 'overload' in error_str:
+            if "503" in error_str or "overload" in error_str:
                 if attempt < max_retries - 1:
                     time.sleep(10)
                     continue
-                raise APIError(f"Server overloaded: {e}", error_code="SERVER_ERROR", retryable=True)
+                raise APIError(
+                    f"Server overloaded: {e}", error_code="SERVER_ERROR", retryable=True
+                )
 
             # Generic error
             if attempt < max_retries - 1:
@@ -385,6 +433,7 @@ def generate_image(
 # Batch Generation Helper
 # ============================================================
 
+
 def generate_batch_images(
     prompts: List[str],
     output_dir: Union[str, Path],
@@ -392,7 +441,7 @@ def generate_batch_images(
     aspect_ratio: str = "3:4",
     temperature: float = 0.3,
     image_size: str = "2K",
-    prefix: str = "generated"
+    prefix: str = "generated",
 ) -> List[Path]:
     """
     Generate multiple images in batch.
@@ -424,7 +473,7 @@ def generate_batch_images(
                 model=model,
                 aspect_ratio=aspect_ratio,
                 temperature=temperature,
-                image_size=image_size
+                image_size=image_size,
             )
 
             if result_path:

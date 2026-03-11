@@ -17,7 +17,7 @@ import random
 from pathlib import Path
 from typing import List, Dict, Optional, Tuple, Any
 
-from core.storage import get_json, resolve_path
+from core.storage import get_json, resolve_path, resolve_image_for_api
 
 # DB 파일 경로 (로컬 폴백용)
 DB_DIR = Path(__file__).parent.parent.parent / "db"
@@ -398,7 +398,7 @@ def get_expression_reference_image_path(expression: Dict) -> Optional[str]:
         return None
 
     try:
-        resolved = resolve_path(image_path)
+        resolved = resolve_image_for_api(image_path)
         return str(resolved)
     except FileNotFoundError:
         return None
@@ -452,14 +452,14 @@ def get_reference_image_path(scene: Dict) -> Optional[str]:
 
     # 1. reference_folder/이미지 경로로 시도
     try:
-        resolved = resolve_path(f"{ref_folder}/{ref_image}")
+        resolved = resolve_image_for_api(f"{ref_folder}/{ref_image}")
         return str(resolved)
     except FileNotFoundError:
         pass
 
     # 2. 직접 경로로 시도
     try:
-        resolved = resolve_path(ref_image)
+        resolved = resolve_image_for_api(ref_image)
         return str(resolved)
     except FileNotFoundError:
         return None

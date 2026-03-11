@@ -15,7 +15,7 @@ from pathlib import Path
 from typing import Dict, List, Optional, Any
 from functools import lru_cache
 
-from core.storage import get_json, get_image, resolve_path
+from core.storage import get_json, get_image, resolve_path, resolve_image_for_api
 
 # 프리셋 데이터 기본 경로 (로컬 폴백용)
 PRESET_BASE_PATH = (
@@ -153,10 +153,10 @@ def get_mlb_preset_image_path(preset_type: str, preset_id: str) -> Optional[str]
     if not image_path:
         return None
 
-    # storage 모듈로 경로 확인 (로컬 or S3)
+    # storage 모듈로 이미지 참조 (S3면 URL, 로컬이면 경로)
     relative = image_path.replace("\\", "/")
     try:
-        resolved = resolve_path(relative)
+        resolved = resolve_image_for_api(relative)
         return str(resolved)
     except FileNotFoundError:
         # 로컬 폴백 (프로젝트 루트 기준)

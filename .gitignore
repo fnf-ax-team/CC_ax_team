@@ -29,12 +29,19 @@ Thumbs.db
 # Outputs (large generated images)
 Fnf_studio_outputs/
 
+# Database / presets (12GB+, distribute separately)
+db/
+
 # Test outputs
 test_output.txt
 temp_faces.txt
 
 # OMC state
 .omc/
+
+# DCS AI outputs
+src/output/
+src/download/
 
 # Node
 node_modules/

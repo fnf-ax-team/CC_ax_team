@@ -1,12 +1,12 @@
 """
 AI 인플루언서 프리셋 로더
 
-db/ 폴더의 프리셋 JSON 파일들을 로드
-- expression_presets.json (표정)
-- pose_presets.json (포즈)
-- camera_presets.json (촬영 세팅)
-- background_presets.json (배경)
-- styling_preset_db.json (스타일링)
+db/presets/ 폴더의 프리셋 JSON 파일들을 로드
+- common/expression_presets.json (표정) - 셀카와 공용
+- common/pose_presets.json (포즈) - 셀카와 공용
+- common/background_presets.json (배경) - 배경교체와 공용
+- influencer/camera_presets.json (촬영 세팅) - 인플 전용
+- influencer/styling_preset_db.json (스타일링) - 인플 전용
 """
 
 import json
@@ -14,16 +14,18 @@ from pathlib import Path
 from typing import Dict, List, Optional, Any
 from functools import lru_cache
 
-# 프리셋 데이터 기본 경로
+from core.storage import get_json
+
+# 프리셋 데이터 기본 경로 (로컬 폴백용)
 PRESET_BASE_PATH = Path(__file__).parent.parent.parent / "db"
 
-# 프리셋 파일 매핑
+# 프리셋 파일 매핑 (워크플로별 하위 폴더)
 PRESET_FILES = {
-    "expression": "expression_presets.json",
-    "pose": "pose_presets.json",
-    "camera": "camera_presets.json",
-    "background": "background_presets.json",
-    "styling": "styling_preset_db.json",
+    "expression": "presets/common/expression_presets.json",
+    "pose": "presets/common/pose_presets.json",
+    "camera": "presets/influencer/camera_presets.json",
+    "background": "presets/common/background_presets.json",
+    "styling": "presets/influencer/styling_preset_db.json",
 }
 
 
@@ -43,12 +45,18 @@ def _load_preset_file(preset_type: str) -> Dict:
             f"알 수 없는 프리셋 타입: {preset_type}. 가능한 값: {list(PRESET_FILES.keys())}"
         )
 
-    file_path = PRESET_BASE_PATH / PRESET_FILES[preset_type]
-    if not file_path.exists():
-        raise FileNotFoundError(f"프리셋 파일 없음: {file_path}")
-
-    with open(file_path, "r", encoding="utf-8") as f:
-        return json.load(f)
+    relative = f"db/{PRESET_FILES[preset_type]}"
+    try:
+        return get_json(relative)
+    except FileNotFoundError:
+        # 로컬 폴백
+        file_path = PRESET_BASE_PATH / PRESET_FILES[preset_type]
+        if not file_path.exists():
+            raise FileNotFoundError(
+                f"프리셋 파일 없음: {file_path} (relative: {relative})"
+            )
+        with open(file_path, "r", encoding="utf-8") as f:
+            return json.load(f)
 
 
 def get_preset_categories(preset_type: str) -> List[str]:
@@ -246,133 +254,6 @@ def search_presets(preset_type: str, keyword: str) -> List[Dict[str, Any]]:
         items = cat_data.get(preset_key, [])
         for item in items:
             # ID, note, 또는 다른 필드에서 검색
-            item_str = json.dumps(item, ensure_ascii=False).lower()
-            if keyword_lower in item_str:
-                result = item.copy()
-                result["_category"] = cat_name
-                results.append(result)
-
-    return results
-
-
-# ============================================================
-# MLB 브랜드 전용 프리셋 로더
-# ============================================================
-
-MLB_PRESET_BASE_PATH = PRESET_BASE_PATH / "mlb_style"
-
-MLB_PRESET_FILES = {
-    "expression": "mlb_expression_presets.json",
-    "pose": "mlb_pose_presets.json",
-    "background": "mlb_background_presets.json",
-    "camera": "mlb_camera_presets.json",
-}
-
-
-@lru_cache(maxsize=10)
-def _load_mlb_preset_file(preset_type: str) -> Dict:
-    """
-    MLB 프리셋 파일 로드 (캐싱)
-
-    Args:
-        preset_type: 프리셋 타입 (expression, pose, background, camera)
-
-    Returns:
-        MLB 프리셋 JSON 데이터
-    """
-    if preset_type not in MLB_PRESET_FILES:
-        raise ValueError(
-            f"알 수 없는 MLB 프리셋 타입: {preset_type}. "
-            f"가능한 값: {list(MLB_PRESET_FILES.keys())}"
-        )
-
-    file_path = MLB_PRESET_BASE_PATH / MLB_PRESET_FILES[preset_type]
-    if not file_path.exists():
-        raise FileNotFoundError(f"MLB 프리셋 파일 없음: {file_path}")
-
-    with open(file_path, "r", encoding="utf-8") as f:
-        return json.load(f)
-
-
-def load_mlb_preset(preset_type: str, preset_id: str) -> Optional[Dict[str, Any]]:
-    """
-    MLB 특정 프리셋 로드
-
-    Args:
-        preset_type: 프리셋 타입 (expression, pose, background, camera)
-        preset_id: 프리셋 ID (예: "MLB시크_01")
-
-    Returns:
-        프리셋 데이터 dict (없으면 None)
-    """
-    data = _load_mlb_preset_file(preset_type)
-    categories = data.get("categories", {})
-    preset_key = _get_preset_key(preset_type)
-
-    for cat_name, cat_data in categories.items():
-        items = cat_data.get(preset_key, [])
-        for item in items:
-            if item.get("id") == preset_id:
-                result = item.copy()
-                result["_category"] = cat_name
-                return result
-
-    return None
-
-
-def list_mlb_presets(preset_type: str, category: str = None) -> List[str]:
-    """
-    MLB 프리셋 ID 목록 반환
-
-    Args:
-        preset_type: 프리셋 타입
-        category: 카테고리 (None이면 전체)
-
-    Returns:
-        프리셋 ID 목록
-    """
-    data = _load_mlb_preset_file(preset_type)
-    categories = data.get("categories", {})
-    preset_key = _get_preset_key(preset_type)
-
-    preset_ids = []
-
-    if category:
-        if category not in categories:
-            return []
-        items = categories[category].get(preset_key, [])
-        for item in items:
-            preset_ids.append(item.get("id", ""))
-    else:
-        for cat_name, cat_data in categories.items():
-            items = cat_data.get(preset_key, [])
-            for item in items:
-                preset_ids.append(item.get("id", ""))
-
-    return [pid for pid in preset_ids if pid]
-
-
-def search_mlb_presets(preset_type: str, keyword: str) -> List[Dict[str, Any]]:
-    """
-    MLB 프리셋 키워드 검색
-
-    Args:
-        preset_type: 프리셋 타입
-        keyword: 검색 키워드
-
-    Returns:
-        매칭된 프리셋 목록
-    """
-    data = _load_mlb_preset_file(preset_type)
-    categories = data.get("categories", {})
-    preset_key = _get_preset_key(preset_type)
-
-    results = []
-    keyword_lower = keyword.lower()
-
-    for cat_name, cat_data in categories.items():
-        items = cat_data.get(preset_key, [])
-        for item in items:
             item_str = json.dumps(item, ensure_ascii=False).lower()
             if keyword_lower in item_str:
                 result = item.copy()

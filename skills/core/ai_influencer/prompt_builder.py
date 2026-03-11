@@ -2,7 +2,7 @@
 AI 인플루언서 프롬프트 빌더
 
 스키마 + 프리셋 기반 프롬프트 조립
-db/influencer_prompt_schema.json 구조를 따름
+db/presets/influencer/prompt_schema.json 구조를 따름
 
 주요 함수:
     build_schema_prompt(): 풀 파이프라인용 (VLM 분석 결과 기반)
@@ -40,16 +40,26 @@ from .presets import (
 )
 
 
-# 스키마 파일 경로
+# 스키마 파일 경로 (로컬 폴백용)
 SCHEMA_PATH = (
-    Path(__file__).parent.parent.parent / "db" / "influencer_prompt_schema.json"
+    Path(__file__).parent.parent.parent
+    / "db"
+    / "presets"
+    / "influencer"
+    / "prompt_schema.json"
 )
 
 
 def _load_schema() -> Dict:
-    """스키마 로드"""
-    with open(SCHEMA_PATH, "r", encoding="utf-8") as f:
-        return json.load(f)
+    """스키마 로드 (S3/로컬 자동 전환)"""
+    from core.storage import get_json
+
+    try:
+        return get_json("db/presets/influencer/prompt_schema.json")
+    except FileNotFoundError:
+        # 로컬 폴백
+        with open(SCHEMA_PATH, "r", encoding="utf-8") as f:
+            return json.load(f)
 
 
 def build_influencer_prompt(

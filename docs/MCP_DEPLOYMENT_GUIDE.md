@@ -180,7 +180,7 @@ git remote set-url origin https://github.com/fnf-process/fnf-studio.git
 - [ ] `.env` 파일이 `.gitignore`에 포함되어 있는지
 - [ ] API 키가 코드에 하드코딩되지 않았는지
 - [ ] `.env.example`만 커밋되는지
-- [ ] `db/` 내 민감 데이터가 제외되었는지
+- [ ] `db/` 폴더가 `.gitignore`에 포함되어 있는지 (12GB+, 별도 배포)
 - [ ] `Fnf_studio_outputs/`가 `.gitignore`에 포함되어 있는지
 
 ### 5-4. 커밋 및 푸시
@@ -234,16 +234,19 @@ F&F 패션 브랜드 AI 이미지 생성 도구입니다.
 
 ### 6-3. Step 2 - 실행 설정 (Configuration)
 
-**stdio JSON 설정:**
+**stdio JSON 설정 (로컬 프로젝트 방식):**
+
+> `db/` 폴더(프리셋, 캐릭터 이미지 등 12GB+)가 필요하므로, 프로젝트 폴더를 직접 참조하는 `--directory` 방식을 사용합니다.
 
 ```json
 {
   "mcpServers": {
     "fnf-studio": {
-      "command": "uvx",
+      "command": "uv",
       "args": [
-        "--from",
-        "git+https://github.com/fnf-process/fnf-studio.git",
+        "--directory",
+        "{프로젝트_경로}",
+        "run",
         "fnf-studio-mcp"
       ],
       "env": {
@@ -253,6 +256,8 @@ F&F 패션 브랜드 AI 이미지 생성 도구입니다.
   }
 }
 ```
+
+> `{프로젝트_경로}`를 실제 로컬 경로로 변경하세요. 예: `D:\\FNF_Studio_TEST\\New-fnf-studio`
 
 **환경변수 등록:**
 
@@ -272,9 +277,41 @@ F&F 패션 브랜드 AI 이미지 생성 도구입니다.
 
 ## 7. 사용자 가이드 (구독자용)
 
-### 구독 후 설정
+### 초기 설정 (필수)
 
-ORBIT에서 구독 승인을 받으면, 자동으로 MCP 설정이 적용됩니다.
+1. **GitHub에서 코드 clone:**
+
+```bash
+git clone https://github.com/fnf-process/fnf-studio.git
+cd fnf-studio
+```
+
+2. **db/ 데이터 복사:**
+
+`db/` 폴더(프리셋, 캐릭터 이미지 등)는 GitHub에 포함되지 않습니다.
+공유 드라이브에서 `db/` 폴더를 다운로드하여 프로젝트 루트에 배치하세요.
+
+```
+fnf-studio/
+├── core/          ← GitHub에서 clone
+├── fnf_studio_mcp/ ← GitHub에서 clone
+├── db/            ← 공유 드라이브에서 복사
+└── ...
+```
+
+3. **환경변수 설정:**
+
+```bash
+# .env 파일 생성
+cp .env.example .env
+# GEMINI_API_KEY 입력
+```
+
+4. **의존성 설치:**
+
+```bash
+uv sync
+```
 
 ### 사용 예시
 

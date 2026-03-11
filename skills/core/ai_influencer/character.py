@@ -9,7 +9,7 @@ from pathlib import Path
 from dataclasses import dataclass, field
 from typing import List, Dict, Optional
 
-from core.storage import resolve_path, get_json, list_files
+from core.storage import resolve_path, resolve_image_for_api, get_json, list_files
 
 # 캐릭터 데이터 기본 경로 (로컬 폴백용)
 CHARACTER_BASE_PATH = Path(__file__).parent.parent.parent / "db" / "ai_influencer"
@@ -155,7 +155,7 @@ def load_character(name: str, base_path: Path = None) -> Character:
     if face_file_paths:
         for fp in face_file_paths:
             try:
-                resolved = resolve_path(fp)
+                resolved = resolve_image_for_api(fp)
                 face_images.append(resolved)
             except FileNotFoundError:
                 pass

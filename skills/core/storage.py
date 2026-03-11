@@ -212,6 +212,37 @@ def list_files(relative_dir: str, extensions: list[str] = None) -> list[str]:
     return []
 
 
+def resolve_image_for_api(relative_path: str) -> Union[str, Path]:
+    """이미지를 Gemini API 전달에 최적화된 형태로 반환.
+
+    - S3 모드: S3 URL 문자열 반환 (다운로드 없이 Gemini에 직접 전달)
+    - 로컬 모드: 파일 경로 반환
+
+    api.py의 image_to_part()와 함께 사용:
+        from core.storage import resolve_image_for_api
+        from core.api import image_to_part
+
+        img_ref = resolve_image_for_api("db/presets/common/4. 배경/sunset.jpg")
+        part = image_to_part(img_ref)  # URL이면 from_uri, 파일이면 inline_data
+
+    Args:
+        relative_path: 'db/model/MLB_KARINA/face_01.jpg' 같은 상대 경로
+
+    Returns:
+        S3 URL 문자열 (s3 모드) 또는 로컬 파일 Path (local 모드)
+    """
+    if is_s3_mode():
+        return _to_s3_url(_normalize_path(relative_path))
+
+    # 로컬 모드: 파일 존재 확인
+    normalized = _normalize_path(relative_path)
+    local_path = _PROJECT_ROOT / normalized
+    if local_path.exists():
+        return local_path
+
+    raise FileNotFoundError(f"파일 없음: {local_path} (storage_mode={_STORAGE_MODE})")
+
+
 def clear_cache():
     """로컬 캐시 전체 삭제."""
     import shutil

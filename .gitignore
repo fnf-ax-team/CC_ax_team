@@ -45,3 +45,11 @@ src/download/
 
 # Node
 node_modules/
+
+# 팀원 프로젝트 폴더 (이 레포는 FNF Studio 전용)
+Agent/
+dcs-ai-claude/
+dv-ai-super-agent/
+influencer-dashboard-make-query/
+make-shared-resources/
+skills/

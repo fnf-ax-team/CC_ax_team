@@ -84,25 +84,37 @@ SOURCE_PERSON_ANALYSIS_PROMPT = """
 
 중요: 포즈/자세 정보는 추출하지 마세요. 얼굴과 착장만 분석합니다.
 
-[STEP 1] 얼굴 분석:
-- 나이대
+[STEP 1] 얼굴 분석 (AI가 놓치기 쉬운 특징까지 반드시 추출):
+- 나이대 (구체적: mid-20s 등)
 - 성별
 - 민족/인종
-- 피부톤 (fair/medium/tan/dark, cool/warm undertone)
-- 얼굴형
-- 뚜렷한 특징 (광대뼈, 눈 모양, 눈썹, 코, 입술 등)
+- 피부톤 (fair/medium/tan/dark, cool/warm undertone, 구체적 색조)
+- 얼굴형 (oval/round/heart/square/oblong)
+- 눈: 모양(아몬드/둥근/쌍꺼풀유무), 크기, 간격
+- 코: 높이, 폭, 콧날 모양
+- 입술: 두께, 모양, 색상
+- 턱선: 각진/둥근, 턱 길이
+- 광대뼈: 높이, 돌출 정도
+- 눈썹: 두께, 아치, 색상
+- 고유 특징: 점, 보조개, 주근깨, 흉터 등 (반드시 3개 이상 기재, 없으면 "none detected" 기재)
+- 전체 인상: 한 문장으로 요약 (예: "높은 광대뼈와 큰 아몬드눈이 특징적인 쿨톤 피부의 동아시아 여성")
 
-[STEP 2] 착장 분석:
-- 전체 착장 설명 (아이템별)
-- 색상 목록
-- 스타일
-- 디테일 (로고, 패턴, 소재감 등)
-- 핏/실루엣
+[STEP 2] 착장 분석 (pixel-perfect 재현을 위해 상세히 추출):
+- 전체 착장 아이템 목록 (아우터/상의/하의/신발/모자/액세서리 전부)
+- 각 아이템별:
+  - 정확한 색상 (단순 "black"이 아니라 "charcoal black" 또는 "jet black" 등 구체적으로)
+  - 소재감/질감 (면/니트/데님/레더/나일론/폴리 등)
+  - 핏/실루엣 (오버사이즈/레귤러/슬림/크롭 등)
+  - 로고/그래픽: 브랜드명, 위치(예: "왼쪽 가슴 상단"), 크기(예: "가슴폭 1/3"), 색상
+  - 부자재/디테일: 지퍼, 단추, 스티치, 포켓, 리벳, 자수 등
+- 레이어링 순서 (안쪽부터 바깥쪽)
+- 전체 스타일 방향: 스트릿/캐주얼/포멀/스포티 등
 
 [STEP 3] 헤어 분석:
 - 길이
 - 색상
 - 스타일
+- 질감
 
 아래 JSON 형식으로 출력하세요:
 {
@@ -110,24 +122,37 @@ SOURCE_PERSON_ANALYSIS_PROMPT = """
     "age": "mid-20s",
     "gender": "female",
     "ethnicity": "East Asian",
-    "skin_tone": "fair, cool undertone",
+    "skin_tone": "fair, cool undertone, porcelain",
     "face_shape": "oval",
-    "distinctive_features": "high cheekbones, almond eyes, thin eyebrows, defined jawline"
+    "eyes": "large almond-shaped, double eyelid, wide-set",
+    "nose": "medium height, narrow bridge, soft rounded tip",
+    "lips": "medium thickness, natural pink tone, cupid's bow defined",
+    "jawline": "soft V-line, narrow chin",
+    "cheekbones": "high, subtly prominent",
+    "eyebrows": "straight, medium thickness, dark brown",
+    "distinctive_features": ["small mole under left eye", "dimple on right cheek", "slight freckles on nose bridge"],
+    "overall_impression": "높은 광대뼈와 큰 아몬드눈이 특징적인 쿨톤 피부의 동아시아 여성"
   },
   "outfit": {
-    "description": "black oversized hoodie with white MLB logo, light blue wide leg jeans",
-    "colors": ["black", "white", "light blue"],
-    "style": "streetwear, casual",
-    "details": [
-      "hoodie: drawstrings visible, kangaroo pocket, ribbed cuffs",
-      "jeans: wide leg, high waist, subtle distressing at knees"
+    "items": [
+      {
+        "type": "top",
+        "item": "oversized hoodie",
+        "color": "charcoal black",
+        "material": "heavy cotton fleece",
+        "fit": "oversized, dropped shoulders",
+        "logo": {"brand": "MLB", "position": "center chest", "size": "large, 15cm width", "color": "white"},
+        "details": ["drawstrings visible", "kangaroo pocket", "ribbed cuffs and hem"]
+      }
     ],
-    "fit": "oversized top, relaxed wide-leg bottom"
+    "layering_order": ["hoodie (outermost)"],
+    "overall_style": "streetwear, casual, relaxed"
   },
   "hair": {
-    "length": "long, past shoulders",
-    "color": "dark brown, natural",
-    "style": "straight, center part, loose and flowing"
+    "length": "long, past shoulders, mid-back",
+    "color": "dark brown, natural, no highlights",
+    "style": "straight, center part, loose and flowing",
+    "texture": "sleek, smooth, healthy shine"
   }
 }
 """
@@ -156,19 +181,26 @@ EXPRESSION (adapt from reference, keep mood):
 [SOURCE PERSON - TEXT DESCRIPTION ONLY]
 Apply the following face and outfit to the reference pose.
 
-FACE:
+FACE (MUST be the SAME PERSON as described):
 {face_description}
-- Apply this exact face to the person performing the reference pose
+- This person's face MUST be recognizable as the same individual described above
+- PRESERVE every distinctive feature listed in the description above
 - Match the face angle naturally to the pose (head position from reference)
-- Preserve all distinctive facial features listed above
-- Natural skin texture, no plastic/overly-smooth finish
+- Skin tone and undertone: EXACT match to description
+- Eye shape, nose, lips, jawline: EXACT match — not "similar", but IDENTICAL person
+- Natural skin texture with visible pores — NO AI plastic/waxy skin
+- DO NOT create a generic attractive face — create THIS specific person
 
-OUTFIT:
+OUTFIT (pixel-perfect 재현 필수):
 {outfit_description}
-- Dress the person in this exact outfit
-- Ensure the outfit drapes and fits naturally with the pose
-- Preserve all colors, logos, patterns, and details exactly
-- No outfit modification or substitution
+- MUST reproduce every outfit element described above with zero modification
+- Colors: EXACT match to description — no color shifting, no darkening/lightening
+- Logos/Graphics: EXACT brand, position, size, and color as described
+- Material/Texture: Match described fabric type and surface quality
+- Fit/Silhouette: Match described fit exactly (oversized stays oversized, slim stays slim)
+- Details: All zippers, buttons, stitching, pockets must be present
+- NEVER substitute, omit, or modify any outfit element
+- NEVER add items not described (no extra accessories, no added patterns)
 
 HAIR:
 {hair_description}
@@ -193,8 +225,14 @@ HAIR:
 - Pose must look natural and effortless, not stiff
 - Photorealistic, NOT illustrated or rendered
 
-WARNING: Do NOT mix reference person's identity into the output.
-Face and outfit must come from the text description above ONLY.
+★★★ CRITICAL WARNING — IDENTITY SEPARATION ★★★
+The reference image person and the source person are DIFFERENT people.
+- Do NOT use the reference person's face in the output
+- Do NOT use the reference person's outfit in the output
+- Do NOT use the reference person's hair style/color in the output
+- ONLY use the reference for: pose, camera angle, framing, composition, expression mood
+- Face, outfit, and hair MUST come from the TEXT DESCRIPTION above ONLY
+- If in doubt: the text description overrides any visual information from the reference
 """
 
 # ============================================================================

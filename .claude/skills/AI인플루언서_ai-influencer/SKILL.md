@@ -910,7 +910,7 @@ python tests/influencer/test_reference_cases.py --test-dir tests/인플테스트
   - 프롬프트 길이: 170줄 → 133줄 (-22%)
 - v2.5.0: 프레이밍 정확도 대폭 강화
   - 프레이밍 문서를 한국어화: "어디서 끊기는가" 중심으로 표기 (MFS→허벅지에서 끊김)
-  - 포즈 분석기(pose_analyzer.py) 프레이밍 감지 프롬프트 step-by-step으로 개선
+  - 포즈 분석기(core/modules/pose_analyzer.py) 프레이밍 감지 프롬프트 step-by-step으로 개선
   - "허벅지에서 끊김" 설명 강화 + 전용 네거티브 9개 추가
   - 촬영 세팅에 "허벅지에서 끊김" 전용 절대 규칙 블록 자동 추가
   - should_retry() 버그 수정: critical criterion 실패 시에도 재시도하도록

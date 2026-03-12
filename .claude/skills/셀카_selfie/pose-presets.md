@@ -42,7 +42,7 @@
 
 - **보이지 않는 부위 = "보이지않음"** (추측/지어내기 금지)
 - **한줄요약은 직관적** (관절 각도 나열 X, 시각적 인상 O)
-- **코어 분석기**: `core/ai_influencer/pose_analyzer.py`
+- **코어 분석기**: `core/modules/pose_analyzer.py`
 - **재분석 스크립트**: `scripts/reanalyze_pose_presets_v3.py`
 
 ---

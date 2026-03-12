@@ -98,13 +98,21 @@ def build_multi_face_swap_prompt(persons_info: dict, face_mappings: dict) -> str
             return persons[idx].get("position", f"position_{idx+1}")
         return f"position_{idx+1}"
 
-    # 위치 주석 (최대 10명까지)
+    # 위치 주석 (최대 10명까지) — x좌표 추정 포함
+    # 인물을 왼쪽부터 오른쪽으로 균등 분배하여 x좌표를 추정한다
+    # 예: 3명 → x≈0.2, 0.5, 0.8 / 4명 → x≈0.1, 0.4, 0.6, 0.9
+    n = len(persons[:10])
     position_notes = []
     for i, person in enumerate(persons[:10]):
         pid = person["id"]
         pos = person.get("position", "")
+        if n <= 1:
+            x_coord = 0.5
+        else:
+            # 전체 프레임 너비(0.0~1.0) 내에서 균등 분배, 좌우 여백 0.1 적용
+            x_coord = round(0.1 + (i / (n - 1)) * 0.8, 2)
         position_notes.append(
-            f"  - PERSON_{pid} reference images → person at {pos} position"
+            f"  - PERSON_{pid} reference images → person at {pos} position (x≈{x_coord} of frame width)"
         )
     position_notes_text = "\n".join(position_notes)
 
@@ -113,9 +121,20 @@ def build_multi_face_swap_prompt(persons_info: dict, face_mappings: dict) -> str
 You are receiving a GROUP PHOTO with {total} people.
 Replace each person's face with the corresponding reference face.
 
-=== IMAGE ORDER ===
-IMAGE 1 (SOURCE): Group photo - the base image to preserve
-IMAGE 2+: Reference face images for each person (PERSON_1, PERSON_2, ...)
+=== IMAGE ROLE ASSIGNMENT — CRITICAL ===
+
+IMAGE 1 (SOURCE): Group photo — PRESERVE EVERYTHING EXCEPT FACES
+- PRESERVE all poses EXACTLY — every person's body position unchanged
+- PRESERVE all outfits EXACTLY — colors, logos, details, fit unchanged
+- PRESERVE the background EXACTLY — no modification
+- PRESERVE all body proportions EXACTLY — no resizing
+- PRESERVE the group arrangement EXACTLY — nobody moves position
+- PRESERVE the lighting direction and quality
+- Do NOT use any faces from this image
+
+IMAGE 2+: FACE REFERENCE images for each person (PERSON_1, PERSON_2, ...)
+- Use ONLY the face identity from each reference
+- Do NOT use pose, outfit, or background from reference images
 
 === FACE MAPPING ===
 {mapping_text}
@@ -123,28 +142,39 @@ IMAGE 2+: Reference face images for each person (PERSON_1, PERSON_2, ...)
 === IMAGE TO PERSON MAPPING ===
 {position_notes_text}
 
-=== WHAT TO PRESERVE (ALL of these EXACTLY) ===
-- Body poses: EXACT for each person
-- Clothing: EXACT for each person (no color/style changes)
-- Body proportions and silhouette: EXACT
-- Group arrangement and spacing: EXACT
-- Background: EXACT (no modifications)
-- Lighting direction and intensity: EXACT
-- Relative positions of all persons: EXACT (NO position swaps)
-- Camera angle and framing: EXACT
+=== WHAT TO PRESERVE (ABSOLUTE — NO EXCEPTIONS) ===
+- Body poses: PIXEL-LOCKED for each person — exact joint angles, weight distribution
+- Clothing: PIXEL-LOCKED for each person — exact colors, logos, patterns, fit
+- Body proportions and silhouettes: PIXEL-LOCKED — no resizing, no reshaping
+- Group arrangement and spacing: PIXEL-LOCKED — exact relative positions
+- Background: PIXEL-LOCKED — zero modifications
+- Lighting direction and intensity: PIXEL-LOCKED — consistent across all persons
+- Relative positions of all persons: PIXEL-LOCKED — NO position swaps
+- Camera angle and framing: PIXEL-LOCKED
 
 === WHAT TO CHANGE ===
-- ONLY: Each person's face, replaced with the corresponding PERSON_N reference
+- ONLY: Each person's face, replaced with the corresponding PERSON_N reference face
+- Nothing else. Zero other changes.
 
-=== CRITICAL RULES ===
+=== CRITICAL ANTI-DRIFT WARNING ===
+Face reference images show faces on different people with different poses.
+IGNORE ALL POSES in face reference images.
+IGNORE ALL OUTFITS in face reference images.
+IGNORE ALL BACKGROUNDS in face reference images.
+Extract ONLY the face identity from each reference image.
+
+=== CRITICAL RULES (VIOLATION = FAILURE) ===
 1. NEVER swap positions — person on left stays on left, right stays on right
-2. NEVER mix up face assignments — PERSON_1 face goes to PERSON_1 position
-3. NEVER change clothing, poses, or background
-4. Each face must match its reference with identity >= 95%
-5. Natural neck/face boundary blending for all faces
-6. Consistent lighting on all replaced faces
-7. No AI artifacts on any face
-8. Natural group photo appearance — all faces must look cohesive together
+2. NEVER mix up face assignments — PERSON_1 face goes to PERSON_1 position ONLY
+3. NEVER change any clothing — not even slightly
+4. NEVER change any pose — not even slightly
+5. NEVER change the background — not even slightly
+6. NEVER resize or reposition any person
+7. Natural neck/face boundary blending for all faces — seamless transition
+8. Consistent lighting/skin tone matching on all replaced faces
+9. Maintain face angle appropriate for each person's body pose
+10. No AI artifacts on any face
+11. Natural group photo appearance — all faces must look cohesive together
 
 === OUTPUT ===
 Produce a single high-quality group photo with all {total} faces swapped accurately.

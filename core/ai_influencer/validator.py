@@ -170,7 +170,11 @@ JSON만 출력하세요. 다른 텍스트는 금지입니다."""
 
 
 class AIInfluencerValidator:
-    """AI 인플루언서 이미지 검증기"""
+    """AI 인플루언서 이미지 검증기
+
+    .. deprecated::
+        새 코드에서는 ValidatorRegistry.get(WorkflowType.AI_INFLUENCER, client)를 사용하세요.
+    """
 
     # 가중치 (face_identity 35% + pose_accuracy 20% 추가)
     WEIGHTS = {
@@ -192,19 +196,23 @@ class AIInfluencerValidator:
 
     PASS_SCORE = 75  # 총점 75점 이상 통과
 
-    def __init__(self, api_key: Optional[str] = None):
+    def __init__(self, api_key: Optional[str] = None, client=None):
         """
         검증기 초기화
 
         Args:
             api_key: Gemini API 키 (None이면 자동 로드)
+            client: Gemini API 클라이언트 (직접 주입 시 api_key 무시)
         """
-        if api_key is None:
-            from core.api import _get_next_api_key
+        if client is not None:
+            self.client = client
+        else:
+            if api_key is None:
+                from core.api import _get_next_api_key
 
-            api_key = _get_next_api_key()
+                api_key = _get_next_api_key()
 
-        self.client = genai.Client(api_key=api_key)
+            self.client = genai.Client(api_key=api_key)
 
     def validate(
         self,
@@ -417,6 +425,7 @@ class AIInfluencerWorkflowValidator(WorkflowValidator):
             "outfit_fit",
             "brand_tone",
         ],
+        grade_thresholds={"S": 90, "A": 80, "B": 70, "C": 60},
     )
 
     # 프롬프트 보강 규칙 매핑
@@ -451,11 +460,10 @@ class AIInfluencerWorkflowValidator(WorkflowValidator):
     }
 
     def __init__(self, client):
-        """초기화 - client에서 API 키 추출하여 기존 검증기 생성"""
+        """초기화 - client를 직접 주입하여 기존 검증기 생성"""
         super().__init__(client)
-        # 기존 AIInfluencerValidator는 api_key로 초기화
-        # client에서 api_key를 가져올 수 없으므로 직접 client를 사용
         self._inner_client = client
+        self._inner_validator = AIInfluencerValidator(client=client)
 
     def validate(
         self,
@@ -484,13 +492,9 @@ class AIInfluencerWorkflowValidator(WorkflowValidator):
             outfit_images = reference_images.get("outfit", [])
 
         # 기존 AIInfluencerValidator 로직 재사용
-        inner_validator = AIInfluencerValidator.__new__(AIInfluencerValidator)
-        inner_validator.client = self._inner_client
-
-        # 기존 validate 시그니처: (generated_img, character, outfit_images)
         # character가 있으면 기존 방식 사용
         if character is not None:
-            inner_result = inner_validator.validate(
+            inner_result = self._inner_validator.validate(
                 generated_img=self._load_image(generated_img)
                 if not isinstance(generated_img, Image.Image)
                 else generated_img,
@@ -528,25 +532,25 @@ class AIInfluencerWorkflowValidator(WorkflowValidator):
         for i, face_input in enumerate(face_images[:3]):
             img = self._load_image(face_input)
             parts.append(types.Part(text=f"[FACE REFERENCE {i+1}]:"))
-            parts.append(self._pil_to_part_static(img))
+            parts.append(self._pil_to_part(img))
 
         # 포즈 참조 이미지
         if pose_images:
             for i, pose_input in enumerate(pose_images[:1]):  # 최대 1장
                 img = self._load_image(pose_input)
                 parts.append(types.Part(text="[POSE REFERENCE]:"))
-                parts.append(self._pil_to_part_static(img))
+                parts.append(self._pil_to_part(img))
 
         # 착장 참조 이미지
         if outfit_images:
             for i, outfit_input in enumerate(outfit_images[:2]):
                 img = self._load_image(outfit_input)
                 parts.append(types.Part(text=f"[OUTFIT REFERENCE {i+1}]:"))
-                parts.append(self._pil_to_part_static(img))
+                parts.append(self._pil_to_part(img))
 
         # 생성된 이미지
         parts.append(types.Part(text="[GENERATED IMAGE]:"))
-        parts.append(self._pil_to_part_static(generated_img))
+        parts.append(self._pil_to_part(generated_img))
 
         try:
             response = self._inner_client.models.generate_content(
@@ -578,20 +582,7 @@ class AIInfluencerWorkflowValidator(WorkflowValidator):
             )
 
         # 기존 _process_result 로직 재사용
-        processor = AIInfluencerValidator.__new__(AIInfluencerValidator)
-        return processor._process_result(result_json)
-
-    @staticmethod
-    def _pil_to_part_static(img, max_size=1024):
-        """PIL Image를 Gemini Part로 변환 (static)"""
-        if max(img.size) > max_size:
-            img = img.copy()
-            img.thumbnail((max_size, max_size), Image.LANCZOS)
-        buffer = BytesIO()
-        img.save(buffer, format="PNG")
-        return types.Part(
-            inline_data=types.Blob(mime_type="image/png", data=buffer.getvalue())
-        )
+        return self._inner_validator._process_result(result_json)
 
     def _convert_result(self, inner_result):
         """ValidationResult -> CommonValidationResult 변환"""

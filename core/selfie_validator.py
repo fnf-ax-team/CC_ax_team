@@ -156,7 +156,11 @@ SELFIE_AUTO_FAIL_DESCRIPTIONS = {
 
 
 class SelfieValidator:
-    """셀카/UGC 품질 검증기 (5개 기준)"""
+    """셀카/UGC 품질 검증기 (5개 기준)
+
+    .. deprecated::
+        새 코드에서는 ValidatorRegistry.get(WorkflowType.SELFIE, client)를 사용하세요.
+    """
 
     VALIDATION_PROMPT = """## 셀카/UGC 품질 검증 (v1.0 - 5개 기준)
 

@@ -56,22 +56,20 @@ class UGCValidator(WorkflowValidator):
         weights={
             "realism": 0.30,
             "person_preservation": 0.25,
-            "scenario_fit": 0.15,
-            "product_visibility": 0.15,  # 상품 자연스러운 노출
-            "skin_condition": 0.08,
-            "anti_polish_factor": 0.07,
+            "scenario_fit": 0.20,
+            "skin_condition": 0.15,
+            "anti_polish_factor": 0.10,
+            # product_visibility 제거: VLM 프롬프트에 해당 항목 없어 항상 0점 반환
         },
         auto_fail_thresholds={
             "realism": 40,
             "person_preservation": 50,
             "skin_condition": 40,
-            "product_visibility": 30,  # 상품 과도 노출 또는 완전 미노출
         },
         priority_order=[
             "realism",
             "person_preservation",
             "scenario_fit",
-            "product_visibility",
             "skin_condition",
             "anti_polish_factor",
         ],

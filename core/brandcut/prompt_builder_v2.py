@@ -17,6 +17,7 @@ from core.outfit_analyzer import OutfitAnalysis
 from core.brandcut.presets import load_mlb_preset, list_mlb_presets
 from core.ai_influencer.pose_analyzer import PoseAnalysisResult
 from core.ai_influencer.expression_analyzer import ExpressionAnalysisResult
+from core.modules.prompt.negative import extract_negatives_from_blind_spots
 
 
 # ============================================================
@@ -691,6 +692,12 @@ def build_prompt(
         print(
             f"[PROMPT] Warm expression preset '{preset_name}' - smile restriction removed"
         )
+
+    # 4-1. blind_spot에서 네거티브 추출 (착장 디테일 기반)
+    if outfit_analysis and hasattr(outfit_analysis, "items"):
+        blind_spot_negatives = extract_negatives_from_blind_spots(outfit_analysis.items)
+        if blind_spot_negatives:
+            negative_prompt = f"{negative_prompt}, {', '.join(blind_spot_negatives)}"
 
     # 5. 동적 포즈/표정/촬영 섹션 빌드
     pose_section = _build_pose_section(_pose_result or pose_analysis)

@@ -1,8 +1,10 @@
 """
 핏 베리에이션 검증기
 
-색상 보존 auto-fail + 실루엣 정확도 + 소재/디테일 보존 검증.
+색상 보존 auto-fail + 실루엣 정확도 + 소재/디테일/인물 보존 검증.
 color_preservation < 70 이면 자동 탈락.
+model_preservation < 70 이면 자동 탈락.
+material_preservation < 50 이면 자동 탈락.
 """
 
 import json
@@ -31,10 +33,10 @@ class FitVariationValidator(WorkflowValidator):
 
     우선순위:
     1. color_preservation (auto-fail < 70)
-    2. silhouette_accuracy
-    3. material_fidelity
-    4. detail_preservation
-    5. overall_quality
+    2. material_preservation (auto-fail < 50)
+    3. silhouette_change
+    4. logo_preservation
+    5. model_preservation (auto-fail < 70)
     """
 
     workflow_type = WorkflowType.FIT_VARIATION
@@ -43,21 +45,24 @@ class FitVariationValidator(WorkflowValidator):
         pass_total=80,
         weights={
             "color_preservation": 0.30,
-            "silhouette_accuracy": 0.25,
-            "material_fidelity": 0.20,
-            "detail_preservation": 0.15,
-            "overall_quality": 0.10,
+            "material_preservation": 0.20,
+            "silhouette_change": 0.25,
+            "logo_preservation": 0.10,
+            "model_preservation": 0.15,
         },
         auto_fail_thresholds={
             "color_preservation": 70,  # 색상 변경되면 auto-fail
+            "material_preservation": 50,  # 소재 완전 변경이면 auto-fail
+            "model_preservation": 70,  # 다른 사람으로 변경되면 auto-fail
         },
         priority_order=[
             "color_preservation",
-            "silhouette_accuracy",
-            "material_fidelity",
-            "detail_preservation",
-            "overall_quality",
+            "material_preservation",
+            "silhouette_change",
+            "logo_preservation",
+            "model_preservation",
         ],
+        grade_thresholds={"S": 95, "A": 85, "B": 80, "C": 60},
     )
 
     ENHANCEMENT_RULES = {
@@ -66,26 +71,25 @@ class FitVariationValidator(WorkflowValidator):
             "Do NOT change any color — preserve exact shade and tone",
             "Match wash level and color saturation precisely",
         ],
-        "silhouette_accuracy": [
+        "material_preservation": [
+            "Material type must match reference exactly (denim stays denim, etc.)",
+            "Preserve fabric texture and surface finish",
+            "Keep fabric weight and drape characteristics",
+        ],
+        "silhouette_change": [
             "Silhouette must match target fit description exactly",
             "Check thigh, knee, calf, and hem width against target",
             "Ensure proper leg shape transition",
         ],
-        "material_fidelity": [
-            "Material texture must match reference exactly",
-            "Preserve fabric weight and drape characteristics",
-            "Keep surface finish (matte/shiny/coated) the same",
-        ],
-        "detail_preservation": [
-            "Keep ALL pockets in same position and style",
+        "logo_preservation": [
+            "Keep ALL logos in same position and style",
             "Preserve waistband design exactly",
-            "Keep stitching color and pattern",
-            "Maintain all logos and hardware",
+            "Maintain all hardware and brand markings",
         ],
-        "overall_quality": [
-            "Clean, professional product photography",
-            "No artifacts or distortions",
-            "Natural fabric drape for the target fit",
+        "model_preservation": [
+            "CRITICAL: Person must be EXACTLY the same — same face, build, proportions",
+            "Do NOT change pose, stance, or weight distribution",
+            "Preserve upper body outfit and background",
         ],
     }
 
@@ -170,10 +174,27 @@ class FitVariationValidator(WorkflowValidator):
         return self._build_result(scores, target_fit)
 
     def _build_result(self, scores: Dict, target_fit: str) -> CommonValidationResult:
-        """검증 점수 → 결과 변환"""
-        criteria = {}
-        for key in self.config.priority_order:
-            criteria[key] = scores.get(key, 0)
+        """검증 점수 → 결과 변환
+
+        새 JSON 스키마: {"key": {"score": int, "reason": str}, ...}
+        이전 스키마(평탄 구조)도 호환 처리.
+        """
+
+        # 새 중첩 스키마와 구 평탄 스키마 모두 지원
+        def _get_score(key: str) -> int:
+            val = scores.get(key, 0)
+            if isinstance(val, dict):
+                return int(val.get("score", 0))
+            return int(val)
+
+        def _get_reason(key: str) -> str:
+            val = scores.get(key, {})
+            if isinstance(val, dict):
+                return val.get("reason", "")
+            # 구 스키마: {key}_reason 패턴
+            return scores.get(f"{key}_reason", "")
+
+        criteria = {key: _get_score(key) for key in self.config.priority_order}
 
         # 가중 총점
         total = 0
@@ -189,39 +210,30 @@ class FitVariationValidator(WorkflowValidator):
                 auto_fail = True
                 auto_fail_reasons.append(f"{key}: {criteria.get(key, 0)} < {threshold}")
 
+        # 프롬프트 수준 auto_fail 필드도 확인
+        if scores.get("auto_fail", False):
+            auto_fail = True
+            reason_text = scores.get("auto_fail_reason", "")
+            if reason_text and reason_text not in auto_fail_reasons:
+                auto_fail_reasons.append(reason_text)
+
         # 등급 결정
         if auto_fail:
             grade = "F"
             tier = QualityTier.REGENERATE
             passed = False
-        elif total >= 95:
-            grade = "S"
-            tier = QualityTier.RELEASE_READY
-            passed = True
-        elif total >= 85:
-            grade = "A"
-            tier = QualityTier.RELEASE_READY
-            passed = True
-        elif total >= self.config.pass_total:
-            grade = "B"
-            tier = QualityTier.NEEDS_MINOR_EDIT
-            passed = True
-        elif total >= 60:
-            grade = "C"
-            tier = QualityTier.REGENERATE
-            passed = False
         else:
-            grade = "F"
-            tier = QualityTier.REGENERATE
-            passed = False
+            grade, tier = self._calculate_grade(total)
+            passed = grade in ("S", "A", "B")
 
         # 이슈 수집
-        issues = []
+        issues = list(scores.get("issues", []))
         for key in self.config.priority_order:
-            reason_key = f"{key}_reason"
-            if reason_key in scores and scores[reason_key]:
-                if criteria.get(key, 0) < 80:
-                    issues.append(f"{key}: {scores[reason_key]}")
+            reason = _get_reason(key)
+            if reason and criteria.get(key, 0) < 80:
+                issue_line = f"{key}: {reason}"
+                if issue_line not in issues:
+                    issues.append(issue_line)
 
         # 한국어 요약
         summary_parts = [f"목표 핏: {target_fit}"]
@@ -242,7 +254,7 @@ class FitVariationValidator(WorkflowValidator):
             criteria_scores={
                 key: {
                     "score": criteria.get(key, 0),
-                    "reason": scores.get(f"{key}_reason", ""),
+                    "reason": _get_reason(key),
                 }
                 for key in self.config.priority_order
             },
@@ -257,16 +269,3 @@ class FitVariationValidator(WorkflowValidator):
             if criterion in failed_criteria and criterion in self.ENHANCEMENT_RULES:
                 rules.extend(self.ENHANCEMENT_RULES[criterion])
         return "\n".join([f"- {r}" for r in rules[:8]])
-
-    def _pil_to_part(self, img: Image.Image, max_size: int = 1024) -> types.Part:
-        """PIL Image를 Gemini Part로 변환"""
-        if max(img.size) > max_size:
-            img = img.copy()
-            img.thumbnail((max_size, max_size), Image.LANCZOS)
-
-        buffer = BytesIO()
-        img.save(buffer, format="PNG")
-
-        return types.Part(
-            inline_data=types.Blob(mime_type="image/png", data=buffer.getvalue())
-        )

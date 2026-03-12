@@ -32,6 +32,8 @@ from core.modules.prompt.negative import (
     BASE_NEGATIVES,
     BRAND_NEGATIVES,
     FRAMING_NEGATIVES,
+    BLIND_SPOT_NEGATIVE_PATTERNS,
+    extract_negatives_from_blind_spots,
     build_default_negative,
 )
 
@@ -71,6 +73,8 @@ __all__ = [
     "BASE_NEGATIVES",
     "BRAND_NEGATIVES",
     "FRAMING_NEGATIVES",
+    "BLIND_SPOT_NEGATIVE_PATTERNS",
+    "extract_negatives_from_blind_spots",
     "build_default_negative",
     # 카메라
     "build_camera_section",

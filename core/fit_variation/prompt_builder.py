@@ -6,10 +6,11 @@
 
 구조:
 1. [절대 보존] 섹션 — 색상/소재/로고 1차 명시
-2. [핏 변형] 섹션 — 목표 핏 실루엣 상세
-3. [디테일 보존] 섹션 — 포켓/허리/밑단/스티칭 + 색상/소재 2차 반복
-4. [디스플레이] 섹션 — 촬영 모드
-5. [네거티브] 섹션 — 금지 요소 + 색상/소재 변경 3차 금지
+2. [모델 보존] 섹션 — 인물/포즈/상체 착장 보존 (model_wearing 모드 필수)
+3. [핏 변형] 섹션 — 목표 핏 실루엣 상세
+4. [디테일 보존] 섹션 — 포켓/허리/밑단/스티칭 + 색상/소재 2차 반복
+5. [디스플레이] 섹션 — 촬영 모드
+6. [네거티브] 섹션 — 금지 요소 + 색상/소재/모델 변경 3차 금지
 """
 
 from typing import Optional
@@ -79,6 +80,23 @@ def build_fit_variation_prompt(
             f"- PATTERN: {analysis.pattern_type} — {analysis.pattern_description}"
         )
 
+    lines.append("")
+
+    # ============================================================
+    # [모델/인물 보존] — 인물이 있는 경우 필수 잠금
+    # ============================================================
+    lines.append("## [MODEL/PERSON PRESERVATION — DO NOT CHANGE]")
+    lines.append("★★★ This is a PANTS FIT VARIATION, not image generation ★★★")
+    lines.append("Think of it as Photoshop: the person is a LOCKED LAYER.")
+    lines.append("You are ONLY modifying the pants silhouette/fit.")
+    lines.append("")
+    lines.append("- Face: EXACT same person, same expression, same skin tone")
+    lines.append("- Body: EXACT same proportions, height, build, shoulder width")
+    lines.append("- Pose: EXACT same stance, weight distribution, position in frame")
+    lines.append("- Upper body outfit: EXACT same top/outer/accessories (if visible)")
+    lines.append("- Background: EXACT same environment (if visible)")
+    lines.append("- Scale: Person height / Frame height = IDENTICAL to source")
+    lines.append("- DO NOT change anything except the pants fit/silhouette")
     lines.append("")
 
     # ============================================================
@@ -160,7 +178,7 @@ def build_fit_variation_prompt(
     # 핏 프리셋의 네거티브
     neg_items = list(target_preset.negative)
 
-    # 색상 변경 금지 (3차)
+    # 색상/소재 변경 금지 (3차)
     neg_items.append("color change")
     neg_items.append("different color")
     neg_items.append("wrong material")
@@ -168,6 +186,16 @@ def build_fit_variation_prompt(
     neg_items.append("added logos")
     neg_items.append("different texture")
     neg_items.append("wrong stitching color")
+    neg_items.append("material change")
+    neg_items.append("different fabric")
+    neg_items.append("fabric texture change")
+
+    # 모델/인물 변경 금지 (3차)
+    neg_items.append("face change")
+    neg_items.append("different person")
+    neg_items.append("body proportion change")
+    neg_items.append("pose change")
+    neg_items.append("upper body outfit change")
 
     lines.append(", ".join(neg_items))
     lines.append("")

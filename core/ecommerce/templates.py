@@ -66,16 +66,25 @@ ECOMMERCE_GENERATION_PROMPT = """
    - 완벽한 포즈와 구도
 
 3. **얼굴 동일성**
-   - 얼굴 참조 이미지와 유사한 얼굴
-   - (브랜드컷보다 낮은 우선순위 - 착장이 더 중요)
+   - 얼굴 참조 이미지와 동일한 인물이어야 함 (same person)
+   - 이목구비, 얼굴형, 피부톤, 고유 특징(점, 보조개, 눈 모양) 정확히 보존
+   - 착장보다 낮은 우선순위이지만, 다른 사람이 되면 안 됨
+   - DO NOT: AI 플라스틱 피부, 과도한 보정, 다른 인물 생성
 
 ## 모델 설정
 
 {
   "model": {
-    "face": "similar to provided face reference image",
+    "face": "MUST match face reference image — SAME PERSON identity required",
+    "face_preservation": [
+      "Facial structure (jawline, cheekbones, nose, eyes) must match reference exactly",
+      "Skin tone and undertone must match reference",
+      "Distinctive facial features must be preserved (moles, dimples, eye shape)",
+      "DO NOT generate a different person — identity consistency is critical",
+      "DO NOT apply AI-typical plastic/waxy skin — preserve natural skin texture"
+    ],
     "expression": "natural, approachable, looking at camera",
-    "skin": "clean, natural skin tone"
+    "skin": "clean, natural skin tone matching reference face"
   },
   "outfit": {
     "instruction": "CRITICAL: Copy ALL outfit elements from reference images exactly. NO color change, NO logo modification, NO detail omission.",

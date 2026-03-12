@@ -235,6 +235,7 @@ class FaceSwapValidator(WorkflowValidator):
             "lighting_consistency",
             "edge_quality",
         ],
+        grade_thresholds={"S": 98, "A": 95, "B": 85, "C": 75},
     )
 
     def __init__(self, client):

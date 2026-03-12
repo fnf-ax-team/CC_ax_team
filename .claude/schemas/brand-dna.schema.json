@@ -1,0 +1,74 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "fnf-studio-brand-dna",
+  "title": "FNF Studio Brand DNA Schema",
+  "description": "브랜드 디렉터 정적 데이터 스키마 - 토큰 비용 절감용",
+  "type": "object",
+  "required": ["_metadata", "identity", "visual_dna", "keywords"],
+  "properties": {
+    "_metadata": {
+      "type": "object",
+      "properties": {
+        "brand": { "type": "string" },
+        "persona": { "type": "string" },
+        "version": { "type": "string" },
+        "updated_at": { "type": "string", "format": "date" }
+      },
+      "required": ["brand", "persona"]
+    },
+    "identity": {
+      "type": "object",
+      "properties": {
+        "philosophy": { "type": "array", "items": { "type": "string" } },
+        "specialty": { "type": "array", "items": { "type": "string" } },
+        "mood": { "type": "array", "items": { "type": "string" } }
+      }
+    },
+    "visual_dna": {
+      "type": "object",
+      "properties": {
+        "do": { "type": "array", "items": { "type": "string" } },
+        "dont": { "type": "array", "items": { "type": "string" } }
+      },
+      "required": ["do", "dont"]
+    },
+    "keywords": {
+      "type": "object",
+      "properties": {
+        "style": { "type": "array", "items": { "type": "string" } },
+        "color": { "type": "array", "items": { "type": "string" } },
+        "mood": { "type": "array", "items": { "type": "string" } },
+        "setting": { "type": "array", "items": { "type": "string" } }
+      }
+    },
+    "forbidden_keywords": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "array",
+        "items": { "type": "string" }
+      }
+    },
+    "must_include_keywords": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "array",
+        "items": { "type": "string" }
+      }
+    },
+    "director_guidelines": {
+      "type": "object",
+      "properties": {
+        "camera": { "type": "object" },
+        "pose": { "type": "object" },
+        "expression": { "type": "object" },
+        "lighting": { "type": "object" },
+        "composition": { "type": "object" }
+      }
+    },
+    "triggers": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "라우팅 트리거 키워드"
+    }
+  }
+}

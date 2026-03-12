@@ -126,6 +126,67 @@ _FIGURE4_NEGATIVES = [
 
 
 # ============================================================
+# 착장 blind_spot 기반 네거티브
+#
+# VLM 분석에서 추출한 blind_spot 디테일("NO BRIM", "fuzzy mohair" 등)을
+# 네거티브 프롬프트에 자동 반영한다.
+# 원본: core.brandcut.prompt_builder.BLIND_SPOT_NEGATIVE_PATTERNS
+# ============================================================
+
+BLIND_SPOT_NEGATIVE_PATTERNS = {
+    # 구조적 특징 (있으면 안되는 것들)
+    "no brim": "brim, visor, cap brim visible",
+    "no fold": "folded, fold visible",
+    "no cuff": "cuff, cuffed",
+    "no logo": "logo visible, brand logo",
+    "seamless": "visible seams, stitching lines",
+    "no buttons": "buttons, button closure",
+    "no zipper": "zipper, zip closure",
+    # 질감/소재 관련 (반대 질감 방지)
+    "matte": "shiny, glossy, reflective",
+    "glossy": "matte, flat finish",
+    "fuzzy": "smooth, sleek",
+    "smooth": "fuzzy, textured",
+    # 핏 관련
+    "slim fit": "baggy, oversized, loose",
+    "oversized": "fitted, slim, tight",
+    "cropped": "full length, long",
+}
+
+
+def extract_negatives_from_blind_spots(items) -> list:
+    """OutfitItem 리스트의 blind_spot(details)에서 네거티브 프롬프트 추출.
+
+    Args:
+        items: OutfitItem 리스트 (또는 details 속성을 가진 객체 리스트)
+
+    Returns:
+        네거티브 프롬프트에 추가할 문자열 리스트 (중복 제거됨)
+    """
+    negatives = []
+
+    for item in items:
+        details = getattr(item, "details", []) or []
+
+        for detail in details:
+            detail_lower = detail.lower()
+
+            # "NO X" 패턴 감지 -> 네거티브 생성
+            if detail_lower.startswith("no "):
+                negated_item = detail_lower[3:].strip()
+                negatives.append(f"{negated_item}, add {negated_item}")
+
+            # 패턴 테이블에서 매칭
+            for pattern, negative in BLIND_SPOT_NEGATIVE_PATTERNS.items():
+                if pattern in detail_lower:
+                    negatives.append(negative)
+                    break
+
+    # 중복 제거
+    return list(set(negatives))
+
+
+# ============================================================
 # NegativePromptBuilder (플루언트 API)
 # ============================================================
 
@@ -221,6 +282,22 @@ class NegativePromptBuilder:
 
         return self
 
+    def add_outfit_blind_spots(self, items) -> "NegativePromptBuilder":
+        """착장 blind_spot에서 추출한 네거티브 추가.
+
+        OutfitItem의 details(blind_spot)에서 "NO X" 패턴과
+        질감/핏 반대 패턴을 자동으로 네거티브에 추가한다.
+
+        Args:
+            items: OutfitItem 리스트 (또는 details 속성을 가진 객체 리스트)
+
+        Returns:
+            self
+        """
+        negatives = extract_negatives_from_blind_spots(items)
+        self._items.extend(negatives)
+        return self
+
     def add_items(self, items: List[str]) -> "NegativePromptBuilder":
         """임의의 네거티브 항목 직접 추가.
 
@@ -275,5 +352,7 @@ __all__ = [
     "BASE_NEGATIVES",
     "BRAND_NEGATIVES",
     "FRAMING_NEGATIVES",
+    "BLIND_SPOT_NEGATIVE_PATTERNS",
+    "extract_negatives_from_blind_spots",
     "build_default_negative",
 ]

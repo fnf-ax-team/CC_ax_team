@@ -1,7 +1,7 @@
 """
 포즈 분석 래퍼 모듈
 
-원본: core.ai_influencer.pose_analyzer (PoseAnalyzer, PoseAnalysisResult)
+원본: core.modules.pose_analyzer (PoseAnalyzer, PoseAnalysisResult)
 
 래핑 범위:
 - PoseAnalysisResult 재export
@@ -14,7 +14,7 @@ from typing import Optional, Union
 from PIL import Image
 
 # 원본 분석기 import
-from core.ai_influencer.pose_analyzer import (
+from core.modules.pose_analyzer import (
     PoseAnalyzer,
     PoseAnalysisResult,
 )

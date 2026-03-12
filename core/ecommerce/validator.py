@@ -80,6 +80,7 @@ class EcommerceValidator(WorkflowValidator):
             "pose_correctness",
             "commercial_quality",
         ],
+        grade_thresholds={"S": 95, "A": 85, "B": 78, "C": 70},
     )
 
     # 개별 기준 Pass 임계값
@@ -212,7 +213,10 @@ class EcommerceValidator(WorkflowValidator):
                 issues.append(f"{criterion}: {score}점 (기준 {threshold}점 미달)")
 
         # 등급 및 Tier 결정
-        grade, tier = self._determine_grade_and_tier(total_score, passed, auto_fail)
+        if auto_fail:
+            grade, tier = "F", QualityTier.REGENERATE
+        else:
+            grade, tier = self._calculate_grade(total_score)
 
         # 한국어 요약
         summary_kr = self._build_summary_kr(
@@ -253,25 +257,6 @@ class EcommerceValidator(WorkflowValidator):
     # ------------------------------------------------------------------
     # 내부 헬퍼 메서드
     # ------------------------------------------------------------------
-
-    def _pil_to_part(self, img: Image.Image, max_size: int = 1024) -> types.Part:
-        """PIL Image를 Gemini API Part로 변환
-
-        Args:
-            img: PIL Image
-            max_size: 최대 크기 (픽셀)
-
-        Returns:
-            types.Part
-        """
-        if max(img.size) > max_size:
-            img = img.copy()
-            img.thumbnail((max_size, max_size), Image.LANCZOS)
-        buf = BytesIO()
-        img.save(buf, format="PNG")
-        return types.Part(
-            inline_data=types.Blob(mime_type="image/png", data=buf.getvalue())
-        )
 
     def _run_vlm_validation(
         self,
@@ -347,32 +332,6 @@ class EcommerceValidator(WorkflowValidator):
             return json.loads(json_match.group())
         except json.JSONDecodeError:
             return {}
-
-    def _determine_grade_and_tier(
-        self, total_score: int, passed: bool, auto_fail: bool
-    ) -> tuple:
-        """점수 기반 등급 및 Tier 결정
-
-        Args:
-            total_score: 총점
-            passed: Pass 여부
-            auto_fail: Auto-Fail 여부
-
-        Returns:
-            tuple: (grade str, QualityTier)
-        """
-        if auto_fail or total_score < 70:
-            return "F", QualityTier.REGENERATE
-        elif total_score >= 95:
-            return "S", QualityTier.RELEASE_READY
-        elif total_score >= 85:
-            return "A", QualityTier.RELEASE_READY
-        elif total_score >= 78:
-            return "B", QualityTier.NEEDS_MINOR_EDIT
-        elif total_score >= 70:
-            return "C", QualityTier.REGENERATE
-        else:
-            return "F", QualityTier.REGENERATE
 
     def _build_summary_kr(
         self,

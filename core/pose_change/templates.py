@@ -174,6 +174,10 @@ Physical constraints:
 - Maintain soft, natural quality
 - Ensure face is well-lit
 - Shadows should match new body position
+- FORBIDDEN: golden hour, warm amber, yellow cast, orange tint
+- Color temperature: neutral to cool (5500K-6500K recommended)
+- NO warm-toned color grading — maintain clean, neutral white balance
+- If source image has cool/neutral tone, output MUST match
 
 [QUALITY REQUIREMENTS]
 - High-end fashion editorial quality
@@ -189,7 +193,9 @@ DO NOT:
 - Modify background setting
 - Change body proportions
 - Create unnatural or impossible poses
-- Add yellow/golden cast to skin"""
+- Add yellow/golden cast to skin
+- Apply golden hour, warm amber, orange tint, or warm color grading
+- Use warm-toned lighting that shifts white balance toward yellow/orange"""
 
     return prompt.strip()
 

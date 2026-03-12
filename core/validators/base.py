@@ -4,13 +4,17 @@ FNF Studio 통합 검증기 기본 모듈
 이 모듈은 모든 워크플로 검증기의 기반 인터페이스를 제공합니다.
 """
 
+import json
+import re
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from enum import Enum
+from io import BytesIO
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Union
+from typing import Any, Dict, List, Optional, Tuple, Union
 
 from PIL import Image
+from google.genai import types
 
 
 class WorkflowType(Enum):
@@ -62,6 +66,8 @@ class ValidationConfig:
     weights: Dict[str, float] = field(default_factory=dict)
     auto_fail_thresholds: Dict[str, int] = field(default_factory=dict)
     priority_order: List[str] = field(default_factory=list)
+    # 워크플로별 등급 임계값 — {"S": 95, "A": 85, "B": 70, "C": 50}
+    grade_thresholds: Dict[str, int] = field(default_factory=dict)
 
 
 @dataclass
@@ -188,3 +194,85 @@ class WorkflowValidator(ABC):
             PIL Image 객체 리스트
         """
         return [self._load_image(img) for img in images]
+
+    def _pil_to_part(self, img: Image.Image, max_size: int = 1024) -> types.Part:
+        """PIL Image → Gemini API Part 변환 (공통)
+
+        Args:
+            img: PIL Image 객체
+            max_size: 최대 크기 (다운샘플링)
+
+        Returns:
+            types.Part(inline_data=types.Blob(...))
+        """
+        converted = img.copy().convert("RGB")
+        if max(converted.size) > max_size:
+            converted.thumbnail((max_size, max_size), Image.LANCZOS)
+        buf = BytesIO()
+        converted.save(buf, format="PNG")
+        return types.Part(
+            inline_data=types.Blob(mime_type="image/png", data=buf.getvalue())
+        )
+
+    def _parse_vlm_json(self, text: str) -> dict:
+        """VLM 응답에서 JSON 추출 — 3단계 폴백
+
+        Args:
+            text: VLM 응답 텍스트
+
+        Returns:
+            파싱된 JSON dict
+        """
+        # 1. ```json ... ``` 블록 추출
+        json_match = re.search(r"```json\s*\n?(.*?)\n?\s*```", text, re.DOTALL)
+        if json_match:
+            try:
+                return json.loads(json_match.group(1))
+            except json.JSONDecodeError:
+                pass
+
+        # 2. { ... } 직접 추출 (가장 바깥 중괄호)
+        brace_match = re.search(r"\{.*\}", text, re.DOTALL)
+        if brace_match:
+            try:
+                return json.loads(brace_match.group(0))
+            except json.JSONDecodeError:
+                pass
+
+        # 3. 전체를 json.loads 시도
+        try:
+            return json.loads(text)
+        except json.JSONDecodeError:
+            return {}
+
+    def _calculate_grade(self, score: int) -> Tuple[str, "QualityTier"]:
+        """점수 → 등급/티어 변환 (공통)
+
+        config.grade_thresholds가 있으면 워크플로별 임계값 사용,
+        없으면 기본값(S≥95, A≥85, B≥70, C≥50) 사용.
+
+        Args:
+            score: 총점 (0-100)
+
+        Returns:
+            (grade, tier) 튜플
+        """
+        t = (
+            self.config.grade_thresholds
+            if self.config.grade_thresholds
+            else {
+                "S": 95,
+                "A": 85,
+                "B": 70,
+                "C": 50,
+            }
+        )
+        if score >= t.get("S", 95):
+            return "S", QualityTier.RELEASE_READY
+        if score >= t.get("A", 85):
+            return "A", QualityTier.RELEASE_READY
+        if score >= t.get("B", 70):
+            return "B", QualityTier.NEEDS_MINOR_EDIT
+        if score >= t.get("C", 50):
+            return "C", QualityTier.REGENERATE
+        return "F", QualityTier.REGENERATE

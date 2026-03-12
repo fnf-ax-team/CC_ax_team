@@ -1,32 +1,33 @@
 """
 FNF Studio db/ 데이터를 S3에 업로드하는 스크립트.
 
+IMPORTANT: S3 키는 로컬 상대 경로를 그대로 보존한다.
+           core/storage.py가 동일한 상대 경로로 S3 URL을 생성하기 때문.
+
 사용법:
   1. AWS credentials 설정: aws configure
   2. 실행: python scripts/upload_db_to_s3.py
 
-S3 구조:
+S3 구조 (로컬 db/ 구조와 동일):
   s3://tmp-img-s3/LINN/fnf-studio/
-  ├── presets/                    # JSON 프리셋 파일
+  ├── db/presets/common/          # 공용 프리셋 (인플+셀카)
   │   ├── pose_presets.json
   │   ├── expression_presets.json
-  │   ├── background_presets.json
+  │   └── background_presets.json
+  ├── db/presets/influencer/      # 인플루언서 전용
   │   ├── camera_presets.json
-  │   └── ...
-  ├── mlb_style/                  # MLB 스타일 레퍼런스 이미지
-  │   ├── MLB_STYLE_001.webp
-  │   └── ...
-  ├── mlb_presets/                # MLB 전용 프리셋
+  │   ├── styling_preset_db.json
+  │   └── prompt_schema.json
+  ├── db/presets/brandcut/mlb/    # MLB 브랜드컷 전용
   │   ├── mlb_pose_presets.json
   │   └── ...
-  ├── characters/                 # AI 인플루언서 캐릭터
-  │   └── {name}/
-  │       ├── profile.json
-  │       └── face/
-  ├── style_analysis/             # 스타일 분석 결과
-  │   └── director_analysis/
-  └── embeddings/                 # CLIP 임베딩
-      └── clip_a_grade_embeddings.npz
+  ├── db/presets/selfie/          # 셀카 전용
+  │   └── scene_presets.json
+  ├── db/mlb_style/               # MLB 스타일 레퍼런스 이미지
+  ├── db/model/                   # 모델 얼굴 이미지
+  ├── db/characters/              # AI 인플루언서 캐릭터
+  ├── db/인플테스트/               # 프리셋 레퍼런스 이미지
+  └── outputs/                    # 생성 결과물 (MCP 모드)
 """
 
 import os
@@ -53,53 +54,56 @@ REGION = "ap-northeast-2"
 PROJECT_ROOT = Path(__file__).parent.parent
 DB_DIR = PROJECT_ROOT / "db"
 
-# 업로드 대상 정의
+# 업로드 대상 정의 — s3_key = local 경로 그대로 (core/storage.py 매칭 필수)
 UPLOAD_TARGETS = [
-    # (로컬 경로, S3 prefix, 설명)
-    # 1. JSON 프리셋 파일 (재편된 폴더 구조)
+    # JSON 프리셋 파일 (재편된 폴더 구조)
     {
         "local": "db/presets/common/pose_presets.json",
-        "s3_key": "presets/pose_presets.json",
+        "s3_key": "db/presets/common/pose_presets.json",
     },
     {
         "local": "db/presets/common/expression_presets.json",
-        "s3_key": "presets/expression_presets.json",
+        "s3_key": "db/presets/common/expression_presets.json",
     },
     {
         "local": "db/presets/common/background_presets.json",
-        "s3_key": "presets/background_presets.json",
+        "s3_key": "db/presets/common/background_presets.json",
     },
     {
         "local": "db/presets/influencer/camera_presets.json",
-        "s3_key": "presets/camera_presets.json",
+        "s3_key": "db/presets/influencer/camera_presets.json",
     },
     {
         "local": "db/presets/influencer/styling_preset_db.json",
-        "s3_key": "presets/styling_preset_db.json",
+        "s3_key": "db/presets/influencer/styling_preset_db.json",
     },
     {
         "local": "db/presets/selfie/scene_presets.json",
-        "s3_key": "presets/scene_presets.json",
+        "s3_key": "db/presets/selfie/scene_presets.json",
     },
     {
         "local": "db/presets/influencer/prompt_schema.json",
-        "s3_key": "presets/influencer_prompt_schema.json",
+        "s3_key": "db/presets/influencer/prompt_schema.json",
     },
 ]
 
-# 폴더 단위 업로드
+# 폴더 단위 업로드 — s3_prefix = local 경로 그대로 (core/storage.py 매칭 필수)
 UPLOAD_FOLDERS = [
-    # (로컬 폴더, S3 prefix, 확장자 필터, 설명)
-    {"local": "db/mlb_style", "s3_prefix": "mlb_style", "desc": "MLB style references"},
+    {
+        "local": "db/mlb_style",
+        "s3_prefix": "db/mlb_style",
+        "desc": "MLB style references",
+    },
     {
         "local": "db/results",
-        "s3_prefix": "style_analysis",
+        "s3_prefix": "db/results",
         "desc": "Style analysis JSONs",
     },
-    {"local": "db/presets_v2", "s3_prefix": "presets_v2", "desc": "V2 presets"},
+    {"local": "db/presets_v2", "s3_prefix": "db/presets_v2", "desc": "V2 presets"},
 ]
 
-# MLB 전용 프리셋 (db/mlb_style/ 내 JSON)
+# MLB 전용 프리셋 (db/presets/brandcut/mlb/ 내 JSON)
+MLB_PRESET_DIR = "db/presets/brandcut/mlb"
 MLB_PRESET_FILES = [
     "mlb_expression_presets.json",
     "mlb_pose_presets.json",
@@ -109,11 +113,11 @@ MLB_PRESET_FILES = [
     "mlb_model_presets.json",
 ]
 
-# CLIP 임베딩
+# CLIP 임베딩 — s3_key = local 경로 그대로
 EMBEDDING_FILES = [
     {
         "local": "db/clip_a_grade_embeddings.npz",
-        "s3_key": "embeddings/clip_a_grade_embeddings.npz",
+        "s3_key": "db/clip_a_grade_embeddings.npz",
     },
 ]
 
@@ -203,26 +207,29 @@ def upload_folder(
 
 
 def upload_characters(s3_client, dry_run: bool = False):
-    """AI 인플루언서 캐릭터 폴더 업로드."""
-    # db/ai_influencer/ 또는 db/인플테스트/ 확인
+    """AI 인플루언서 캐릭터 폴더 업로드.
+
+    S3 키는 로컬 상대 경로를 그대로 보존.
+    예: db/인플테스트/3. 포즈/전신 (1).jpeg
+      → s3://tmp-img-s3/LINN/fnf-studio/db/인플테스트/3. 포즈/전신 (1).jpeg
+    """
+    # db/ 하위 폴더 중 캐릭터/프리셋 레퍼런스 이미지 포함 폴더
     char_dirs = [
-        DB_DIR / "ai_influencer",
-        DB_DIR / "인플테스트",
+        ("db/ai_influencer", DB_DIR / "ai_influencer"),
+        ("db/인플테스트", DB_DIR / "인플테스트"),
+        ("db/characters", DB_DIR / "characters"),
+        ("db/model", DB_DIR / "model"),
     ]
 
     count = 0
-    for char_dir in char_dirs:
+    for s3_base, char_dir in char_dirs:
         if not char_dir.exists():
             continue
 
         print(f"\n  [CHARS] Scanning {char_dir.name}/")
-        for sub in sorted(char_dir.iterdir()):
-            if not sub.is_dir():
-                continue
-
-            s3_prefix = f"characters/{sub.name}"
-            n = upload_folder(s3_client, sub, s3_prefix, dry_run=dry_run)
-            count += n
+        # 폴더 전체를 db/ prefix 보존하여 업로드
+        n = upload_folder(s3_client, char_dir, s3_base, dry_run=dry_run)
+        count += n
 
     return count
 
@@ -260,12 +267,13 @@ def main():
         if upload_file(s3_client, local, target["s3_key"], dry_run):
             total += 1
 
-    # 2. MLB 전용 프리셋 (db/mlb_style/ 내 JSON)
+    # 2. MLB 전용 프리셋 (db/presets/brandcut/mlb/)
     print("\n[2/6] MLB Presets")
-    mlb_dir = DB_DIR / "mlb_style"
+    mlb_dir = PROJECT_ROOT / MLB_PRESET_DIR
     for fname in MLB_PRESET_FILES:
         local = mlb_dir / fname
-        if upload_file(s3_client, local, f"mlb_presets/{fname}", dry_run):
+        s3_key = f"{MLB_PRESET_DIR}/{fname}"
+        if upload_file(s3_client, local, s3_key, dry_run):
             total += 1
 
     # 3. 폴더 단위 업로드

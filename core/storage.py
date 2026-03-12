@@ -1,23 +1,31 @@
 """
 FNF Studio Storage Module
 
-로컬 파일 / S3 URL 자동 전환 이미지 로더.
+로컬 파일 / S3 URL 자동 전환 이미지 로더 + 아웃풋 저장.
 
-사용법:
+=== 읽기 (인풋/프리셋) ===
     from core.storage import get_image, get_json, get_image_url
 
-    # PIL Image로 로드 (로컬 or S3)
     img = get_image("db/model/MLB_KARINA/face_01.jpg")
-
-    # JSON 파일 로드
     data = get_json("db/presets/common/pose_presets.json")
-
-    # S3 공개 URL 반환 (Gemini API에 직접 전달용)
     url = get_image_url("db/model/MLB_KARINA/face_01.jpg")
+
+=== 쓰기 (아웃풋) ===
+    from core.storage import save_output_image, save_output_json
+
+    # PIL Image 저장 → 로컬 경로 or S3 URL 반환
+    result_url = save_output_image(pil_image, "brand_cut/20260312_143000_mlb/images/output_001.jpg")
+
+    # JSON 저장
+    save_output_json(data, "brand_cut/20260312_143000_mlb/prompt.json")
 
 환경변수:
     FNF_STORAGE_MODE: "local" (기본) | "s3"
-    FNF_S3_BASE_URL: S3 base URL (예: https://tmp-img-s3.s3.ap-northeast-2.amazonaws.com/LINN/fnf-studio)
+    FNF_S3_BASE_URL: S3 base URL (읽기용)
+    FNF_OUTPUT_MODE: "local" (기본) | "s3" (아웃풋 저장 위치)
+    FNF_S3_BUCKET: S3 버킷명 (쓰기용, 기본: tmp-img-s3)
+    FNF_S3_PREFIX: S3 키 접두사 (쓰기용, 기본: LINN/fnf-studio)
+    FNF_S3_REGION: AWS 리전 (쓰기용, 기본: ap-northeast-2)
 """
 
 import os
@@ -29,15 +37,24 @@ from typing import Optional, Union
 
 from PIL import Image
 
-# S3 설정
+# S3 설정 (읽기)
 _STORAGE_MODE = os.environ.get("FNF_STORAGE_MODE", "local")
 _S3_BASE_URL = os.environ.get(
     "FNF_S3_BASE_URL",
     "https://tmp-img-s3.s3.ap-northeast-2.amazonaws.com/LINN/fnf-studio",
 )
 
+# S3 설정 (쓰기 - 아웃풋 업로드용)
+_OUTPUT_MODE = os.environ.get("FNF_OUTPUT_MODE", "local")
+_S3_BUCKET = os.environ.get("FNF_S3_BUCKET", "tmp-img-s3")
+_S3_PREFIX = os.environ.get("FNF_S3_PREFIX", "LINN/fnf-studio")
+_S3_REGION = os.environ.get("FNF_S3_REGION", "ap-northeast-2")
+
 # 프로젝트 루트
 _PROJECT_ROOT = Path(__file__).parent.parent
+
+# 로컬 아웃풋 디렉토리
+_OUTPUT_DIR = _PROJECT_ROOT / "Fnf_studio_outputs"
 
 # 로컬 캐시 디렉토리 (S3에서 다운받은 파일 저장)
 _CACHE_DIR = Path(tempfile.gettempdir()) / "fnf_studio_cache"
@@ -249,3 +266,169 @@ def clear_cache():
 
     if _CACHE_DIR.exists():
         shutil.rmtree(_CACHE_DIR)
+
+
+# ============================================================
+# 아웃풋 저장 (로컬 or S3)
+# ============================================================
+
+
+def is_output_s3() -> bool:
+    """아웃풋을 S3에 저장하는 모드인지 확인."""
+    return _OUTPUT_MODE.lower() == "s3"
+
+
+def _get_s3_client():
+    """boto3 S3 클라이언트 생성 (lazy import)."""
+    import boto3
+
+    return boto3.client("s3", region_name=_S3_REGION)
+
+
+def _upload_bytes_to_s3(
+    data: bytes, s3_key: str, content_type: str = "image/jpeg"
+) -> str:
+    """바이트 데이터를 S3에 업로드하고 공개 URL 반환."""
+    client = _get_s3_client()
+    full_key = f"{_S3_PREFIX}/{s3_key}"
+
+    client.put_object(
+        Bucket=_S3_BUCKET,
+        Key=full_key,
+        Body=data,
+        ContentType=content_type,
+    )
+
+    return f"https://{_S3_BUCKET}.s3.{_S3_REGION}.amazonaws.com/{full_key}"
+
+
+def save_output_image(image: Image.Image, relative_path: str, quality: int = 95) -> str:
+    """생성된 이미지 저장.
+
+    - local 모드: Fnf_studio_outputs/{relative_path}에 저장, 로컬 경로 반환
+    - s3 모드: S3에 업로드, 공개 URL 반환
+
+    Args:
+        image: PIL Image 객체
+        relative_path: 'brand_cut/20260312_143000_mlb/images/output_001.jpg'
+        quality: JPEG 품질 (기본 95)
+
+    Returns:
+        로컬 경로 문자열 (local) 또는 S3 URL (s3)
+    """
+    import io
+
+    normalized = _normalize_path(relative_path)
+
+    if is_output_s3():
+        # S3에 업로드
+        buf = io.BytesIO()
+        ext = Path(normalized).suffix.lower()
+        fmt = "PNG" if ext == ".png" else "JPEG"
+        content_type = "image/png" if ext == ".png" else "image/jpeg"
+        image.save(buf, format=fmt, quality=quality)
+        buf.seek(0)
+
+        s3_key = f"outputs/{normalized}"
+        url = _upload_bytes_to_s3(buf.read(), s3_key, content_type)
+        return url
+    else:
+        # 로컬 저장
+        local_path = _OUTPUT_DIR / normalized
+        local_path.parent.mkdir(parents=True, exist_ok=True)
+        image.save(str(local_path), quality=quality)
+        return str(local_path)
+
+
+def save_output_json(data: Union[dict, list], relative_path: str) -> str:
+    """JSON 데이터 저장 (prompt.json, config.json, validation.json 등).
+
+    Args:
+        data: JSON 데이터
+        relative_path: 'brand_cut/20260312_143000_mlb/prompt.json'
+
+    Returns:
+        로컬 경로 문자열 (local) 또는 S3 URL (s3)
+    """
+    normalized = _normalize_path(relative_path)
+    content = json.dumps(data, ensure_ascii=False, indent=2).encode("utf-8")
+
+    if is_output_s3():
+        s3_key = f"outputs/{normalized}"
+        url = _upload_bytes_to_s3(content, s3_key, "application/json")
+        return url
+    else:
+        local_path = _OUTPUT_DIR / normalized
+        local_path.parent.mkdir(parents=True, exist_ok=True)
+        local_path.write_bytes(content)
+        return str(local_path)
+
+
+def save_output_file(src_path: Union[str, Path], relative_path: str) -> str:
+    """로컬 파일을 아웃풋 위치에 복사/업로드.
+
+    인풋 이미지 복사용 (input_face_01.jpg 등).
+
+    Args:
+        src_path: 복사할 원본 파일 (로컬 경로 또는 S3 상대 경로)
+        relative_path: 'brand_cut/20260312_143000_mlb/images/input_face_01.jpg'
+
+    Returns:
+        로컬 경로 문자열 (local) 또는 S3 URL (s3)
+    """
+    import shutil
+
+    normalized = _normalize_path(relative_path)
+
+    # 원본 파일 resolve (로컬 또는 S3에서 다운로드)
+    if isinstance(src_path, str) and not Path(src_path).is_absolute():
+        # 상대 경로 → core/storage로 resolve
+        actual_path = resolve_path(src_path)
+    else:
+        actual_path = Path(src_path)
+
+    if is_output_s3():
+        content = actual_path.read_bytes()
+        ext = Path(normalized).suffix.lower()
+        ct_map = {
+            ".jpg": "image/jpeg",
+            ".jpeg": "image/jpeg",
+            ".png": "image/png",
+            ".webp": "image/webp",
+            ".json": "application/json",
+        }
+        content_type = ct_map.get(ext, "application/octet-stream")
+
+        s3_key = f"outputs/{normalized}"
+        url = _upload_bytes_to_s3(content, s3_key, content_type)
+        return url
+    else:
+        local_path = _OUTPUT_DIR / normalized
+        local_path.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copy(str(actual_path), str(local_path))
+        return str(local_path)
+
+
+def get_output_url(relative_path: str) -> str:
+    """아웃풋의 접근 가능한 URL/경로 반환.
+
+    - local 모드: '/outputs/{relative_path}' (API 서빙용)
+    - s3 모드: S3 공개 URL
+
+    Args:
+        relative_path: 'brand_cut/.../output_001.jpg'
+
+    Returns:
+        URL 문자열
+    """
+    normalized = _normalize_path(relative_path)
+
+    if is_output_s3():
+        from urllib.parse import quote
+
+        encoded = quote(f"outputs/{normalized}", safe="/")
+        return (
+            f"https://{_S3_BUCKET}.s3.{_S3_REGION}.amazonaws.com/{_S3_PREFIX}/{encoded}"
+        )
+    else:
+        return f"/outputs/{normalized}"

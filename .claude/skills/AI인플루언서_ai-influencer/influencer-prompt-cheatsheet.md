@@ -94,13 +94,13 @@ contents = [
 ### 폴더 구조
 
 ```
-db/ai_influencer/{캐릭터명}/
-├── profile.json           <- 캐릭터 프로필
-├── face/                  <- 기준 얼굴 이미지들 (3-5장)
-│   ├── front.jpg          <- 정면 (필수)
-│   ├── side.jpg           <- 측면 (권장)
-│   └── smile.jpg          <- 미소 (권장)
-└── style_guide.md         <- 스타일 가이드 (선택)
+db/characters/{캐릭터명}/           <- 캐릭터별 폴더 (필요 시 생성)
+├── profile.json                    <- 캐릭터 프로필
+├── face/                           <- 기준 얼굴 이미지들 (3-5장)
+│   ├── front.jpg                   <- 정면 (필수)
+│   ├── side.jpg                    <- 측면 (권장)
+│   └── smile.jpg                   <- 미소 (권장)
+└── style_guide.md                  <- 스타일 가이드 (선택)
 ```
 
 ### profile.json 형식
@@ -151,18 +151,14 @@ db/ai_influencer/{캐릭터명}/
 
 ```
 db/presets/
-├── pose/                    # 포즈 레퍼런스 이미지
-│   ├── 전신_01.jpg ~ 전신_21.jpg
-│   ├── 상반신_01.jpg ~ 상반신_21.jpg
-│   ├── 앉기_01.jpg ~ 앉기_21.jpg
-│   └── 거울셀피_01.jpg ~ 거울셀피_12.jpg
-├── expression/              # 표정 레퍼런스 이미지
-│   ├── 시크_01.jpg ~ 시크_05.jpg
-│   └── 러블리_01.jpg ~ 러블리_05.jpg
-└── background/              # 배경 레퍼런스 이미지
-    ├── 핫플카페_01.jpg ~ 핫플카페_21.jpg
-    ├── 그래피티_01.jpg ~ 그래피티_15.jpg
-    └── ...
+├── common/                         # 인플루언서 + 셀카 공용
+│   ├── pose_presets.json           # 포즈 (75개, image_path 포함)
+│   ├── expression_presets.json     # 표정 (10개, image_path 포함)
+│   └── background_presets.json     # 배경 (image_path 포함)
+└── influencer/                     # 인플루언서 전용
+    ├── camera_presets.json         # 카메라 프리셋
+    ├── prompt_schema.json          # 프롬프트 스키마
+    └── styling_preset_db.json      # 스타일링 프리셋
 ```
 
 ### 포즈 프리셋 (75개)
@@ -198,17 +194,23 @@ db/presets/
 ### 프리셋 ID → 이미지 경로
 
 ```python
-def get_preset_image_path(category: str, preset_id: str) -> Path:
-    """프리셋 ID로 이미지 경로 반환"""
-    base = Path("db/presets")
-    return base / category / f"{preset_id}.jpg"
+import json
+from pathlib import Path
+
+# 프리셋 JSON에서 image_path로 이미지 경로 가져오기
+def load_preset(category: str) -> list:
+    """프리셋 JSON 로드"""
+    preset_map = {
+        "pose": "db/presets/common/pose_presets.json",
+        "expression": "db/presets/common/expression_presets.json",
+        "background": "db/presets/common/background_presets.json",
+    }
+    with open(preset_map[category]) as f:
+        return json.load(f)
 
 # 사용 예시
-pose_img = get_preset_image_path("pose", "전신_05")
-# -> db/presets/pose/전신_05.jpg
-
-expr_img = get_preset_image_path("expression", "시크_02")
-# -> db/presets/expression/시크_02.jpg
+poses = load_preset("pose")
+# poses[i]["image_path"] → 실제 이미지 파일 경로
 ```
 
 ---

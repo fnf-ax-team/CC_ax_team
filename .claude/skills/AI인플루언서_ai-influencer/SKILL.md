@@ -132,20 +132,14 @@ IMAGE LAST: BACKGROUND REFERENCE (if provided)
 
 ```
 db/presets/
-├── pose/                    # 포즈 레퍼런스 이미지
-│   ├── 전신_01.jpg
-│   ├── 전신_02.jpg
-│   ├── 상반신_01.jpg
-│   └── ...
-├── expression/              # 표정 레퍼런스 이미지
-│   ├── 시크_01.jpg
-│   ├── 시크_02.jpg
-│   ├── 러블리_01.jpg
-│   └── ...
-└── background/              # 배경 레퍼런스 이미지
-    ├── 핫플카페_01.jpg
-    ├── 그래피티_01.jpg
-    └── ...
+├── common/                         # 인플루언서 + 셀카 공용
+│   ├── pose_presets.json           # 포즈 프리셋 (75개, image_path 포함)
+│   ├── expression_presets.json     # 표정 프리셋 (10개, image_path 포함)
+│   └── background_presets.json     # 배경 프리셋 (image_path 포함)
+└── influencer/                     # 인플루언서 전용
+    ├── camera_presets.json         # 카메라 프리셋
+    ├── prompt_schema.json          # 프롬프트 스키마
+    └── styling_preset_db.json      # 스타일링 프리셋
 ```
 
 ### 프리셋 ID → 이미지 매핑
@@ -157,9 +151,12 @@ db/presets/
 | 배경 | `{장소}_{번호}` | `핫플카페_08`, `그래피티_05` |
 
 ```python
-# 프리셋 ID로 이미지 경로 가져오기
-pose_image = get_preset_image_path("pose", "전신_05")
-# -> "db/presets/pose/전신_05.jpg"
+# 프리셋 JSON에서 image_path로 이미지 경로 가져오기
+# pose_presets.json 내 각 항목에 image_path 필드 포함
+import json
+with open("db/presets/common/pose_presets.json") as f:
+    poses = json.load(f)
+# poses[i]["image_path"] → 실제 이미지 경로
 ```
 
 ---
@@ -169,14 +166,16 @@ pose_image = get_preset_image_path("pose", "전신_05")
 ### 폴더 구조
 
 ```
-db/ai_influencer/{캐릭터명}/
-├── profile.json           <- 캐릭터 프로필
-├── face/                  <- 기준 얼굴 이미지들 (3-5장)
-│   ├── front.jpg          <- 정면 (필수)
-│   ├── side.jpg           <- 측면 (권장)
-│   └── smile.jpg          <- 미소 (권장)
-└── style_guide.md         <- 스타일 가이드 (선택)
+db/characters/{캐릭터명}/           <- 캐릭터별 폴더 (필요 시 생성)
+├── profile.json                    <- 캐릭터 프로필
+├── face/                           <- 기준 얼굴 이미지들 (3-5장)
+│   ├── front.jpg                   <- 정면 (필수)
+│   ├── side.jpg                    <- 측면 (권장)
+│   └── smile.jpg                   <- 미소 (권장)
+└── style_guide.md                  <- 스타일 가이드 (선택)
 ```
+
+> **NOTE**: 캐릭터 폴더는 사용 시 `db/characters/` 하위에 생성합니다.
 
 ### profile.json 형식
 

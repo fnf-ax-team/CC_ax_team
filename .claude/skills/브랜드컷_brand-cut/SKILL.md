@@ -63,7 +63,7 @@ visual_mood = {
 ## 필수 리소스
 
 ```
-.claude/skills/brand-dna/mlb-prompt-cheatsheet.md  ← 프롬프트 치트시트 (반드시 로드)
+.claude/skills/브랜드컷_brand-cut/mlb-prompt-cheatsheet.md  ← 프롬프트 치트시트 (반드시 로드)
 
 core/brandcut/                                     ← 실행 모듈
 core/mlb_validator.py                               ← 검증 모듈
@@ -148,13 +148,12 @@ db/presets/brandcut/mlb/
 ├── mlb_pose_presets.json           # 포즈 프리셋 (스탠딩, 린월 등)
 ├── mlb_expression_presets.json     # 표정 프리셋 (시크, 러블리 등)
 ├── mlb_background_presets.json     # 배경 프리셋 (스튜디오, 차량 등)
-├── mlb_lighting_presets.json       # 조명 프리셋 (자연광, 스튜디오 등)
 ├── mlb_camera_presets.json         # 카메라 프리셋 (앵글, 프레이밍)
-├── mlb_brand_dna.json              # 브랜드 DNA 설정
-├── mlb_negative_presets.json       # 네거티브 프롬프트
-├── mlb_outfit_styling_presets.json # 착장 코디방법 프리셋
+├── mlb_styling_presets.json        # 스타일링/코디방법 프리셋
 └── mlb_model_presets.json          # 모델 프리셋 (민족, 성별 등)
 ```
+
+> **NOTE**: 브랜드 DNA, 네거티브 프롬프트, 조명 규칙은 치트시트(`mlb-prompt-cheatsheet.md`)에서 관리합니다.
 
 ### 프리셋 로드 API
 

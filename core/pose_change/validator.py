@@ -14,7 +14,6 @@
 """
 
 import json
-from io import BytesIO
 from typing import Any, Dict, List, Union
 from pathlib import Path
 
@@ -24,25 +23,12 @@ from google.genai import types
 from core.config import VISION_MODEL
 from core.validators.base import (
     CommonValidationResult,
-    QualityTier,
     ValidationConfig,
     WorkflowType,
     WorkflowValidator,
 )
 from core.validators.registry import ValidatorRegistry
 from core.pose_change.templates import VALIDATION_PROMPT
-
-
-def _pil_to_part(img: Image.Image, max_size: int = 1024) -> types.Part:
-    """PIL 이미지를 Gemini API Part로 변환 (크기 제한 포함)."""
-    if max(img.size) > max_size:
-        img = img.copy()
-        img.thumbnail((max_size, max_size), Image.LANCZOS)
-    buf = BytesIO()
-    img.save(buf, format="PNG")
-    return types.Part(
-        inline_data=types.Blob(mime_type="image/png", data=buf.getvalue())
-    )
 
 
 def _parse_json_response(text: str) -> dict:
@@ -58,28 +44,6 @@ def _compute_total_score(scores: Dict[str, int], weights: Dict[str, float]) -> i
     """가중 평균 총점 계산."""
     total = sum(scores.get(k, 0) * w for k, w in weights.items())
     return round(total)
-
-
-def _derive_grade(score: int) -> str:
-    """점수에서 등급 문자 산출."""
-    if score >= 95:
-        return "S"
-    if score >= 90:
-        return "A"
-    if score >= 88:
-        return "B"
-    if score >= 75:
-        return "C"
-    return "F"
-
-
-def _derive_tier(grade: str) -> QualityTier:
-    """등급에서 QualityTier 산출."""
-    if grade in ("S", "A"):
-        return QualityTier.RELEASE_READY
-    if grade == "B":
-        return QualityTier.NEEDS_MINOR_EDIT
-    return QualityTier.REGENERATE
 
 
 @ValidatorRegistry.register(WorkflowType.POSE_CHANGE)
@@ -128,6 +92,7 @@ class PoseChangeValidator(WorkflowValidator):
             "physics_plausibility",
             "lighting_consistency",
         ],
+        grade_thresholds={"S": 95, "A": 90, "B": 88, "C": 75},
     )
 
     # 재시도 프롬프트 강화 규칙 (실패 기준별)
@@ -226,8 +191,7 @@ class PoseChangeValidator(WorkflowValidator):
         passed = (not auto_fail) and (total_score >= self.config.pass_total)
 
         # 등급 및 티어
-        grade = _derive_grade(total_score)
-        tier = _derive_tier(grade)
+        grade, tier = self._calculate_grade(total_score)
 
         # 한국어 요약
         summary_kr = self._build_summary_kr(
@@ -303,8 +267,8 @@ class PoseChangeValidator(WorkflowValidator):
                 role="user",
                 parts=[
                     types.Part(text=prompt),
-                    _pil_to_part(source_img),  # IMAGE 1: SOURCE
-                    _pil_to_part(result_img),  # IMAGE 2: RESULT
+                    self._pil_to_part(source_img),  # IMAGE 1: SOURCE
+                    self._pil_to_part(result_img),  # IMAGE 2: RESULT
                 ],
             )
         ]

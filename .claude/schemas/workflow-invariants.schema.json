@@ -1,0 +1,154 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "fnf-studio-workflow-invariants",
+  "title": "FNF Studio Workflow Invariants Schema",
+  "description": "워크플로별 핵심 불변량 정의 스키마 - logic-reviewer가 참조",
+  "type": "object",
+  "required": ["_metadata", "workflows"],
+  "properties": {
+    "_metadata": {
+      "type": "object",
+      "properties": {
+        "version": { "type": "string" },
+        "updated_at": { "type": "string", "format": "date" },
+        "description": { "type": "string" }
+      },
+      "required": ["version"]
+    },
+    "workflows": {
+      "type": "object",
+      "additionalProperties": {
+        "$ref": "#/$defs/workflowInvariant"
+      }
+    }
+  },
+  "$defs": {
+    "workflowInvariant": {
+      "type": "object",
+      "required": ["category", "core_invariants", "preservation_rules", "validation_requirements"],
+      "properties": {
+        "category": {
+          "type": "string",
+          "enum": ["person", "product", "graphic", "vmd", "video"],
+          "description": "워크플로 카테고리"
+        },
+        "description": {
+          "type": "string",
+          "description": "워크플로 설명"
+        },
+        "core_invariants": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/invariant"
+          },
+          "description": "절대 실패하면 안 되는 핵심 불변량 목록",
+          "minItems": 1
+        },
+        "preservation_rules": {
+          "type": "object",
+          "properties": {
+            "must_change": {
+              "type": "array",
+              "items": { "type": "string" },
+              "description": "변경되어야 하는 요소"
+            },
+            "must_preserve": {
+              "type": "array",
+              "items": { "type": "string" },
+              "description": "반드시 보존되어야 하는 요소"
+            }
+          },
+          "required": ["must_change", "must_preserve"]
+        },
+        "validation_requirements": {
+          "type": "object",
+          "properties": {
+            "required_gates": {
+              "type": "array",
+              "items": { "type": "string" },
+              "description": "반드시 있어야 하는 검증 Gate"
+            },
+            "auto_fail_conditions": {
+              "type": "array",
+              "items": { "type": "string" },
+              "description": "즉시 탈락 조건"
+            },
+            "min_pass_score": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 100,
+              "description": "최소 통과 점수"
+            }
+          },
+          "required": ["required_gates", "auto_fail_conditions"]
+        },
+        "enhancement_requirements": {
+          "type": "object",
+          "properties": {
+            "on_invariant_fail": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "invariant": { "type": "string" },
+                  "enhancement": { "type": "string" }
+                },
+                "required": ["invariant", "enhancement"]
+              },
+              "description": "불변량 실패 시 프롬프트 강화 규칙"
+            },
+            "fallback_strategy": {
+              "type": "string",
+              "description": "연속 실패 시 폴백 전략"
+            }
+          }
+        },
+        "reference_patterns": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "참조할 검증된 패턴 경로"
+        }
+      }
+    },
+    "invariant": {
+      "type": "object",
+      "required": ["id", "name", "description", "priority", "verification_method"],
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "불변량 식별자 (예: outfit_accuracy, face_identity)"
+        },
+        "name": {
+          "type": "string",
+          "description": "불변량 한글명"
+        },
+        "description": {
+          "type": "string",
+          "description": "불변량 설명"
+        },
+        "priority": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 5,
+          "description": "우선순위 (1=최고)"
+        },
+        "verification_method": {
+          "type": "string",
+          "enum": ["vlm_comparison", "vlm_analysis", "rule_based", "human_review"],
+          "description": "검증 방법"
+        },
+        "prompt_keywords": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "프롬프트에 포함되어야 하는 키워드"
+        },
+        "fail_threshold": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 100,
+          "description": "이 점수 미만이면 실패"
+        }
+      }
+    }
+  }
+}

@@ -91,6 +91,7 @@ class PoseCopyValidator(WorkflowValidator):
             "outfit_preservation",  # 3순위: 착장 유지
             "composition_match",  # 4순위: 구도 일치
         ],
+        grade_thresholds={"S": 98, "A": 95, "B": 92, "C": 85},
     )
 
     # 실패 시 프롬프트 강화 규칙
@@ -192,8 +193,7 @@ class PoseCopyValidator(WorkflowValidator):
         )
 
         # 등급 산정
-        grade = self._calc_grade(total_score)
-        tier = self._calc_tier(grade)
+        grade, tier = self._calculate_grade(int(total_score))
 
         # 한국어 요약
         summary_kr = self._build_summary_kr(
@@ -236,27 +236,6 @@ class PoseCopyValidator(WorkflowValidator):
     # =========================================================================
     # private methods
     # =========================================================================
-
-    def _pil_to_part(self, img: Image.Image, max_size: int = 1024):
-        """PIL 이미지를 Gemini API Part로 변환
-
-        Args:
-            img: PIL Image
-            max_size: 최대 픽셀 크기 (긴 변 기준)
-
-        Returns:
-            google.genai.types.Part
-        """
-        from google.genai import types
-
-        if max(img.size) > max_size:
-            img = img.copy()
-            img.thumbnail((max_size, max_size), Image.LANCZOS)
-        buf = BytesIO()
-        img.save(buf, format="PNG")
-        return types.Part(
-            inline_data=types.Blob(mime_type="image/png", data=buf.getvalue())
-        )
 
     def _run_vlm_validation(
         self,
@@ -457,40 +436,6 @@ class PoseCopyValidator(WorkflowValidator):
                     f"{label_map.get(key, key)}: {score} (기준 {threshold} 미달)"
                 )
         return issues
-
-    def _calc_grade(self, total_score: float) -> str:
-        """총점에서 등급 산출
-
-        Args:
-            total_score: 가중 평균 총점
-
-        Returns:
-            str: 등급 문자 (S/A/B/C/F)
-        """
-        if total_score >= 98:
-            return "S"
-        elif total_score >= 95:
-            return "A"
-        elif total_score >= 92:
-            return "B"
-        elif total_score >= 85:
-            return "C"
-        return "F"
-
-    def _calc_tier(self, grade: str) -> QualityTier:
-        """등급에서 QualityTier 산출
-
-        Args:
-            grade: 등급 문자
-
-        Returns:
-            QualityTier
-        """
-        if grade in ("S", "A"):
-            return QualityTier.RELEASE_READY
-        elif grade == "B":
-            return QualityTier.NEEDS_MINOR_EDIT
-        return QualityTier.REGENERATE
 
     def _build_summary_kr(
         self,

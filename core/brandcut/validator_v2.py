@@ -639,8 +639,93 @@ ENHANCEMENT_RULES = {
 }
 
 
+from core.validators.base import (
+    WorkflowValidator,
+    WorkflowType,
+    CommonValidationResult,
+    ValidationConfig,
+    QualityTier as CommonQualityTier,
+)
+from core.validators.registry import ValidatorRegistry
+
+
+@ValidatorRegistry.register(WorkflowType.BRANDCUT)
+class BrandcutWorkflowValidator(WorkflowValidator):
+    """브랜드컷 통합 검증기 — BrandcutValidator 래핑
+
+    ValidatorRegistry를 통해 WorkflowType.BRANDCUT으로 접근 가능.
+    """
+
+    workflow_type = WorkflowType.BRANDCUT
+    config = ValidationConfig(
+        pass_total=85,
+        weights=WEIGHTS,
+        auto_fail_thresholds=AUTO_FAIL_THRESHOLDS,
+        priority_order=[
+            "outfit_accuracy",
+            "face_identity",
+            "brand_vibe",
+            "aesthetic_appeal",
+            "anatomy",
+            "brand_compliance",
+            "lighting_mood",
+        ],
+        grade_thresholds={"S": 95, "A": 90, "B": 85, "C": 75},
+    )
+
+    def __init__(self, client):
+        super().__init__(client)
+        self._inner = BrandcutValidator(client)
+
+    def validate(
+        self,
+        generated_img,
+        reference_images,
+        **kwargs,
+    ) -> CommonValidationResult:
+        """브랜드컷 검증 — CommonValidationResult 반환"""
+        result = self._inner.validate(
+            generated_img=generated_img,
+            face_images=reference_images.get("face", []),
+            outfit_images=reference_images.get("outfit", []),
+            pose_reference=kwargs.get("pose_reference"),
+            outfit_spec=kwargs.get("outfit_spec"),
+        )
+
+        # 로컬 QualityTier → 공통 QualityTier
+        tier_map = {
+            QualityTier.RELEASE_READY: CommonQualityTier.RELEASE_READY,
+            QualityTier.NEEDS_MINOR_EDIT: CommonQualityTier.NEEDS_MINOR_EDIT,
+            QualityTier.REGENERATE: CommonQualityTier.REGENERATE,
+        }
+
+        return CommonValidationResult(
+            workflow_type=self.workflow_type,
+            total_score=result.total_score,
+            tier=tier_map.get(result.tier, CommonQualityTier.REGENERATE),
+            grade=result.grade,
+            passed=result.passed,
+            auto_fail=result.auto_fail,
+            auto_fail_reasons=result.auto_fail_reasons,
+            issues=result.issues,
+            criteria_scores={
+                key: getattr(result, key, 0) for key in CRITERION_NAMES_KR
+            },
+            summary_kr=result.summary_kr,
+        )
+
+    def get_enhancement_rules(self, failed_criteria):
+        """실패 기준에 따른 강화 규칙"""
+        lines = []
+        for criterion in self.config.priority_order:
+            if criterion in failed_criteria and criterion in ENHANCEMENT_RULES:
+                lines.extend(ENHANCEMENT_RULES[criterion])
+        return "\n".join([f"- {line}" for line in lines[:10]])
+
+
 __all__ = [
     "BrandcutValidator",
+    "BrandcutWorkflowValidator",
     "ValidationResult",
     "CRITERION_NAMES_KR",
     "THRESHOLDS",

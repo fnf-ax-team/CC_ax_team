@@ -13,7 +13,7 @@ from google import genai
 from google.genai import types
 
 from core.config import VISION_MODEL
-from .templates import SOURCE_ANALYSIS_PROMPT, OUTFIT_ANALYSIS_PROMPT
+from .templates import SOURCE_ANALYSIS_PROMPT
 
 
 def pil_to_part(img: Image.Image, max_size: int = 1024) -> types.Part:
@@ -301,7 +301,7 @@ def analyze_outfit_items(
     """
     착장 이미지 목록을 개별 분석하여 아이템 정보를 반환
 
-    OUTFIT_ANALYSIS_PROMPT를 사용하여 각 아이템의 타입/색상/소재/로고/디테일을 추출한다.
+    공통 OutfitAnalyzer를 통해 이미지당 개별 분석 후 착장스왑 포맷으로 변환한다.
     최대 10개 아이템까지 처리한다.
 
     Args:
@@ -317,100 +317,13 @@ def analyze_outfit_items(
             details (list[str]): 디자인 디테일 목록
             prompt_description (str): AI 생성용 영어 one-liner 설명
     """
-    # 최대 10개 제한
-    images_to_process = outfit_images[:10]
-    results = []
+    from core.modules.analyze_outfit import analyze_outfit, to_outfit_swap_dict
 
-    for idx, img_input in enumerate(images_to_process):
-        # 이미지 로드
-        if isinstance(img_input, str):
-            try:
-                pil_img = Image.open(img_input).convert("RGB")
-            except Exception as e:
-                print(f"[outfit_swap] 착장 이미지 {idx + 1} 로드 실패: {e}")
-                # 폴백 값 추가
-                results.append(_fallback_outfit_item(idx))
-                continue
-        else:
-            pil_img = img_input
+    analyses = analyze_outfit(
+        images=outfit_images[:10],
+        client=client,
+        detail_level="full",
+        per_image=True,
+    )
 
-        # VLM 호출 — OUTFIT_ANALYSIS_PROMPT 사용
-        try:
-            response = client.models.generate_content(
-                model=VISION_MODEL,
-                contents=[
-                    types.Content(
-                        role="user",
-                        parts=[
-                            types.Part(text=OUTFIT_ANALYSIS_PROMPT),
-                            pil_to_part(pil_img),
-                        ],
-                    )
-                ],
-                config=types.GenerateContentConfig(
-                    temperature=0.1,
-                    response_modalities=["TEXT"],
-                ),
-            )
-
-            text = response.candidates[0].content.parts[0].text
-
-            # JSON 파싱
-            if "```json" in text:
-                text = text.split("```json")[1].split("```")[0]
-            elif "```" in text:
-                text = text.split("```")[1].split("```")[0]
-
-            raw = json.loads(text.strip())
-
-        except json.JSONDecodeError:
-            print(f"[outfit_swap] 착장 {idx + 1} JSON 파싱 실패, 폴백 사용")
-            results.append(_fallback_outfit_item(idx))
-            continue
-        except Exception as e:
-            print(f"[outfit_swap] 착장 {idx + 1} VLM 호출 실패: {e}")
-            results.append(_fallback_outfit_item(idx))
-            continue
-
-        # 로고 정보 정규화
-        logo_data = raw.get("logo", {})
-        if isinstance(logo_data, dict):
-            logo_text = (
-                logo_data.get("text") if logo_data.get("exists", False) else None
-            )
-        else:
-            logo_text = None
-
-        # details 정규화 — 문자열이면 리스트로 분리
-        details_raw = raw.get("details", "")
-        if isinstance(details_raw, list):
-            details = details_raw
-        elif isinstance(details_raw, str) and details_raw:
-            details = [d.strip() for d in details_raw.split(",") if d.strip()]
-        else:
-            details = []
-
-        results.append(
-            {
-                "item_type": raw.get("item_type", "garment"),
-                "color": raw.get("color", "unknown color"),
-                "material": raw.get("material", "fabric"),
-                "logo": logo_text,
-                "details": details,
-                "prompt_description": raw.get("prompt_description", ""),
-            }
-        )
-
-    return results
-
-
-def _fallback_outfit_item(idx: int) -> dict:
-    """착장 분석 실패 시 폴백 아이템"""
-    return {
-        "item_type": f"garment_{idx + 1}",
-        "color": "unknown",
-        "material": "fabric",
-        "logo": None,
-        "details": [],
-        "prompt_description": f"outfit item {idx + 1}",
-    }
+    return [to_outfit_swap_dict(a) for a in analyses]

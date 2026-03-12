@@ -135,6 +135,7 @@ class OutfitSwapValidator(WorkflowValidator):
             "outfit_draping",
             "background_preservation",
         ],
+        grade_thresholds={"S": 97, "A": 92, "B": 85, "C": 75},
     )
 
     def validate(
@@ -362,21 +363,8 @@ class OutfitSwapValidator(WorkflowValidator):
         if auto_fail:
             grade = "F"
             tier = QualityTier.REGENERATE
-        elif total_score >= 97:
-            grade = "S"
-            tier = QualityTier.RELEASE_READY
-        elif total_score >= 92:
-            grade = "A"
-            tier = QualityTier.RELEASE_READY
-        elif total_score >= 85:
-            grade = "B"
-            tier = QualityTier.NEEDS_MINOR_EDIT
-        elif total_score >= 75:
-            grade = "C"
-            tier = QualityTier.REGENERATE
         else:
-            grade = "F"
-            tier = QualityTier.REGENERATE
+            grade, tier = self._calculate_grade(total_score)
 
         # 통과 여부: auto_fail 없고 총점 >= PASS_TOTAL 이고 필수 기준 통과
         passed = (
@@ -415,19 +403,6 @@ class OutfitSwapValidator(WorkflowValidator):
             issues=[reason],
             criteria_scores={key: 0 for key in WEIGHTS},
             summary_kr=f"검증 오류로 자동 탈락: {reason}",
-        )
-
-    def _pil_to_part(self, img: Image.Image, max_size: int = 1024) -> types.Part:
-        """PIL Image를 Gemini API Part로 변환"""
-        if max(img.size) > max_size:
-            img = img.copy()
-            img.thumbnail((max_size, max_size), Image.LANCZOS)
-
-        buffer = BytesIO()
-        img.save(buffer, format="PNG")
-
-        return types.Part(
-            inline_data=types.Blob(mime_type="image/png", data=buffer.getvalue())
         )
 
 

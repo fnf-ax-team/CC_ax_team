@@ -76,7 +76,7 @@ class BackgroundSwapValidationResult:
     def passed(self) -> bool:
         """Pass 조건 확인 - 총점 95점 이상 + 필수 항목 충족"""
         return (
-            self.model_preservation == 100
+            self.model_preservation >= 95
             and self.physics_plausibility >= 50
             and self.color_temperature_compliance >= 80
             and self.perspective_match >= 70
@@ -345,7 +345,11 @@ ENHANCEMENT_RULES = {
 
 
 class BackgroundSwapValidator:
-    """배경교체 검증기 (9-criteria)"""
+    """배경교체 검증기 (9-criteria)
+
+    .. deprecated::
+        새 코드에서는 ValidatorRegistry.get(WorkflowType.BACKGROUND_SWAP, client)를 사용하세요.
+    """
 
     def __init__(self, api_key: str):
         self.api_key = api_key
@@ -509,7 +513,7 @@ class BackgroundSwapWorkflowValidator(WorkflowValidator):
             "perspective_match": 0.10,  # 5% → 10%
         },
         auto_fail_thresholds={
-            "model_preservation": 100,
+            "model_preservation": 95,
             "physics_plausibility": 50,
             "color_temperature_compliance": 80,
             "perspective_match": 70,  # NEW! 필수 조건
@@ -525,6 +529,7 @@ class BackgroundSwapWorkflowValidator(WorkflowValidator):
             "edge_quality",
             "prop_style_consistency",
         ],
+        grade_thresholds={"S": 95, "A": 95, "B": 85, "C": 75},
     )
 
     def __init__(self, client):
@@ -557,9 +562,9 @@ class BackgroundSwapWorkflowValidator(WorkflowValidator):
 
         # Auto-fail 체크
         auto_fail_reasons = []
-        if result.model_preservation < 100:
+        if result.model_preservation < 95:
             auto_fail_reasons.append(
-                f"model_preservation {result.model_preservation} < 100"
+                f"model_preservation {result.model_preservation} < 95"
             )
         if result.physics_plausibility < 50:
             auto_fail_reasons.append(

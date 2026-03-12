@@ -20,7 +20,6 @@ Auto-Fail 조건:
 
 import json
 import logging
-from io import BytesIO
 from pathlib import Path
 from typing import Any, Dict, List, Union
 
@@ -38,20 +37,6 @@ from core.validators.base import (
 from core.validators.registry import ValidatorRegistry
 
 logger = logging.getLogger(__name__)
-
-
-def _pil_to_part(img: Image.Image, max_size: int = 1024):
-    """PIL 이미지를 Gemini API Part로 변환"""
-    from google.genai import types
-
-    if max(img.size) > max_size:
-        img = img.copy()
-        img.thumbnail((max_size, max_size), Image.LANCZOS)
-    buf = BytesIO()
-    img.save(buf, format="PNG")
-    return types.Part(
-        inline_data=types.Blob(mime_type="image/png", data=buf.getvalue())
-    )
 
 
 def _load_image(img: Union[str, Path, Image.Image]) -> Image.Image:
@@ -73,30 +58,6 @@ def _parse_json_response(text: str) -> dict:
         return json.loads(text.strip())
     except json.JSONDecodeError as e:
         raise ValueError(f"VLM 응답 JSON 파싱 실패: {e}\n텍스트:\n{text[:400]}")
-
-
-def _compute_grade(score: int) -> str:
-    """점수 → 등급 변환"""
-    if score >= 95:
-        return "S"
-    if score >= 90:
-        return "A"
-    if score >= 85:
-        return "B"
-    if score >= 75:
-        return "C"
-    return "F"
-
-
-def _compute_tier(grade: str, passed: bool) -> QualityTier:
-    """등급 → QualityTier 변환"""
-    if not passed:
-        return QualityTier.REGENERATE
-    if grade in ("S", "A"):
-        return QualityTier.RELEASE_READY
-    if grade == "B":
-        return QualityTier.NEEDS_MINOR_EDIT
-    return QualityTier.REGENERATE
 
 
 @ValidatorRegistry.register(WorkflowType.MULTI_FACE_SWAP)
@@ -135,6 +96,7 @@ class MultiFaceSwapValidator(WorkflowValidator):
             "outfit_preservation",
             "edge_quality",
         ],
+        grade_thresholds={"S": 95, "A": 90, "B": 85, "C": 75},
     )
 
     # 실패 기준별 강화 규칙 (프롬프트 재생성 시 사용)
@@ -211,8 +173,8 @@ class MultiFaceSwapValidator(WorkflowValidator):
 
         # Parts 조립: 프롬프트 + 원본 + 결과 + 각 인물 참조 얼굴
         parts = [types.Part(text=VALIDATION_PROMPT)]
-        parts.append(_pil_to_part(source_img))  # Image 1: SOURCE
-        parts.append(_pil_to_part(result_img))  # Image 2: RESULT
+        parts.append(self._pil_to_part(source_img))  # Image 1: SOURCE
+        parts.append(self._pil_to_part(result_img))  # Image 2: RESULT
 
         # Image 3+: 각 인물 참조 얼굴 (face_1, face_2, ...)
         person_keys = sorted(
@@ -223,7 +185,7 @@ class MultiFaceSwapValidator(WorkflowValidator):
             for face_img_src in reference_images[key]:
                 try:
                     face_img = _load_image(face_img_src)
-                    parts.append(_pil_to_part(face_img))
+                    parts.append(self._pil_to_part(face_img))
                 except Exception as e:
                     logger.warning(
                         "[MULTI_FACE_SWAP] 참조 얼굴 로드 실패 (%s): %s", key, e
@@ -323,8 +285,9 @@ class MultiFaceSwapValidator(WorkflowValidator):
             )
 
         # 등급 및 티어
-        grade = _compute_grade(total_score)
-        tier = _compute_tier(grade, passed)
+        grade, tier = self._calculate_grade(total_score)
+        if not passed:
+            tier = QualityTier.REGENERATE
 
         # 이슈 목록
         issues = list(data.get("issues", []))

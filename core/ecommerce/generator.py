@@ -115,8 +115,12 @@ def _build_generation_parts(
         parts.append(
             types.Part(
                 text=(
-                    f"[FACE REFERENCE {i+1}] - 이 얼굴을 참조하여 모델을 생성하세요 "
-                    f"(피부톤, 이목구비 특징 유지):"
+                    f"[FACE REFERENCE {i+1}] - 이 얼굴과 동일한 인물이어야 합니다:\n"
+                    f"- 이목구비(눈, 코, 입, 턱선, 광대뼈) 정확히 재현\n"
+                    f"- 피부톤, 얼굴형 동일하게 유지\n"
+                    f"- 고유 특징(점, 보조개, 눈 모양 등) 보존 필수\n"
+                    f"- 다른 사람이 되면 안 됨 — same person identity 필수\n"
+                    f"- AI 플라스틱 피부 금지 — 자연스러운 피부 텍스처 유지:"
                 )
             )
         )

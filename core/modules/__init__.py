@@ -71,9 +71,11 @@ try:
         PoseAnalysisResult,
         analyze_pose,
     )
+    from core.modules.pose_analyzer import PoseAnalyzer
 except ImportError:
     PoseAnalysisResult = None
     analyze_pose = None
+    PoseAnalyzer = None
 
 # 분석 래퍼 - 표정
 try:
@@ -140,6 +142,7 @@ __all__ = [
     "OutfitItem",
     "LogoInfo",
     "PoseAnalysisResult",
+    "PoseAnalyzer",
     "ExpressionAnalysisResult",
     "HairAnalysisResult",
     "BackgroundAnalysisResult",

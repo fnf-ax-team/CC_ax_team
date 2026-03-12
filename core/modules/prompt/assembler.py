@@ -449,6 +449,7 @@ class PromptAssembler:
         framing: Optional[str] = None,
         pose_tags: Optional[List[str]] = None,
         conditional: Optional[List[str]] = None,
+        outfit_items=None,
     ) -> "PromptAssembler":
         """네거티브 섹션 설정.
 
@@ -460,6 +461,7 @@ class PromptAssembler:
             framing: 프레이밍 기반 네거티브
             pose_tags: 포즈 기반 네거티브 태그
             conditional: 추가 조건부 네거티브 리스트
+            outfit_items: OutfitItem 리스트 (blind_spot 기반 네거티브 추출)
 
         Returns:
             self
@@ -476,6 +478,8 @@ class PromptAssembler:
             builder.add_pose(pose_tags)
         if conditional:
             builder.add_items(conditional)
+        if outfit_items:
+            builder.add_outfit_blind_spots(outfit_items)
 
         negative_text = builder.build()
 

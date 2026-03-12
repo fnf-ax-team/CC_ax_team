@@ -238,10 +238,14 @@ class WorkflowInstance:
             asm.set_brand_tone(self.brand)
 
         if self.config.negative_base:
+            outfit_items = None
+            if analysis and analysis.has("outfit"):
+                outfit_items = getattr(analysis.outfit, "items", None)
             asm.set_negative(
                 base=True,
                 brand=self.brand,
                 framing=framing,
+                outfit_items=outfit_items,
             )
 
         if self.config.image_roles:

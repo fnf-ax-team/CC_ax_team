@@ -117,8 +117,12 @@ def _build_scene_section(group_analysis: dict) -> str:
     if scene:
         lines.append(f"Scene: {scene}")
     if lighting:
+        lines.append(f"Lighting: {lighting}")
         lines.append(
-            f"Lighting: {lighting} — apply consistent relight to ALL replaced faces"
+            "  - Match lighting direction on ALL replaced faces to this scene lighting"
+        )
+        lines.append(
+            "  - Match color temperature of ALL replaced faces to scene (no warm face on cool scene)"
         )
     if pose_context:
         lines.append(f"Group pose: {pose_context} — do NOT alter any pose")
@@ -127,6 +131,11 @@ def _build_scene_section(group_analysis: dict) -> str:
         lines.append("Spatial relationships (must be preserved):")
         for rel in relationships:
             lines.append(f"  - {rel}")
+
+    lines.append(
+        "CRITICAL: All replaced faces must look as if they were photographed "
+        "in the same scene with the same lighting — zero inconsistency allowed."
+    )
 
     return "\n".join(lines)
 
@@ -149,31 +158,60 @@ def _build_face_hints_section(
     """
     id_to_person = {p["id"]: p for p in detected_faces}
 
+    # x좌표 추정 — 인물 수에 따라 균등 분배 (좌우 여백 0.1 적용)
+    n = len(detected_faces)
+
     lines = ["=== PER-PERSON FACE BLENDING HINTS ==="]
 
-    for person_id, analysis in sorted(face_analyses.items()):
+    for i, (person_id, analysis) in enumerate(sorted(face_analyses.items())):
         person = id_to_person.get(person_id, {})
         position = person.get("position", f"position_{person_id}")
         face_angle_in_group = person.get("face_angle", "unknown")
+        clothing_hint = person.get("clothing_hint", "")
 
         best_angle = analysis.get("best_angle", "frontal")
         skin_tone = analysis.get("skin_tone", "neutral")
         distinguishing = analysis.get("distinguishing_features", "")
 
+        # x좌표 추정
+        if n <= 1:
+            x_coord = 0.5
+        else:
+            x_coord = round(0.1 + (i / (n - 1)) * 0.8, 2)
+
         hint_parts = [
-            f"PERSON_{person_id} ({position}):",
+            f"PERSON_{person_id}:",
+            f"  - Position: {position} (x≈{x_coord} of frame width)",
+            f"  - Current outfit: DO NOT CHANGE{(' — ' + clothing_hint) if clothing_hint else ''}",
+            f"  - Current pose: DO NOT CHANGE",
+            f"  - Replace face with: PERSON_{person_id} reference face",
             f"  - Reference best angle: {best_angle}",
             f"  - Target face angle in photo: {face_angle_in_group}",
-            f"  - Skin tone: {skin_tone} — match to group lighting",
+            f"  - Blend: Match skin tone ({skin_tone}) to body skin tone visible in source",
         ]
         if distinguishing:
             hint_parts.append(f"  - Key features to preserve: {distinguishing}")
 
         lines.extend(hint_parts)
 
+    lines.append("\n=== FACE BLENDING REQUIREMENTS (ALL PERSONS) ===")
     lines.append(
-        "\nApply consistent ambient lighting adaptation to ALL faces "
-        "so they match the scene lighting described above."
+        "- Match skin tone of each replaced face to body skin tone visible in source image"
+    )
+    lines.append(
+        "- Match lighting direction on face to overall scene lighting — no directional mismatch"
+    )
+    lines.append(
+        "- Seamless neck/jawline transition — no visible boundary or color seam"
+    )
+    lines.append(
+        "- Preserve natural shadow patterns consistent with scene illumination"
+    )
+    lines.append(
+        "- Color temperature of each face must match scene (no warm face on cool scene)"
+    )
+    lines.append(
+        "- Maintain face angle appropriate for each person's body pose direction"
     )
 
     return "\n".join(lines)

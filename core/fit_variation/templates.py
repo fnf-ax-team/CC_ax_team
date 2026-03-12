@@ -64,47 +64,147 @@ JSON만 출력하세요."""
 
 
 # 핏 변형 검증 VLM 프롬프트
-FIT_VALIDATION_PROMPT = """두 이미지를 비교하세요.
+FIT_VALIDATION_PROMPT = """핏 변형 검수 (STEP-BY-STEP 비교 평가)
+
 IMAGE 1: 원본 바지 (참조)
 IMAGE 2: 핏 변형 결과
 
-다음 기준으로 평가하세요:
+---
 
-[STEP 1] 색상 보존 (color_preservation):
-- 원본 색상 = ?
-- 결과 색상 = ?
-- 색상이 동일한가? (동일=100, 약간 다름=70, 많이 다름=30, 완전 다름=0)
+### 1. color_preservation (색상 보존) ★★★ 최우선 ★★★
 
-[STEP 2] 실루엣 정확도 (silhouette_accuracy):
-- 목표 핏: {target_fit}
-- 결과 실루엣이 목표 핏과 일치하는가? (정확=100, 유사=80, 약간 다름=60, 다름=30)
+[STEP 1] SOURCE 색상 분석:
+- SRC 기본 색상 = ?
+- SRC 보조 색상 = ?
+- SRC 워싱/가공 = ?
 
-[STEP 3] 소재 충실도 (material_fidelity):
-- 원본 소재 질감 = ?
-- 결과 소재 질감 = ?
-- 소재/질감이 보존되었는가? (동일=100, 유사=80, 다름=50)
+[STEP 2] RESULT 색상 분석:
+- RES 기본 색상 = ?
+- RES 보조 색상 = ?
+- RES 워싱/가공 = ?
 
-[STEP 4] 디테일 보존 (detail_preservation):
-- 원본 디테일 (포켓/스티칭/로고/허리밴드) = ?
-- 결과 디테일 = ?
-- 디테일이 보존되었는가? (모두보존=100, 대부분=80, 일부누락=60, 많이누락=30)
+[STEP 3] 비교 및 감점:
+- 기본 색상: 일치(0) / 미세 차이(-10) / 불일치(-30)
+- 보조 색상: 일치(0) / 불일치(-10)
+- 워싱/가공: 일치(0) / 불일치(-10)
+- 합계 감점 = ?
 
-[STEP 5] 전체 품질 (overall_quality):
-- 이미지 품질, 자연스러움, 완성도 (100~0)
+[STEP 4] color_preservation 최종 점수 = 100 - 합계 감점
 
-JSON 형식으로 출력:
+reason 필수 형식: "SRC:다크네이비+인디고워싱, RES:다크네이비+인디고워싱, 감점:0"
+
+---
+
+### 2. material_preservation (소재 보존)
+
+[STEP 1] SOURCE 소재 분석:
+- SRC 소재 = ?
+- SRC 질감/마감 = ?
+
+[STEP 2] RESULT 소재 분석:
+- RES 소재 = ?
+- RES 질감/마감 = ?
+
+[STEP 3] 비교 및 감점:
+- 소재 종류: 일치(0) / 유사(-5) / 불일치(-25)
+- 질감/마감: 일치(0) / 유사(-5) / 불일치(-15)
+- 합계 감점 = ?
+
+[STEP 4] material_preservation 최종 점수 = 100 - 합계 감점
+
+reason 필수 형식: "SRC:헤비데님+워싱가공, RES:헤비데님+워싱가공, 감점:0"
+
+---
+
+### 3. silhouette_change (핏 변형 정확도)
+
+[STEP 1] 목표 핏 확인:
+- 요청된 핏 변형 = {target_fit}
+
+[STEP 2] RESULT 핏 분석:
+- RES 허벅지 실루엣 = ?
+- RES 무릎 실루엣 = ?
+- RES 밑단 실루엣 = ?
+- RES 라이즈 = ?
+
+[STEP 3] 감점:
+- 목표 핏 반영: 정확(0) / 부분(-15) / 미반영(-30)
+- 비자연스러운 실루엣: 없음(0) / 있음(-10)
+- 합계 감점 = ?
+
+[STEP 4] silhouette_change 최종 점수 = 100 - 합계 감점
+
+reason 필수 형식: "TARGET:스트레이트→와이드, RES:와이드핏 적용, 감점:0"
+
+---
+
+### 4. logo_preservation (로고 보존)
+
+[STEP 1] SOURCE 로고 분석:
+- SRC 로고 유무 = ?
+- SRC 로고 위치/크기/색상 = ?
+
+[STEP 2] RESULT 로고 분석:
+- RES 로고 유무 = ?
+- RES 로고 위치/크기/색상 = ?
+
+[STEP 3] 감점:
+- 로고 누락: 없음(0) / 누락(-30)
+- 로고 변형: 없음(0) / 변형(-15)
+- 합계 감점 = ?
+
+[STEP 4] logo_preservation 최종 점수 = 100 - 합계 감점
+
+reason 필수 형식: "SRC:MLB로고@좌측허벅지, RES:동일, 감점:0"
+
+---
+
+### 5. model_preservation (인물 보존)
+
+[STEP 1] SOURCE 인물 분석:
+- SRC 인물 특징 = ? (있으면)
+- SRC 포즈/자세 = ?
+- SRC 상체 착장 = ? (있으면)
+
+[STEP 2] RESULT 인물 분석:
+- RES 동일 인물? = ?
+- RES 포즈 동일? = ?
+- RES 상체 착장 동일? = ?
+
+[STEP 3] 감점:
+- 인물 변경: 없음(0) / 변경(-30)
+- 포즈 변경: 없음(0) / 변경(-15)
+- 상체 착장 변경: 없음(0) / 변경(-15)
+- 합계 감점 = ?
+
+[STEP 4] model_preservation 최종 점수 = 100 - 합계 감점
+
+reason 필수 형식: "SRC:여성+서있음+흰티, RES:동일인물+동일포즈+흰티, 감점:0"
+
+---
+
+### Auto-Fail 조건
+- color_preservation < 70: 색상 심각 불일치
+- logo 완전 누락
+- 다른 사람으로 변경 (model_preservation < 70)
+- 소재가 완전히 다른 종류로 변경 (material_preservation < 50)
+
+---
+
+### 최종 JSON 출력
+
 ```json
 {
-    "color_preservation": 점수,
-    "color_reason": "REF:색상, GEN:색상, 차이:설명",
-    "silhouette_accuracy": 점수,
-    "silhouette_reason": "목표:핏, GEN:실제핏, 차이:설명",
-    "material_fidelity": 점수,
-    "material_reason": "REF:소재, GEN:소재, 차이:설명",
-    "detail_preservation": 점수,
-    "detail_reason": "보존:목록, 누락:목록",
-    "overall_quality": 점수,
-    "overall_reason": "설명"
+  "color_preservation": {"score": 0, "reason": ""},
+  "material_preservation": {"score": 0, "reason": ""},
+  "silhouette_change": {"score": 0, "reason": ""},
+  "logo_preservation": {"score": 0, "reason": ""},
+  "model_preservation": {"score": 0, "reason": ""},
+  "total_score": 0,
+  "auto_fail": false,
+  "auto_fail_reason": "",
+  "passed": false,
+  "issues": []
 }
 ```
 

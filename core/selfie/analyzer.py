@@ -3,7 +3,7 @@
 
 얼굴 분석 및 착장 분석 기능 제공
 - 얼굴 분석: 성별, 나이대, 얼굴형, 피부톤, 특징 감지
-- 착장 분석: 카테고리, 스타일, 색상, 디테일 추출
+- 착장 분석: 공통 OutfitAnalyzer를 통한 통합 분석
 """
 
 import json
@@ -14,7 +14,7 @@ from PIL import Image
 from google import genai
 
 from core.config import VISION_MODEL
-from .templates import FACE_ANALYSIS_PROMPT, OUTFIT_ANALYSIS_PROMPT
+from .templates import FACE_ANALYSIS_PROMPT
 
 
 class SelfieAnalyzer:
@@ -76,6 +76,8 @@ class SelfieAnalyzer:
         """
         착장 이미지 분석 → 카테고리, 스타일 등 JSON 반환
 
+        공통 OutfitAnalyzer를 통해 분석 후 셀카 포맷으로 변환한다.
+
         Args:
             image: 이미지 경로(str) 또는 PIL.Image 객체
 
@@ -88,27 +90,27 @@ class SelfieAnalyzer:
                 "prompt_text": str
             }
         """
-        # 이미지 로드
-        pil_image = self._load_image(image)
-        if pil_image is None:
-            return self._get_fallback_outfit_analysis()
+        from core.modules.analyze_outfit import analyze_outfit, to_selfie_dict
 
-        # VLM 호출
+        # 이미지 경로/객체 → 리스트로 변환
+        if isinstance(image, str):
+            images = [image]
+        else:
+            # PIL Image → 임시 저장 없이 경로 리스트 전달 불가
+            # OutfitAnalyzer가 PIL Image도 처리하므로 그대로 전달
+            images = [image]
+
         try:
-            response = self.client.models.generate_content(
-                model=VISION_MODEL,
-                contents=[OUTFIT_ANALYSIS_PROMPT, pil_image],
+            analysis = analyze_outfit(
+                images=images, client=self.client, detail_level="basic"
             )
-
-            response_text = response.text.strip()
-            data = self._parse_json_response(response_text)
+            result = to_selfie_dict(analysis)
 
             # 필수 키 검증
-            if "category" not in data:
-                print("[SelfieAnalyzer] Warning: category 키 누락, 기본값 사용")
+            if "category" not in result:
                 return self._get_fallback_outfit_analysis()
 
-            return data
+            return result
 
         except Exception as e:
             print(f"[SelfieAnalyzer] 착장 분석 실패: {e}")

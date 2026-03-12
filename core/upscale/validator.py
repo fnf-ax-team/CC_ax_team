@@ -156,6 +156,7 @@ class UpscaleValidator(WorkflowValidator):
             "color_fidelity",
             "detail_enhancement",
         ],
+        grade_thresholds={"S": 95, "A": 90, "B": 85, "C": 70},
     )
 
     def _image_to_part(self, img: Image.Image) -> types.Part:
@@ -315,21 +316,8 @@ class UpscaleValidator(WorkflowValidator):
         if auto_fail:
             grade = "F"
             tier = QualityTier.REGENERATE
-        elif total_score >= 95:
-            grade = "S"
-            tier = QualityTier.RELEASE_READY
-        elif total_score >= 90:
-            grade = "A"
-            tier = QualityTier.RELEASE_READY
-        elif total_score >= 85:
-            grade = "B"
-            tier = QualityTier.NEEDS_MINOR_EDIT
-        elif total_score >= 70:
-            grade = "C"
-            tier = QualityTier.REGENERATE
         else:
-            grade = "F"
-            tier = QualityTier.REGENERATE
+            grade, tier = self._calculate_grade(total_score)
 
         # 한국어 요약
         criteria_summary = ", ".join(

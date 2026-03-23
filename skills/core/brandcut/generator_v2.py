@@ -40,7 +40,6 @@ def generate_brandcut(
     outfit_images: List[Union[str, Path, Image.Image]],
     pose_reference: Optional[Image.Image] = None,
     expression_reference: Optional[Image.Image] = None,  # K-Beauty 표정 레퍼런스
-    background_reference: Optional[Image.Image] = None,  # 배경 레퍼런스
     style_reference: Optional[Image.Image] = None,  # 스타일 레퍼런스
     api_key: Optional[str] = None,
     num_images: int = 1,
@@ -270,29 +269,6 @@ EXPRESSION REFERENCE IMAGE (copy this expression):
         parts.append(pil_to_part(pose_reference))
 
     # (표정 레퍼런스는 맨 앞 section 0에서 처리됨)
-
-    # ============================================================
-    # 4-2. 배경 레퍼런스 (있으면)
-    # ============================================================
-    if background_reference is not None:
-        parts.append(
-            types.Part(
-                text="""
-[배경 레퍼런스] - 배경만 따라하기!
-
-이 이미지에서 따라할 것:
-- 배경의 분위기, 색감, 질감
-- 공간의 느낌 (스튜디오/야외/인더스트리얼 등)
-
-따라하지 않을 것:
-- 이 이미지의 인물 (무시)
-- 이 이미지의 착장 (무시)
-
-배경 레퍼런스 이미지:
-"""
-            )
-        )
-        parts.append(pil_to_part(background_reference))
 
     # ============================================================
     # 5. 마지막 강조

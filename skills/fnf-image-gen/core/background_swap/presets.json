@@ -1,0 +1,76 @@
+{
+  "_description": "배경 교체 프롬프트 템플릿 - 인물 1픽셀 변형 없이 배경만 교체",
+  "_usage": "model-analysis + background-analysis 결과를 병합하여 사용",
+
+  "system_instruction": "You are a professional VFX compositor. Your task is to replace ONLY the background while preserving the person EXACTLY as they appear - not a single pixel of the person should change. The new background must match the physical constraints extracted from the original image.",
+
+  "template": {
+    "preservation": {
+      "critical": "PRESERVE THE PERSON EXACTLY - face, body, pose, clothing, lighting on person - NO CHANGES",
+      "instruction": "The person in the reference image must remain identical. Do not alter, retouch, or modify the person in any way."
+    },
+
+    "physics_constraints": {
+      "horizon": "Horizon line at y={physics.geometry.horizon_y} (0=top, 1=bottom)",
+      "perspective": "{physics.geometry.perspective} perspective, {physics.geometry.focal_length_vibe} focal length feel",
+      "lighting_direction": "Light source from {physics.lighting.direction_clock} o'clock position",
+      "lighting_elevation": "{physics.lighting.elevation} elevation",
+      "lighting_softness": "Shadow softness: {physics.lighting.softness} (0=hard, 1=soft)",
+      "color_temperature": "{physics.lighting.color_temp}",
+      "contact_points": "Ground contact at {physics.physics_anchors.contact_points}",
+      "shadow_direction": "Cast shadow direction: {physics.physics_anchors.shadow_casting_direction}"
+    },
+
+    "installation_logic": {
+      "prop_detected": "{physics.installation_logic.prop_detected}",
+      "is_fixed": "{physics.installation_logic.is_fixed_prop}",
+      "placement_rule": "{physics.installation_logic.placement_rule}",
+      "forbidden": "AVOID these contexts: {physics.installation_logic.forbidden_contexts}"
+    },
+
+    "background_style": {
+      "description": "{bg_style.description}",
+      "location_type": "{bg_style.location_type}",
+      "materials": "{bg_style.materials}",
+      "color_palette": "{bg_style.color_palette}",
+      "atmosphere": "{bg_style.atmosphere}",
+      "lighting_style": "{bg_style.lighting}"
+    },
+
+    "output_requirements": {
+      "resolution": "Match original image resolution",
+      "aspect_ratio": "Match original aspect ratio",
+      "quality": "Professional photography quality, no artifacts"
+    }
+  },
+
+  "prompt_builder": {
+    "format": "CRITICAL: Preserve the person EXACTLY as shown - no modifications allowed. Replace ONLY the background. {template.physics_constraints.perspective} with horizon at {template.physics_constraints.horizon}. {template.background_style.description}. Lighting from {template.physics_constraints.lighting_direction}, {template.physics_constraints.lighting_elevation}, {template.physics_constraints.color_temperature}. {template.installation_logic.placement_rule}. Ground contact and shadows must align with original. {template.background_style.atmosphere}.",
+
+    "negative_prompt_base": [
+      "modified person",
+      "altered face",
+      "changed clothing",
+      "different pose",
+      "wrong perspective",
+      "mismatched lighting direction",
+      "floating person",
+      "no ground contact",
+      "wrong shadow direction"
+    ]
+  },
+
+  "variation_prompts": {
+    "strict_preservation": "Keep the person pixel-perfect identical. Only generate a new background that seamlessly integrates with the existing person's lighting, perspective, and ground contact.",
+
+    "style_match": "Generate a background in the style of: {bg_style.description}. The background must have: perspective matching {physics.geometry.perspective}, horizon at y={physics.geometry.horizon_y}, lighting from {physics.lighting.direction_clock} o'clock.",
+
+    "physics_focus": "The background must satisfy these physical constraints: {physics.installation_logic.placement_rule}. Contact points at {physics.physics_anchors.contact_points}. Absolutely avoid: {physics.installation_logic.forbidden_contexts}."
+  },
+
+  "example_assembled_prompt": {
+    "_note": "실제 조립된 프롬프트 예시",
+    "prompt": "CRITICAL: Preserve the person EXACTLY as shown - no modifications allowed. Replace ONLY the background. Eye-level perspective with horizon at y=0.65, 50mm focal length feel. Minimalist cafe interior with wooden tables, white built-in sofa, large windows, warm natural light, beige cream tones. Lighting from 10 o'clock, mid elevation, 5500K color temperature. Must be against a wall - cannot be in open street or center of road. Ground contact and shadows must align with original. Calm modern minimalist atmosphere.",
+    "negative_prompt": "modified person, altered face, changed clothing, different pose, wrong perspective, mismatched lighting direction, floating person, no ground contact, wrong shadow direction, center of street, open outdoor space"
+  }
+}

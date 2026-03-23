@@ -39,12 +39,6 @@ class WorkflowType(Enum):
     # Design 카테고리
     FIT_VARIATION = "fit_variation"
 
-    # Video 카테고리
-    VIDEO_GENERATION = "video_generation"
-
-    # Post-processing 카테고리
-    UPSCALE = "upscale"
-
 
 class QualityTier(Enum):
     """품질 분류 등급 - MLBValidator의 QualityTier와 값 호환"""

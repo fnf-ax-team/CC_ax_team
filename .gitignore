@@ -29,9 +29,6 @@ Thumbs.db
 # Outputs (large generated images)
 Fnf_studio_outputs/
 
-# Database / presets (12GB+, distribute separately)
-db/
-
 # Test outputs
 test_output.txt
 temp_faces.txt
@@ -39,17 +36,5 @@ temp_faces.txt
 # OMC state
 .omc/
 
-# DCS AI outputs
-src/output/
-src/download/
-
 # Node
 node_modules/
-
-# 팀원 프로젝트 폴더 (이 레포는 FNF Studio 전용, 루트만 차단)
-/Agent/
-/dcs-ai-claude/
-/dv-ai-super-agent/
-/influencer-dashboard-make-query/
-/make-shared-resources/
-/skills/

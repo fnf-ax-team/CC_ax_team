@@ -14,7 +14,7 @@ from typing import Optional, List, Union
 import re
 import random
 from core.outfit_analyzer import OutfitAnalysis
-from core.brandcut.presets import load_mlb_preset, list_mlb_presets
+from core.ai_influencer.presets import load_mlb_preset, list_mlb_presets
 from core.ai_influencer.pose_analyzer import PoseAnalysisResult
 from core.ai_influencer.expression_analyzer import ExpressionAnalysisResult
 
@@ -23,15 +23,14 @@ from core.ai_influencer.expression_analyzer import ExpressionAnalysisResult
 # 빈도 기반 랜덤 추출 (MLB DB 프리셋에서 빈도 읽기)
 # ============================================================
 
-# MLB 표정 카테고리별 가중치 (v3.0: 빈도 기반 자동 매핑)
-# 카테고리 prefix → 가중치 (147장 분석 기반 분포)
-_MLB_EXPRESSION_CATEGORY_WEIGHTS = {
-    "MLB시크": 50,  # 시크/쿨 표정 (19개, 가장 많음)
-    "MLB나른한": 20,  # 나른한/무심한 표정 (9개)
-    "MLB곁눈질": 15,  # 곁눈질/사이드 시선 (7개)
-    "MLB내추럴": 10,  # 자연스러운 표정 (4개)
-    "MLB표정_dreamy": 3,  # 몽환적 (1개)
-    "MLB표정_N/A": 2,  # 기타 (1개)
+# MLB 표정 빈도 매핑 (mlb_expression_presets.json 기반)
+_MLB_EXPRESSION_FREQUENCY_MAP = {
+    "MLB시크_01": 40,
+    "MLB시크_02": 20,
+    "MLB곁눈질_01": 15,
+    "MLB곁눈질_02": 10,
+    "MLB몽환_01": 8,
+    "MLB몽환_02": 7,
 }
 
 
@@ -43,18 +42,16 @@ def _weighted_random_choice(frequency_dict: dict) -> str:
 
 
 def get_random_expression() -> dict:
-    """MLB DB 프리셋에서 카테고리 가중 랜덤 표정 선택 (v3.0)"""
+    """MLB DB 프리셋에서 빈도 기반 가중 랜덤 표정 선택"""
     try:
         preset_ids = list_mlb_presets("expression")
         if not preset_ids:
             return _get_fallback_random_expression()
 
-        # 카테고리별 가중치 매핑: 각 프리셋 ID의 카테고리 prefix로 가중치 결정
+        # 빈도 매핑에서 가중치 가져오기
         weights = {}
         for pid in preset_ids:
-            # ID에서 카테고리 prefix 추출 (마지막 _숫자 제거)
-            category = "_".join(pid.rsplit("_", 1)[:-1]) if "_" in pid else pid
-            weights[pid] = _MLB_EXPRESSION_CATEGORY_WEIGHTS.get(category, 5)
+            weights[pid] = _MLB_EXPRESSION_FREQUENCY_MAP.get(pid, 10)
 
         selected_id = _weighted_random_choice(weights)
         preset = load_mlb_preset("expression", selected_id)
@@ -786,10 +783,6 @@ def _build_expression_section(
 
     # 2. pose_analysis에서 표정 정보 확인
     if pose_analysis is None:
-        return get_random_expression()
-
-    # PoseAnalysisResult는 표정 정보가 없으므로 랜덤 선택
-    if isinstance(pose_analysis, PoseAnalysisResult):
         return get_random_expression()
 
     expression = pose_analysis.get("expression", {})

@@ -1,12 +1,7 @@
 """
 셀카 프리셋 DB 로더
 
-db/presets/ 하위 폴더의 프리셋 JSON 파일들을 로드
-- common/pose_presets.json (인플과 공용)
-- common/expression_presets.json (인플과 공용)
-- selfie/scene_presets.json (셀카 전용)
-
-기능:
+db/pose_presets.json, db/scene_presets.json, db/expression_presets.json에서 프리셋 로드
 - 카테고리별 조회
 - 랜덤 선택
 - 태그 기반 필터링
@@ -17,13 +12,12 @@ import random
 from pathlib import Path
 from typing import List, Dict, Optional, Tuple, Any
 
-from core.storage import get_json, resolve_path, resolve_image_for_api
 
-# DB 파일 경로 (로컬 폴백용)
+# DB 파일 경로
 DB_DIR = Path(__file__).parent.parent.parent / "db"
-POSE_PRESETS_PATH = DB_DIR / "presets" / "common" / "pose_presets.json"
-SCENE_PRESETS_PATH = DB_DIR / "presets" / "selfie" / "scene_presets.json"
-EXPRESSION_PRESETS_PATH = DB_DIR / "presets" / "common" / "expression_presets.json"
+POSE_PRESETS_PATH = DB_DIR / "pose_presets.json"
+SCENE_PRESETS_PATH = DB_DIR / "scene_presets.json"
+EXPRESSION_PRESETS_PATH = DB_DIR / "expression_presets.json"
 
 # 캐시 (한 번 로드 후 재사용)
 _pose_cache: Optional[Dict] = None
@@ -31,24 +25,12 @@ _scene_cache: Optional[Dict] = None
 _expression_cache: Optional[Dict] = None
 
 
-def _load_preset_json(relative_path: str, local_fallback: Path) -> Dict:
-    """프리셋 JSON 로드 (storage 모듈 우선, 로컬 폴백)"""
-    try:
-        return get_json(relative_path)
-    except FileNotFoundError:
-        if local_fallback.exists():
-            with open(local_fallback, "r", encoding="utf-8") as f:
-                return json.load(f)
-        raise
-
-
 def _load_pose_presets() -> Dict:
     """포즈 프리셋 JSON 로드 (캐싱)"""
     global _pose_cache
     if _pose_cache is None:
-        _pose_cache = _load_preset_json(
-            "db/presets/common/pose_presets.json", POSE_PRESETS_PATH
-        )
+        with open(POSE_PRESETS_PATH, "r", encoding="utf-8") as f:
+            _pose_cache = json.load(f)
     return _pose_cache
 
 
@@ -56,9 +38,8 @@ def _load_scene_presets() -> Dict:
     """씬 프리셋 JSON 로드 (캐싱)"""
     global _scene_cache
     if _scene_cache is None:
-        _scene_cache = _load_preset_json(
-            "db/presets/selfie/scene_presets.json", SCENE_PRESETS_PATH
-        )
+        with open(SCENE_PRESETS_PATH, "r", encoding="utf-8") as f:
+            _scene_cache = json.load(f)
     return _scene_cache
 
 
@@ -66,9 +47,8 @@ def _load_expression_presets() -> Dict:
     """표정 프리셋 JSON 로드 (캐싱)"""
     global _expression_cache
     if _expression_cache is None:
-        _expression_cache = _load_preset_json(
-            "db/presets/common/expression_presets.json", EXPRESSION_PRESETS_PATH
-        )
+        with open(EXPRESSION_PRESETS_PATH, "r", encoding="utf-8") as f:
+            _expression_cache = json.load(f)
     return _expression_cache
 
 
@@ -385,7 +365,7 @@ def get_wink_expressions() -> List[Dict]:
 
 def get_expression_reference_image_path(expression: Dict) -> Optional[str]:
     """
-    표정의 레퍼런스 이미지 전체 경로 반환 (S3/로컬 자동 전환)
+    표정의 레퍼런스 이미지 전체 경로 반환
 
     Args:
         expression: 표정 dict
@@ -397,11 +377,13 @@ def get_expression_reference_image_path(expression: Dict) -> Optional[str]:
     if not image_path:
         return None
 
-    try:
-        resolved = resolve_image_for_api(image_path)
-        return str(resolved)
-    except FileNotFoundError:
-        return None
+    # 프로젝트 루트 기준 경로
+    project_root = Path(__file__).parent.parent.parent
+    full_path = project_root / image_path
+
+    if full_path.exists():
+        return str(full_path)
+    return None
 
 
 def get_scenes_by_tags(tags: List[str], category: Optional[str] = None) -> List[Dict]:
@@ -434,7 +416,7 @@ def get_scenes_by_tags(tags: List[str], category: Optional[str] = None) -> List[
 
 def get_reference_image_path(scene: Dict) -> Optional[str]:
     """
-    씬의 레퍼런스 이미지 전체 경로 반환 (S3/로컬 자동 전환)
+    씬의 레퍼런스 이미지 전체 경로 반환
 
     Args:
         scene: 씬 dict
@@ -450,19 +432,19 @@ def get_reference_image_path(scene: Dict) -> Optional[str]:
     data = _load_scene_presets()
     ref_folder = data.get("reference_folder", "4. 배경")
 
-    # 1. reference_folder/이미지 경로로 시도
-    try:
-        resolved = resolve_image_for_api(f"{ref_folder}/{ref_image}")
-        return str(resolved)
-    except FileNotFoundError:
-        pass
+    # 프로젝트 루트 기준 경로
+    project_root = Path(__file__).parent.parent.parent
+    full_path = project_root / ref_folder / ref_image
 
-    # 2. 직접 경로로 시도
-    try:
-        resolved = resolve_image_for_api(ref_image)
-        return str(resolved)
-    except FileNotFoundError:
-        return None
+    if full_path.exists():
+        return str(full_path)
+
+    # 직접 경로로 시도
+    direct_path = project_root / ref_image
+    if direct_path.exists():
+        return str(direct_path)
+
+    return None
 
 
 def get_category_summary() -> Dict[str, Dict]:

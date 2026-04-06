@@ -61,6 +61,7 @@
 | **챗봇 분석** | **chatbot-dept-mapping** | 챗봇 로그 부서 분류 & 키워드 매핑 (7개 부서, 15개 시스템 정규화) |
 | **챗봇 QA** | **chatbot-qa-test** | 챗봇 응답 자동 QA 테스트 (병렬 API 호출 & 노션 DB 기록) |
 | **프로젝트 관리** | **notion-workspace-creator** | 노션 프로젝트 워크스페이스 자동 생성 (5개 DB + 컬럼 레이아웃) |
+| **Slack 봇** | **slack_alter_set** | Slack Alter 봇 페르소나 & 업무 지식 설정 (skill.md 템플릿, Notion/날씨/Outlook 연동) |
 
 ---
 
@@ -320,6 +321,25 @@ Gemini 3 Pro Image API를 활용한 5종 콘텐츠 생성 통합 스킬.
 
 ---
 
+### 🤖 slack_alter_set
+Slack Alter 봇의 페르소나와 업무 지식을 정의하는 설정 템플릿입니다. skill.md를 작성하면 봇이 본인의 말투, 업무 지식, FAQ를 기반으로 Slack에서 자동 응답합니다.
+
+**주요 기능:**
+- 페르소나 설정 (말투, 톤, 이모지, 답변 길이)
+- 담당 업무별 트리거 키워드 & 대응 방법 정의
+- FAQ 테이블, 에스컬레이션 규칙
+- Notion 회의록 / 기상청 날씨 / Outlook 이메일 자동 연동
+- 프로젝트별 컨텍스트 & 스킬셋 기반 응답 자신감 조절
+- `!오늘업무`, `!주간브리핑`, `!회의록`, `!날씨` 등 봇 명령어
+
+**사용 예시:**
+- "Slack Alter 봇 설정해줘"
+- "slack_alter_set skill.md 작성해줘"
+
+**필수 환경변수:** `SLACK_BOT_TOKEN`, `SLACK_APP_TOKEN`, `ANTHROPIC_API_KEY`, `BOT_USER_ID`
+
+---
+
 ## 🔧 스킬 수정/추가 방법
 
 ### 1. 새 스킬 추가
@@ -454,6 +474,7 @@ CC_ax_team/
     ├── chatbot-dept-mapping/          # 🔍 챗봇 로그 부서 분류 & 키워드 매핑
     ├── chatbot-qa-test/               # 🧪 챗봇 응답 자동 QA 테스트
     ├── notion-workspace-creator/      # 📋 노션 프로젝트 워크스페이스 생성
+    ├── slack_alter_set/               # 🤖 Slack Alter 봇 페르소나 & 업무 설정
     │
     │── ── 🧪 테스트 ──
     └── tests/                         # 테스트 스크립트
@@ -475,4 +496,4 @@ CC_ax_team/
 
 **Made with ❤️ by AX Team**
 
-_Last Updated: 2026-03-09 (chatbot-dept-mapping, chatbot-qa-test, notion-workspace-creator 스킬 추가)_
+_Last Updated: 2026-04-06 (slack_alter_set 스킬 추가)_

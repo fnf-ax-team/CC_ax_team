@@ -146,13 +146,16 @@ CODEX_SKILLS_DIR: $HOME/.codex/skills/          # Codex 사용자만 존재
 
 2. **선택에 따른 복사 실행 — 출처에 따라 목적지가 다르다**
 
-   **레포 루트 스킬 (workstart·workend·log 등) → 루트로:**
+   **레포 루트 스킬 (workstart·workend 등) → 루트로:**
    ```bash
-   for s in workstart workend log; do
+   for s in workstart workend; do
      cp -r "$HOME/.claude/skills/.team_repo_temp/$s/." "$HOME/.claude/skills/$s/"
    done
    ```
    (`.env`·캐시 파일은 gitignore 라 레포에 없음 — 기존 본인 설정은 안 덮인다)
+
+   ⚠️ **`/log` 스킬은 이 레포에 없다** — 별도 부문 공식 레포(`fnf-process/prcs-notion-worklog`)라서
+   log 업데이트는 `cd "$HOME/.claude/skills/log" && git pull` 로 따로 받는다.
 
    **skills/ 하위 스킬 (ceo-ppt 등) → team/ 으로:**
    ```bash
@@ -165,9 +168,11 @@ CODEX_SKILLS_DIR: $HOME/.codex/skills/          # Codex 사용자만 존재
    동기화한 스킬 중 `codex/SKILL.md` 가 있는 스킬은 Codex 쪽에도 반영한다.
    `~/.codex` 가 없으면(Codex 미사용) 조용히 건너뛴다:
    ```bash
+   # 로컬 스킬 폴더 기준으로 돌기 때문에 별도 레포인 log 도 함께 커버된다
    if [ -d "$HOME/.codex" ]; then
      mkdir -p "$HOME/.codex/skills"
-     for d in "$HOME/.claude/skills/.team_repo_temp"/*/codex/; do
+     for d in "$HOME/.claude/skills"/*/codex/; do
+       [ -f "$d/SKILL.md" ] || continue
        s=$(basename "$(dirname "$d")")
        mkdir -p "$HOME/.codex/skills/$s"
        cp "$d/SKILL.md" "$HOME/.codex/skills/$s/SKILL.md"

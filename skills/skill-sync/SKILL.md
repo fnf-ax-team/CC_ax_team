@@ -232,7 +232,7 @@ Git 인증에 실패했습니다.
 ### 저장소 없음
 ```
 저장소를 찾을 수 없습니다.
-- 저장소 URL 확인: https://github.com/davidcho0326/CC_ax_team
+- 저장소 URL 확인: https://github.com/fnf-ax-team/CC_ax_team
 - 저장소 접근 권한 확인
 ```
 

@@ -154,8 +154,17 @@ CODEX_SKILLS_DIR: $HOME/.codex/skills/          # Codex 사용자만 존재
    ```
    (`.env`·캐시 파일은 gitignore 라 레포에 없음 — 기존 본인 설정은 안 덮인다)
 
-   ⚠️ **`/log` 스킬은 이 레포에 없다** — 별도 부문 공식 레포(`fnf-process/prcs-notion-worklog`)라서
-   log 업데이트는 `cd "$HOME/.claude/skills/log" && git pull` 로 따로 받는다.
+   **`/log` 스킬은 별도 부문 공식 레포**(`fnf-process/prcs-notion-worklog`)다.
+   사용자가 따로 챙길 필요 없도록 **여기서 함께 pull 해준다** (자체 .git 이 있을 때만):
+   ```bash
+   if [ -d "$HOME/.claude/skills/log/.git" ]; then
+     git -C "$HOME/.claude/skills/log" pull && echo "log 스킬 동기화 완료"
+   fi
+   ```
+   - pull 실패(SAML SSO 인증 필요 등) 시 전체 동기화를 멈추지 말고, "log 스킬은
+     fnf-process 조직 인증이 필요해 건너뛰었어요 — `cd ~/.claude/skills/log && git pull` 로
+     따로 받아주세요" 안내만 하고 계속 진행
+   - `log/.git` 자체가 없으면 log 스킬 미설치자 — 조용히 건너뛴다
 
    **skills/ 하위 스킬 (ceo-ppt 등) → team/ 으로:**
    ```bash
